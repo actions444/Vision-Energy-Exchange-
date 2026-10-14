@@ -1,3 +1,5 @@
+import Traffic, { signalState, trafficState } from './vehicles/Traffic.jsx'
+import AirTraffic, { airState } from './world/AirTraffic.jsx'
 import { Suspense, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
@@ -92,10 +94,12 @@ export default function App() {
             <Player />
             <RemotePlayers />
             <Vehicles />
+            <Traffic />
             <DecorLayer />
             <CameraRig />
           </Physics>
           <Atmosphere />
+          {settings.aircraft !== false && <AirTraffic />}
           <MusicZones />
           <PhotoBooth />
           {settings.bloom && (
@@ -113,4 +117,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, vehicleActions, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor, usePreview, useRentDraft, startTour }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, vehicleActions, signalState, trafficState, airState, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor, usePreview, useRentDraft, startTour }

@@ -420,6 +420,14 @@ function SettingsPanel() {
       <Toggle k="bloom" label="Light glow" desc="Soft bloom around lamps, signs and screens." />
       <Toggle k="rain" label="Rain effects" desc="Show falling rain when the weather is rainy." />
       <div className="row">
+        <span><b>Street traffic</b><small>Cars driving on the cross street. Light or Off runs better on phones.</small></span>
+        <div className="seg small">
+          {[['off', 'Off'], ['light', 'Light'], ['normal', 'Normal']].map(([k, l]) => <button key={k} id={'traffic-' + k} className={settings.traffic === k ? 'on' : ''} onClick={() => setSetting('traffic', k)}>{l}</button>)}
+        </div>
+      </div>
+      <Toggle k="aircraft" label="Air traffic" desc="Airliners, private jets and a helicopter crossing the sky." />
+      <Toggle k="aircraftSound" label="Aircraft sound" desc="Engine sound that gets louder as aircraft pass overhead." />
+      <div className="row">
         <span><b>Accent color</b><small>Your avatar's accent lights.</small></span>
         <div className="swatches">
           {AVATAR_ACCENTS.map((c) => (

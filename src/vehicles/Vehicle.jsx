@@ -204,7 +204,7 @@ function Vehicle({ spawn }) {
       if (overSince.current > 3) { overSince.current = 0; flip(true) } // automatic recovery after 3 s on its side/roof
     } else overSince.current = 0
   }
-  const carShape = new rapier.Cuboid(T.length / 2, 0.8, T.width / 2)
+  const carShape = useMemo(() => new rapier.Cuboid(T.length / 2, 0.8, T.width / 2), [rapier]) // eslint-disable-line react-hooks/exhaustive-deps
   const clearAt = (x, y, z, h) => !world.intersectionWithShape({ x, y: y + 0.95, z }, quatY(h), carShape, undefined, undefined, undefined, undefined, (c) => !colHandles.current.has(c.handle) && c.handle !== playerState.colliderHandle && !c.isSensor())
   /** Upright the car where it is (or the nearest clear spot around it), facing the way it was facing. */
   function flip(auto = false) {
@@ -305,10 +305,9 @@ function Vehicle({ spawn }) {
 
   return (
     <RigidBody ref={body} type="dynamic" colliders={false} position={spawn.position} rotation={[0, spawn.heading, 0]} linearDamping={0.05} angularDamping={0.8} ccd canSleep={false} userData={{ vehicle: spawn.id }}>
-      {/* heavy floor pan keeps the centre of mass low so the SUV doesn't roll in turns */}
-      <CuboidCollider args={[T.length / 2, 0.42, T.width / 2 - 0.04]} position={[0, 0.92, 0]} density={0} friction={0.3} />
-      <CuboidCollider args={[1.5, 0.36, T.width / 2 - 0.12]} position={[-0.35, 1.65, 0]} density={0} friction={0.3} />
-      <SuvBody T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} />
+      {/* massless colliders: mass and a low centre of mass are set directly (see setAdditionalMassProperties) */}
+      {T.colliders.map((c, i) => <CuboidCollider key={i} args={c.half} position={c.at} density={0} friction={0.3} />)}
+      {T.style === 'suv' ? <SuvBody T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} /> : <StyledBody T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} />}
       {wheelPos.map(([x, z], i) => (
         <group key={i} ref={(g) => (wheelRefs.current[i] = g)} position={[x, CY - T.suspension.rest, z]}>
           <Wheel T={T} side={z < 0 ? -1 : 1} />
@@ -397,4 +396,99 @@ function SuvBody({ T, paint, accent, tailRef }) {
       ))}
     </group>
   )
+}
+
+function useBodyMats(paint, accent, tailRef) {
+  const mats = useMemo(() => ({
+    body: new THREE.MeshPhysicalMaterial({ color: paint, roughness: 0.22, metalness: 0.75, clearcoat: 1, clearcoatRoughness: 0.08 }),
+    trim: new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 1 }),
+    chrome: new THREE.MeshStandardMaterial({ color: '#d6d8dc', roughness: 0.15, metalness: 1 }),
+    glass: new THREE.MeshPhysicalMaterial({ color: '#0d1116', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.55 }),
+    head: nightLit(new THREE.MeshStandardMaterial({ color: '#e9eef5', emissive: '#fff6e0', roughness: 0.1 }), 3, 0.25),
+    drl: nightLit(new THREE.MeshStandardMaterial({ color: accent, emissive: accent, roughness: 0.2 }), 2.2, 0.9),
+    tail: new THREE.MeshStandardMaterial({ color: '#4a0608', emissive: '#ff1a1a', emissiveIntensity: 0.4, roughness: 0.3 }),
+    plastic: new THREE.MeshStandardMaterial({ color: '#16171a', roughness: 0.8 }),
+    interior: new THREE.MeshStandardMaterial({ color: '#2a2220', roughness: 0.7 }),
+  }), [paint, accent])
+  useEffect(() => { tailRef.current = mats.tail }, [mats, tailRef])
+  return mats
+}
+
+const box = (key, mat, pos, size, rot) => <mesh key={key} position={pos} rotation={rot} material={mat} castShadow><boxGeometry args={size} /></mesh>
+
+/** Original body designs for the sedan, the electric pickup and the off-roader. */
+function StyledBody({ T, paint, accent, tailRef }) {
+  const m = useBodyMats(paint, accent, tailRef)
+  const Lh = T.length / 2, Wh = T.width / 2
+  const parts = []
+  const seats = (xs, y) => xs.forEach((x, i) => {
+    parts.push(box('sb' + i, m.interior, [x, y, 0], [0.5, 0.12, T.width - 0.5]))
+    parts.push(box('sr' + i, m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, T.width - 0.5], [0, 0, -0.18]))
+  })
+  if (T.style === 'sedan') {
+    // long, low saloon: sloping windscreen and fastback, full-width light bars
+    parts.push(box('lo', m.body, [0, 0.8, 0], [T.length, 0.62, T.width]))
+    parts.push(box('hood', m.body, [Lh - 0.85, 1.12, 0], [1.7, 0.06, T.width - 0.08], [0, 0, -0.05]))
+    parts.push(box('cab', m.body, [-0.35, 1.36, 0], [2.0, 0.46, T.width - 0.2]))
+    parts.push(box('roof', m.body, [-0.4, 1.6, 0], [1.6, 0.05, T.width - 0.28]))
+    parts.push(box('ws', m.glass, [0.95, 1.36, 0], [0.04, 0.6, T.width - 0.3], [0, 0, 0.95]))
+    parts.push(box('rw', m.glass, [-1.6, 1.34, 0], [0.04, 0.62, T.width - 0.32], [0, 0, -1.0]))
+    ;[-1, 1].forEach((k) => {
+      parts.push(box('sw' + k, m.glass, [-0.35, 1.4, k * (Wh - 0.1)], [1.9, 0.34, 0.02]))
+      parts.push(box('hl' + k, m.head, [Lh + 0.01, 0.98, k * (Wh - 0.32)], [0.02, 0.08, 0.5]))
+      parts.push(box('mr' + k, m.body, [0.75, 1.2, k * (Wh + 0.08)], [0.16, 0.12, 0.16]))
+      parts.push(box('dh' + k, m.chrome, [-0.1, 1.08, k * (Wh + 0.005)], [0.22, 0.025, 0.02]))
+    })
+    parts.push(box('gr', m.chrome, [Lh + 0.008, 0.78, 0], [0.02, 0.26, 1.0]))
+    parts.push(box('drl', m.drl, [Lh + 0.012, 1.05, 0], [0.01, 0.025, T.width - 0.3]))
+    parts.push(box('tl', m.tail, [-Lh - 0.01, 1.0, 0], [0.02, 0.07, T.width - 0.2]))
+    parts.push(box('belt', m.trim, [0, 1.13, 0], [T.length - 0.4, 0.02, T.width + 0.01]))
+    seats([-0.15, -1.2], 0.72)
+  } else if (T.style === 'pickup') {
+    // electric pickup: smooth closed nose with a light bar, crew cab, open bed with tonneau rails
+    parts.push(box('lo', m.body, [0, 0.94, 0], [T.length, 0.84, T.width]))
+    parts.push(box('cab', m.body, [0.25, 1.7, 0], [2.3, 0.68, T.width - 0.14]))
+    parts.push(box('roof', m.plastic, [0.2, 2.05, 0], [2.1, 0.03, T.width - 0.3]))
+    parts.push(box('ws', m.glass, [1.42, 1.7, 0], [0.04, 0.72, T.width - 0.26], [0, 0, 0.5]))
+    parts.push(box('bw', m.glass, [-0.9, 1.74, 0], [0.03, 0.42, T.width - 0.4]))
+    ;[-1, 1].forEach((k) => {
+      parts.push(box('sw' + k, m.glass, [0.2, 1.76, k * (Wh - 0.065)], [2.0, 0.44, 0.02]))
+      parts.push(box('bed' + k, m.body, [-1.85, 1.55, k * (Wh - 0.05)], [2.0, 0.42, 0.1]))
+      parts.push(box('rail' + k, m.trim, [-1.85, 1.77, k * (Wh - 0.05)], [2.0, 0.03, 0.12]))
+      parts.push(box('mr' + k, m.body, [1.1, 1.55, k * (Wh + 0.1)], [0.18, 0.16, 0.2]))
+      parts.push(box('fl' + k, m.plastic, [T.wheelBase / 2, 0.98, k * (Wh + 0.03)], [1.15, 0.12, 0.08]))
+      parts.push(box('fr' + k, m.plastic, [-T.wheelBase / 2, 0.98, k * (Wh + 0.03)], [1.15, 0.12, 0.08]))
+    })
+    parts.push(box('tg', m.body, [-Lh + 0.05, 1.55, 0], [0.1, 0.42, T.width - 0.1]))
+    parts.push(box('bf', m.plastic, [-1.85, 1.37, 0], [2.0, 0.02, T.width - 0.2]))
+    parts.push(box('bar', m.drl, [Lh + 0.012, 1.3, 0], [0.01, 0.05, T.width - 0.1]))
+    parts.push(box('hlL', m.head, [Lh + 0.012, 1.18, -(Wh - 0.25)], [0.01, 0.06, 0.32]))
+    parts.push(box('hlR', m.head, [Lh + 0.012, 1.18, Wh - 0.25], [0.01, 0.06, 0.32]))
+    parts.push(box('tl', m.tail, [-Lh - 0.01, 1.62, 0], [0.02, 0.05, T.width - 0.1]))
+    parts.push(box('bump', m.plastic, [Lh - 0.05, 0.62, 0], [0.2, 0.22, T.width + 0.02]))
+    parts.push(box('bumpR', m.plastic, [-Lh + 0.05, 0.62, 0], [0.2, 0.22, T.width + 0.02]))
+    seats([0.45, -0.5], 0.96)
+  } else {
+    // short off-roader: upright glass, flared arches, roof rack, round lamps, rear spare wheel
+    parts.push(box('lo', m.body, [0, 0.98, 0], [T.length, 0.84, T.width]))
+    parts.push(box('cab', m.body, [-0.25, 1.78, 0], [2.9, 0.78, T.width - 0.12]))
+    parts.push(box('ws', m.glass, [1.22, 1.78, 0], [0.04, 0.66, T.width - 0.3], [0, 0, 0.16]))
+    parts.push(box('rack', m.plastic, [-0.3, 2.22, 0], [2.6, 0.06, T.width - 0.2]))
+    ;[-0.9, 0, 0.9].forEach((x) => parts.push(box('rb' + x, m.plastic, [x - 0.3, 2.28, 0], [0.05, 0.06, T.width - 0.15])))
+    ;[-1, 1].forEach((k) => {
+      parts.push(box('sw' + k, m.glass, [-0.3, 1.86, k * (Wh - 0.055)], [2.6, 0.5, 0.02]))
+      ;[T.wheelBase / 2, -T.wheelBase / 2].forEach((x) => parts.push(box('fl' + k + x, m.plastic, [x, 1.12, k * (Wh + 0.07)], [1.25, 0.16, 0.16])))
+      parts.push(<mesh key={'hl' + k} position={[Lh + 0.01, 1.2, k * (Wh - 0.32)]} rotation={[0, 0, Math.PI / 2]} material={m.head}><cylinderGeometry args={[0.13, 0.13, 0.04, 18]} /></mesh>)
+      parts.push(box('mr' + k, m.plastic, [1.0, 1.55, k * (Wh + 0.1)], [0.16, 0.16, 0.18]))
+      parts.push(box('tl' + k, m.tail, [-Lh - 0.01, 1.3, k * (Wh - 0.12)], [0.02, 0.3, 0.12]))
+    })
+    ;[-0.36, -0.18, 0, 0.18, 0.36].forEach((z) => parts.push(box('gs' + z, m.plastic, [Lh + 0.012, 1.15, z], [0.01, 0.34, 0.08])))
+    parts.push(box('gf', m.trim, [Lh + 0.008, 1.15, 0], [0.01, 0.4, 0.9]))
+    parts.push(box('bump', m.plastic, [Lh - 0.02, 0.66, 0], [0.26, 0.24, T.width + 0.06]))
+    parts.push(box('bumpR', m.plastic, [-Lh + 0.02, 0.66, 0], [0.26, 0.24, T.width + 0.06]))
+    parts.push(<mesh key="spare" position={[-Lh - 0.16, 1.45, 0]} rotation={[0, 0, Math.PI / 2]} material={m.plastic}><cylinderGeometry args={[0.42, 0.42, 0.28, 22]} /></mesh>)
+    parts.push(<mesh key="spareHub" position={[-Lh - 0.31, 1.45, 0]} rotation={[0, 0, Math.PI / 2]} material={m.trim}><cylinderGeometry args={[0.18, 0.18, 0.02, 18]} /></mesh>)
+    seats([0.05, -0.95], 1.0)
+  }
+  return <group userData={{ noBatch: true }}>{parts}</group>
 }

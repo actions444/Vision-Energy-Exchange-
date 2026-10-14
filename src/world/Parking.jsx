@@ -7,6 +7,7 @@ import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { getMaterials, surface } from './materials.js'
 import { Car, StreetLamp, Trees, FlowerBed } from './props.jsx'
+import { RESERVED_STALLS } from '../vehicles/vehicles.js'
 
 const CAR_COLORS = ['#1d2a44', '#8b1d22', '#e8e8e6', '#2f3134', '#5d6c78', '#0e0f11', '#6b5232', '#a9acb0']
 function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s) }
@@ -31,7 +32,7 @@ export default function ParkingLot({ x0, x1, z0, z1, y = 0.15 }) {
   const cars = useMemo(() => {
     const out = []
     rows.forEach((rz, r) => {
-      for (let i = 0; i < n; i++) if (i !== midStall && hash(i * 7 + r * 31) > 0.45) out.push([sx(i), rz, r ? Math.PI : 0, CAR_COLORS[Math.floor(hash(i + r * 5) * CAR_COLORS.length)]])
+      for (let i = 0; i < n; i++) if (i !== midStall && !RESERVED_STALLS.some(([rr, ii]) => rr === r && ii === i) && hash(i * 7 + r * 31) > 0.45) out.push([sx(i), rz, r ? Math.PI : 0, CAR_COLORS[Math.floor(hash(i + r * 5) * CAR_COLORS.length)]])
     })
     return out
   }, [x0, x1, z0, z1]) // eslint-disable-line react-hooks/exhaustive-deps

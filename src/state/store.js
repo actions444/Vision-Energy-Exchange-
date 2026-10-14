@@ -30,7 +30,7 @@ export const useStore = create((set, get) => ({
     set({ profile })
   },
 
-  settings: { quality: coarse ? 'low' : 'high', bloom: true, rain: true },
+  settings: { quality: coarse ? 'low' : 'high', bloom: true, rain: true, traffic: coarse ? 'light' : 'normal', aircraft: true, aircraftSound: true },
   setSetting: (k, v) => set((s) => ({ settings: { ...s.settings, [k]: v } })),
 
   // nearest interactable the avatar can use right now
