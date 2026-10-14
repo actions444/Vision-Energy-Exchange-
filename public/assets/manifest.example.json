@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "assets": [
+    { "id": "reign-tower", "name": "Reign Tower", "kind": "building", "file": "assets/reign-tower.glb" },
+    { "id": "velvet-sofa", "name": "Velvet Sofa", "kind": "furniture", "file": "assets/velvet-sofa.glb" },
+    { "id": "trinity-avatar", "name": "Trinity Avatar", "kind": "character", "file": "assets/trinity-avatar.glb" }
+  ],
+  "placements": [
+    { "assetId": "reign-tower", "position": [-40, 0.15, 10], "rotationY": 1.571, "scale": 1, "collider": "trimesh" },
+    { "assetId": "velvet-sofa", "position": [6, 0.15, -40], "rotationY": 0, "scale": 1, "collider": "box" }
+  ],
+  "avatar": { "assetId": "trinity-avatar", "facing": 0 }
+}

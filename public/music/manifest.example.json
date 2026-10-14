@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tracks": [
+    { "id": "t-reign-anthem", "title": "Reign Anthem", "artist": "Trinity Reign", "file": "music/reign-anthem.mp3", "art": "music/art/reign-anthem.jpg" },
+    { "id": "t-storm-chaser", "title": "Storm Chaser", "artist": "Trinity Reign", "file": "music/storm-chaser.mp3", "art": "music/art/storm-chaser.jpg" }
+  ],
+  "playlists": [
+    { "id": "pl-reign-gallery", "name": "Reign Gallery Mix", "kind": "tracks", "trackIds": ["t-reign-anthem", "t-storm-chaser"], "shuffle": true },
+    { "id": "radio-example", "name": "Licensed Station", "kind": "stream", "streamUrl": "https://stream.example.com/live.mp3", "licenseNote": "Describe your license here", "trackIds": [] }
+  ],
+  "assignments": { "gallery": "pl-reign-gallery", "lounge": "radio-example" }
+}
