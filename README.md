@@ -1,4 +1,4 @@
-# Vision Storms World (→ Vision Storms Exchanges — Energy Exchanges)
+# Vision Storms Energy Exchanges
 
 Trinity Reign's walkable, browser-based 3D commercial city. React 19, Three.js, React Three Fiber,
 Rapier physics, Zustand. Runs on desktop and phones.
@@ -41,12 +41,30 @@ Visitors never see owner panels, and the backend refuses their writes (tested on
 | **Elevator** (upgraded) | LED ceiling and floor strips, illuminated floor buttons (lit while queued), floor displays with direction arrows in the car and above every hall door, door-frame lights that brighten while open, up/down arrival lanterns, arrival chime, optional elevator music (Music admin → "Plaza elevator"). Movement and controls unchanged. |
 | **Owner access** (new) | The owner can open every door and visit any room without renting it. Entering or inspecting a privately booked space is written to an access log only the owner can read (Owner tools → Rooms & access). Customers' privacy settings are not changed. |
 | **Decorate** (new) | A Decorate button appears inside the Plaza's six rooms. Furniture, lighting (lamps + room lighting presets), flooring (incl. black marble with gold/purple/teal/pink veins), wall paint, wallpaper, door styles, decorations, outdoor pieces. Preview (green = allowed, red = outside the room or in the doorway), place, move, rotate, remove, undo, save. Who can: the owner (any room) or the room's current renter. On a self-hosted server the server re-checks the renter's booking and rejects items outside the room; in the rental preview sandbox designs are saved on that device. |
-| **Prices** (new) | Introductory monthly price categories ($4.99 small room … $99.99 premium commercial building), owner-editable (Rentals admin → Prices) with "Apply to rooms". Hourly rates only for rooms marked as event venues ($4.99/hour starting rate). Rooms still on the old example prices were moved to the new ones automatically; existing bookings keep their price. Monthly = one 30-day payment, no automatic renewal. |
+| **Prices** | Rates per category in USD for hour/day/week/month (0 = not offered). Standard furnished commercial rooms (Screening Room, Vision Recording Studio, Boardroom): $9/hour, $30/day, $65/week, $200/month. Residential/personal categories keep the monthly introductory rates ($4.99 … $99.99). Every price shows its VSE Credits equivalent (100 credits = $1, owner-editable in Rentals admin → Prices). Paying with credits is not switched on yet: rentals are charged once, in dollars. Rooms still on untouched default prices moved automatically; hand-set prices and existing bookings are kept. |
+| **Vision Cinema frontage** | Portico with marble columns, gold-trimmed canopy with downlights, lit marquee with bulbs, vertical CINEMA blade sign, poster light boxes, glass doors, red carpet with brass stanchions, black granite paving, topiary planters, flower beds, benches. Columns, planters and stanchions have colliders. |
+| **Parking lot** | Asphalt, stall lines, wheel stops, granite curbs (west/north/south; east edge is the entrance), planted islands with trees, lamps and flowers, pedestrian crossing, aisle arrows, paved walkway to the plaza; curbs, islands, trees, lamps and parked cars collide. Street lamps throw soft light pools on the ground at night. |
+| **Cinema guide** | Objective card: Arrive at the Cinema → Go inside → Take a recliner. Each step checks the avatar's real position twice a second and skips ahead if you are already further on; Hide button, and Help → "Start the cinema guide again". |
 | **Plaza interiors** (new) | Lobby and corridors: black marble with gold veins, plum runner, walnut wainscoting with brass rail, panelled upper walls, crown moulding with a warm LED cove, wall sconces, walnut door casings, crystal / gold / modern chandeliers, warmer lighting. |
 | **Furniture collision & sitting** (fixed) | The avatar can no longer climb onto sofas, chairs or tables (step height is now 0.3 m: curbs and stair/aisle steps still work). Standing up picks a free spot beside the seat (tested with the avatar's own capsule) instead of leaving you inside the sofa. Smooth sit-down, seats taken by other visitors are refused, recliners have fitted colliders with walkable leg room, imported furniture gets a "Seating" collider and a seat editor (count, height, front/back, facing). |
 | **Room previews** (new) | Every listing has View room (above the prices): live photos rendered from the actual room (entrance, full room, furniture, lighting, another angle) plus any photos the owner uploads, details (floor, occupancy, m², furniture included, amenities, availability), Take virtual tour (you're placed inside the real room, read-only, with a Return to listing bar) and Visit room (takes you to the room's door). The booking form is kept while you look. Tours and photos of a room someone has booked privately hide the renter's decorations, sign/message and any visitors inside. Owner: description, furniture, amenities, photo uploads and tour start in Rentals admin → Rooms. |
 | Rentals | Rules, booking, owner approval, access checks and a Stripe Checkout + verified webhook integration on the server. Payments stay off until Stripe keys are configured (`DEV_PAYMENTS=1` gives clearly labelled test payments). |
 | Multiplayer | WebSocket relay or same-device tabs: avatars, chat, emotes, sitting, owner-set weather. |
+
+## Renamed (visible names only; IDs and saved data unchanged)
+
+| Before | After |
+|---|---|
+| Vision Storms World | Vision Storms Energy Exchanges |
+| Neon Lounge / Vision Storms Lounge | Vision Music Lounge |
+| Neon Lounge Club Night (playlist) | Vision Music Lounge Club Night |
+| Vision Storms Cinema | Vision Cinema |
+| Studio 202 (VSP-202) | Vision Recording Studio |
+| Studio 202 Reel (playlist) | Vision Recording Studio Reel |
+| Vision Storms Bistro | Vision Bistro |
+| Vision Storms Plaza | Vision Storms Energy Exchanges Plaza |
+| Vision Storms Square | Energy Exchanges Square |
+| "Neon color" (avatar setting) | Accent color |
 
 ## Not done yet (honest list)
 

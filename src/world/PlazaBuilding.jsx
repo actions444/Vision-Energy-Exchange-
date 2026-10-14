@@ -17,7 +17,7 @@ import { CarLights, HallLights } from './ElevatorLights.jsx'
 import CorridorFinish from './CorridorFinish.jsx'
 import { StaticBatch } from './batch.jsx'
 import { rentalAccess, useRentals } from '../rentals/client.js'
-import { money } from '../../shared/rentals.js'
+import { money, credits } from '../../shared/rentals.js'
 import { useDecor, designFor } from '../decor/decor.js'
 
 export { PLAZA }
@@ -224,8 +224,8 @@ export default function PlazaBuilding() {
       ))}
 
       {/* ---- entrance, signage, landscaping ---- */}
-      <DoubleDoor id="plaza-entrance" center={[P.X(28 - EXT / 2), P.Y(0), P.Z(14)]} halfWidth={1.8} height={ENTRY.h - 0.1} facing={Math.PI / 2} accent="#c9a96a" label="Vision Storms Plaza doors" />
-      <BrandSign text="VISION STORMS PLAZA" sub="SHOPS · STUDIOS · SUITES" position={[P.X(28) + 0.06, P.Y(0) + 5.05, P.Z(14)]} rotation={[0, Math.PI / 2, 0]} width={12} />
+      <DoubleDoor id="plaza-entrance" center={[P.X(28 - EXT / 2), P.Y(0), P.Z(14)]} halfWidth={1.8} height={ENTRY.h - 0.1} facing={Math.PI / 2} accent="#c9a96a" label="Energy Exchanges Plaza doors" />
+      <BrandSign text="VISION STORMS ENERGY EXCHANGES" sub="PLAZA · SHOPS · STUDIOS · SUITES" position={[P.X(28) + 0.06, P.Y(0) + 5.05, P.Z(14)]} rotation={[0, Math.PI / 2, 0]} width={12} />
       <mesh position={[P.X(28) + 1.6, P.Y(0) + ENTRY.h + 0.35, P.Z(14)]} material={mats.steel} castShadow><boxGeometry args={[3.2, 0.18, 6.4]} /></mesh>
       <FlowerBed x={P.X(28) + 3.3} z={P.Z(6)} w={3} d={9} seed={21} />
       <FlowerBed x={P.X(28) + 3.3} z={P.Z(22)} w={3} d={9} seed={22} />
@@ -271,7 +271,8 @@ function RoomDoor({ room }) {
       radius: 0.9,
       label: () => {
         const r = useRentals.getState().rooms.find((x) => x.id === room.id)
-        return r?.prices?.month ? `Rent ${room.name} · ${money(r.prices.month, r.currency)}/month` : `Rent ${room.name} (${room.id})`
+        const k = r && ['hour', 'day', 'week', 'month'].find((x) => r.prices?.[x] > 0)
+        return k ? `Rent ${room.name} · from ${money(r.prices[k], r.currency)}/${k} (${credits(r.prices[k], useRentals.getState().creditsPerUsd || 100).toLocaleString('en-US')} credits)` : `Rent ${room.name} (${room.id})`
       },
       onInteract: () => useStore.getState().openPanel({ type: 'rent', roomId: room.id }),
     })
@@ -474,7 +475,7 @@ function Lobby() {
       <Plant position={[P.X(27), y, P.Z(10.8)]} scale={1.2} />
       <Plant position={[P.X(27), y, P.Z(17.3)]} scale={1.2} />
       <Plant position={[P.X(12), y, P.Z(17.3)]} />
-      <BrandSign text="VISION STORMS" sub="PLAZA DIRECTORY" position={[P.X(14), y + 2.9, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={4.4} color="#2a2a2c" glow="#ffffff" />
+      <BrandSign text="ENERGY EXCHANGES" sub="PLAZA DIRECTORY" position={[P.X(14), y + 2.9, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={4.4} color="#2a2a2c" glow="#ffffff" />
       <Plaque lines={['DIRECTORY', '1 Bistro · Threads   2 Screening · Studio   3 Boardroom · Suite']} position={[P.X(14), y + 1.6, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={3.2} />
     </group>
   )

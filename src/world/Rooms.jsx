@@ -140,7 +140,7 @@ function AlbumWall({ position, rotationY, width, height }) {
   )
 }
 
-// ---------------- Neon Lounge (club) ----------------
+// ---------------- Vision Music Lounge (club) ----------------
 export function LoungeInterior({ x0, x1, z0, z1 }) {
   const mats = getMaterials()
   const cz = (z0 + z1) / 2
@@ -172,7 +172,7 @@ export function LoungeInterior({ x0, x1, z0, z1 }) {
         <Turntable position={[0, 1.13, 1]} color={NEON.yellow} />
         <mesh position={[0, 1.15, 0]} material={mats.darkMetal}><boxGeometry args={[0.5, 0.08, 0.6]} /></mesh>
       </group>
-      <BrandSign text="VISION STORMS LOUNGE" position={[x1 - 0.41, FLOOR + 4.4, cz]} rotation={[0, -Math.PI / 2, 0]} width={10} />
+      <BrandSign text="VISION MUSIC LOUNGE" position={[x1 - 0.41, FLOOR + 4.4, cz]} rotation={[0, -Math.PI / 2, 0]} width={10} />
       <Speakers x={x1 - 2.2} z={[cz - 4, cz + 4]} />
 
       {/* bar */}

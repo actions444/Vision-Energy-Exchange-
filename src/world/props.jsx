@@ -19,7 +19,7 @@ export function Trees({ trees }) {
   const trunkMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5a4636', roughness: 0.95 }), [])
   const leafMat = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.9 }), [])
   const crownGeo = useMemo(() => { const g = new THREE.IcosahedronGeometry(1, 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const k = 1 + (Math.sin(p.getX(i) * 9.1) * Math.cos(p.getZ(i) * 7.3) + Math.sin(p.getY(i) * 11.7)) * 0.07; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k) } g.computeVertexNormals(); return g }, [])
-  const blobs = 4
+  const blobs = 6
   useEffect(() => {
     const d = new THREE.Object3D(), c = new THREE.Color()
     trees.forEach(([x, y, z, s = 1], i) => {
@@ -27,12 +27,15 @@ export function Trees({ trees }) {
       trunk.current.setMatrixAt(i, d.matrix)
       for (let b = 0; b < blobs; b++) {
         const a = (b / blobs) * Math.PI * 2 + hash(i + b) * 2
-        const r = b === 0 ? 0 : 1.1 * s
-        d.position.set(x + Math.cos(a) * r, y + (3.6 + (b === 0 ? 1.1 : hash(i * 3 + b) * 0.8)) * s, z + Math.sin(a) * r)
-        const k = (b === 0 ? 1.9 : 1.4 + hash(i + b * 7) * 0.4) * s
+        // one central mass, an upper crown and a ring of smaller lower clusters for a fuller silhouette
+        const r = b === 0 || b === 5 ? 0.15 * s : (1.0 + hash(i + b * 3) * 0.35) * s
+        const hY = b === 0 ? 4.6 : b === 5 ? 5.6 : 3.5 + hash(i * 3 + b) * 0.9
+        d.position.set(x + Math.cos(a) * r, y + hY * s, z + Math.sin(a) * r)
+        const k = (b === 0 ? 1.85 : b === 5 ? 1.25 : 1.05 + hash(i + b * 7) * 0.4) * s
         d.scale.set(k, k * 0.85, k); d.rotation.set(hash(b) * 3, hash(i) * 3, 0); d.updateMatrix()
         crown.current.setMatrixAt(i * blobs + b, d.matrix)
-        c.setHSL(0.25 + hash(i * 5 + b) * 0.07, 0.38 + hash(i + 9) * 0.18, 0.16 + hash(i * 2 + b) * 0.08)
+        // lower clusters sit in shade; the top catches light
+        c.setHSL(0.24 + hash(i * 5 + b) * 0.07, 0.36 + hash(i + 9) * 0.2, (b === 5 ? 0.21 : b === 0 ? 0.17 : 0.14) + hash(i * 2 + b) * 0.07)
         crown.current.setColorAt(i * blobs + b, c)
       }
     })
@@ -146,6 +149,15 @@ export function StreetLamp({ position, yaw = 0, height = 7, double = false }) {
   const m = getMaterials()
   const head = m.shared('lampHead', () => nightLit(new THREE.MeshStandardMaterial({ color: '#d9d9d6', emissive: '#ffe7c2', roughness: 0.4 }), 4, 0))
   const arms = double ? [1, -1] : [1]
+  const pool = m.shared('lampPool', () => {
+    // a soft warm pool of light on the ground under each lamp head (night only, no real light cost)
+    const c = document.createElement('canvas'); c.width = c.height = 128
+    const g = c.getContext('2d'), r = g.createRadialGradient(64, 64, 4, 64, 64, 64)
+    r.addColorStop(0, '#ffffff'); r.addColorStop(0.45, '#9a9a9a'); r.addColorStop(1, '#000000')
+    g.fillStyle = r; g.fillRect(0, 0, 128, 128)
+    const t = new THREE.CanvasTexture(c)
+    return nightLit(new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffcf8f', emissiveMap: t, alphaMap: t, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 0.42, 0)
+  })
   useEffect(() => {
     const offs = arms.map((k) => {
       const [ax, az] = rot(yaw, 0, k * 1.6)
@@ -164,6 +176,7 @@ export function StreetLamp({ position, yaw = 0, height = 7, double = false }) {
           <mesh position={[0, height - 0.15, k * 0.8]} rotation={[Math.PI / 2, 0, 0]} material={m.blackSteel}><cylinderGeometry args={[0.04, 0.04, 1.6, 8]} /></mesh>
           <mesh position={[0, height - 0.22, k * 1.6]} material={m.blackSteel}><boxGeometry args={[0.36, 0.1, 0.7]} /></mesh>
           <mesh position={[0, height - 0.28, k * 1.6]} material={head}><boxGeometry args={[0.3, 0.02, 0.6]} /></mesh>
+          <mesh position={[0, 0.025, k * 1.6]} rotation={[-Math.PI / 2, 0, 0]} material={pool} renderOrder={1}><circleGeometry args={[height * 0.7, 24]} /></mesh>
         </group>
       ))}
     </RigidBody>

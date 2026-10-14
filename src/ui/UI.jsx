@@ -1,3 +1,4 @@
+import Objective, { restartObjective } from './Objective.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
 import { usePeers, net } from '../net/netManager.js'
@@ -68,7 +69,7 @@ export default function UI() {
 function Loading() {
   return (
     <div className="loading">
-      <div className="loading-mark">VISION STORMS</div>
+      <div className="loading-mark">VISION STORMS<br />ENERGY EXCHANGES</div>
       <div className="loading-bar"><i /></div>
       <p>Building the city…</p>
     </div>
@@ -109,13 +110,13 @@ function StartScreen() {
   return (
     <div className="start">
       <header className="start-top">
-        <span className="mark"><i />VISION STORMS WORLD</span>
+        <span className="mark"><i />VISION STORMS ENERGY EXCHANGES</span>
         <span className="mono dim">{ARTIST.roles}</span>
       </header>
       <div className="start-body">
         <div className="start-title">
           <p className="eyebrow">{ARTIST.name} presents</p>
-          <h1>Vision<br /><span>Storms</span><br />World</h1>
+          <h1>Vision Storms<br /><span>Energy</span><br />Exchanges</h1>
           <p className="lede">{ARTIST.tagline} Now it's a city you can walk through.</p>
         </div>
         <form className="start-card" onSubmit={enter}>
@@ -124,7 +125,7 @@ function StartScreen() {
             <input id="player-name" value={profile.name} maxLength={20} onChange={(e) => setProfile({ name: e.target.value })} />
           </label>
           <div className="field">
-            <span>Neon color</span>
+            <span>Accent color</span>
             <div className="swatches">
               {AVATAR_ACCENTS.map((c) => (
                 <button type="button" key={c} className={'sw' + (profile.accent === c ? ' on' : '')} style={{ '--c': c }} onClick={() => setProfile({ accent: c })} aria-label={'Accent ' + c} />
@@ -218,7 +219,7 @@ function HUD() {
     <>
       <div className="hud-top">
         <div className="hud-left">
-          <span className="mark small"><i />VISION STORMS</span>
+          <span className="mark small"><i />VISION STORMS ENERGY EXCHANGES</span>
           <span className={'chip ' + (mode === 'multi' ? 'chip-live' : '')}>
             {mode === 'single' ? 'Single-player' : status === 'online' ? `Multiplayer · ${peers.length + 1} here` : `Multiplayer · ${status}`}
             {mode === 'multi' && <em>{transport === 'tabs' ? 'tabs' : 'server'}</em>}
@@ -239,6 +240,7 @@ function HUD() {
             {buttons.map(([id, label, fn, title]) => <button key={id} id={'hud-' + id} onClick={fn} title={title}>{label}</button>)}
           </nav>
         )}
+        {!tour && <div className="hud-objective"><Objective /></div>}
       </div>
 
       {media.audio && (
@@ -418,7 +420,7 @@ function SettingsPanel() {
       <Toggle k="bloom" label="Light glow" desc="Soft bloom around lamps, signs and screens." />
       <Toggle k="rain" label="Rain effects" desc="Show falling rain when the weather is rainy." />
       <div className="row">
-        <span><b>Neon color</b><small>Your avatar's accent lights.</small></span>
+        <span><b>Accent color</b><small>Your avatar's accent lights.</small></span>
         <div className="swatches">
           {AVATAR_ACCENTS.map((c) => (
             <button key={c} className={'sw' + (profile.accent === c ? ' on' : '')} style={{ '--c': c }} onClick={() => setProfile({ accent: c })} aria-label={'Accent ' + c} />
@@ -464,7 +466,7 @@ function OwnerAccess() {
   return (
     <form className="fields owner-signin" onSubmit={submit}>
       <b>Owner sign-in</b>
-      <small className="hint">For a self-hosted Vision Storms server. Visitors don't need this.</small>
+      <small className="hint">For a self-hosted Vision Storms Energy Exchanges server. Visitors don't need this.</small>
       <label className="field"><span>Server address</span><input id="owner-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://your-server.example" /></label>
       <label className="field"><span>Owner token</span><input id="owner-token" type="password" autoComplete="current-password" value={token} onChange={(e) => setToken(e.target.value)} /></label>
       {err && <p className="error">{err}</p>}
@@ -489,8 +491,9 @@ function HelpPanel() {
       </div>
       <p className="hint">On a phone: left thumb on the joystick (push to the edge to run), drag anywhere else to look, tap the prompt to interact.</p>
       <p className="hint">Driving: walk up to the driver's door of the black SUV on the lot behind the Plaza and press E (or tap). W/S or the joystick to drive and reverse, A/D to steer, Space (Brake on phones) to brake, E to get out.</p>
-      <p className="hint">The Vision Storms Cinema is on the left of the avenue: walk into an auditorium, take a recliner, and open Screen &amp; sound.</p>
-      <p className="hint">The Reign Gallery is at the end of the avenue, straight ahead from where you start. Vision Storms Plaza is behind you on the left, past the crossroads: take the stairs or the elevator to its three floors.</p>
+      <p className="hint"><button className="btn ghost small" id="objective-restart" onClick={restartObjective}>Start the cinema guide again</button></p>
+      <p className="hint">The Vision Cinema is on the left of the avenue: walk into an auditorium, take a recliner, and open Screen &amp; sound.</p>
+      <p className="hint">The Reign Gallery is at the end of the avenue, straight ahead from where you start. Vision Storms Energy Exchanges Plaza is behind you on the left, past the crossroads: take the stairs or the elevator to its three floors.</p>
     </Panel>
   )
 }

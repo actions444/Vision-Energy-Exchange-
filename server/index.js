@@ -81,7 +81,7 @@ const server = http.createServer(async (req, res) => {
     return fs.createReadStream(path.join(DIST, 'index.html')).pipe(res)
   }
   res.writeHead(200, { 'content-type': 'text/plain' })
-  res.end('Vision Storms World server is running.')
+  res.end('Vision Storms Energy Exchanges server is running.')
 })
 
 const wss = new WebSocketServer({ server, maxPayload: 4 * 1024 })
@@ -155,4 +155,4 @@ setInterval(() => {
   }
 }, 15000)
 
-server.listen(PORT, () => console.log(`Vision Storms World server on :${PORT} (payments: ${rentals.paymentMode})`))
+server.listen(PORT, () => console.log(`Vision Storms Energy Exchanges server on :${PORT} (payments: ${rentals.paymentMode})`))

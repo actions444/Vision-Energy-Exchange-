@@ -26,7 +26,7 @@ function Showtimes() {
   const st = useCinema()
   const movies = watchable(useMedia((s) => s.items))
   return (
-    <Panel title="Showtimes" eyebrow="Vision Storms Cinema">
+    <Panel title="Showtimes" eyebrow="Vision Cinema">
       <div className="admin-list">
         {Object.values(SCREENS).map((s) => {
           const sess = sessionFor(s.id, st)

@@ -114,7 +114,7 @@ export function createRentalsApi(env = process.env) {
     let p
     try {
       // ----- public -----
-      if (m('GET', /^\/api\/rentals\/info$/)) return send(200, { paymentMode, categories: state.categories, rooms: state.rooms.filter((r) => r.active).map((r) => R.publicRoom(state, r)) })
+      if (m('GET', /^\/api\/rentals\/info$/)) return send(200, { paymentMode, categories: state.categories, creditsPerUsd: state.creditsPerUsd, rooms: state.rooms.filter((r) => r.active).map((r) => R.publicRoom(state, r)) })
       if ((p = m('GET', /^\/api\/rooms\/([\w-]+)\/access$/))) return send(200, R.accessCheck(state, p[1], customerOf(req)))
 
       // ----- customers -----
@@ -181,8 +181,9 @@ export function createRentalsApi(env = process.env) {
         if (!isAdmin(req)) return send(401, { error: 'Owner sign-in required.' })
         if (m('GET', /^\/api\/admin\/state$/)) {
           R.sweep(state)
-          return send(200, { paymentMode, categories: state.categories, rooms: state.rooms, bookings: state.bookings, customers: state.customers.map(strip), revenue: R.revenue(state), log: state.log.slice(-200) })
+          return send(200, { paymentMode, categories: state.categories, creditsPerUsd: state.creditsPerUsd, rooms: state.rooms, bookings: state.bookings, customers: state.customers.map(strip), revenue: R.revenue(state), log: state.log.slice(-200) })
         }
+        if (m('PUT', /^\/api\/admin\/credit-rate$/)) { const n = R.setCreditRate(state, body.creditsPerUsd); save(); return send(200, { creditsPerUsd: n }) }
         if (m('PUT', /^\/api\/admin\/categories$/)) { const c = R.setCategories(state, body.categories); save(); return send(200, { categories: c }) }
         if ((p = m('POST', /^\/api\/admin\/categories\/([\w-]+)\/apply$/))) { const rooms = R.applyCategory(state, p[1]); save(); return send(200, { rooms }) }
         if (m('POST', /^\/api\/admin\/rooms$/)) { const r = R.createRoom(state, body); save(); return send(201, { room: r }) }

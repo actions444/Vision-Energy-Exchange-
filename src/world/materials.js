@@ -152,14 +152,29 @@ const TEX = {
     for (let r = 0; r < 4; r++) for (let x = 0; x <= s; x += s / 2) { const xx = x + (r % 2 ? s / 4 : 0); ctx.beginPath(); ctx.moveTo(xx, r * s / 4); ctx.lineTo(xx, (r + 1) * s / 4); ctx.stroke() }
   })),
   grass: () => toTex(canvas(512, (ctx, s) => {
-    ctx.fillStyle = '#4c6b2f'; ctx.fillRect(0, 0, s, s)
-    mottle(ctx, s, 14, 0.35, '#6f8f3f', '#2f4a1e', 13)
-    for (let i = 0; i < 9000; i++) {
+    // lawn: three scales of colour variation (worn/dry patches, lush patches), then layered blades
+    // with dark bases and sunlit tips, and a sprinkle of clover. Tiles seamlessly.
+    ctx.fillStyle = '#466628'; ctx.fillRect(0, 0, s, s)
+    mottle(ctx, s, 4, 0.22, '#7d9444', '#2b4519', 31)
+    mottle(ctx, s, 14, 0.3, '#6f8f3f', '#2f4a1e', 13)
+    mottle(ctx, s, 40, 0.18, '#86a34c', '#33521f', 37)
+    const blade = (i, len, light) => {
       const x = hash(i, 1, 99991) * s, y = hash(i, 2, 99991) * s, v = hash(i, 3, 99991)
-      ctx.strokeStyle = `hsl(${78 + v * 30}, ${35 + v * 25}%, ${20 + v * 25}%)`
-      ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (v - 0.5) * 3, y - 3 - v * 4); ctx.stroke()
+      const bend = (hash(i, 4, 99991) - 0.5) * 4
+      ctx.strokeStyle = `hsl(${80 + v * 26}, ${38 + v * 22}%, ${light + v * 16}%)`
+      ctx.lineWidth = 0.8 + v * 0.8
+      for (const ox of [0, -s, s]) for (const oy of [0, -s, s]) {
+        if (x + ox < -8 || x + ox > s + 8 || y + oy < -8 || y + oy > s + 8) continue
+        ctx.beginPath(); ctx.moveTo(x + ox, y + oy); ctx.quadraticCurveTo(x + ox + bend * 0.3, y + oy - len * 0.6, x + ox + bend, y + oy - len); ctx.stroke()
+      }
     }
+    for (let i = 0; i < 9000; i++) blade(i, 3 + hash(i, 5, 977) * 3, 14)
+    for (let i = 9000; i < 20000; i++) blade(i, 4 + hash(i, 5, 977) * 5, 24)
+    for (let i = 0; i < 160; i++) {
+      ctx.fillStyle = hash(i, 8, 991) > 0.7 ? 'rgba(240,240,225,0.7)' : 'rgba(60,110,40,0.7)'
+      ctx.beginPath(); ctx.arc(hash(i, 6, 991) * s, hash(i, 7, 991) * s, 1.2 + hash(i, 9, 991) * 1.4, 0, Math.PI * 2); ctx.fill()
+    }
+    grain(ctx, s, 14, 33)
   })),
   soil: () => toTex(canvas(256, (ctx, s) => {
     ctx.fillStyle = '#3b2a1e'; ctx.fillRect(0, 0, s, s)

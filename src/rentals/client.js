@@ -25,7 +25,7 @@ function previewBackend() {
   const me = (token) => st.customers.find((c) => c.previewToken && c.previewToken === token) || null
   return {
     kind: 'preview',
-    info: () => { R.sweep(st); save(); return ok({ paymentMode: 'test', categories: st.categories, rooms: st.rooms.filter((r) => r.active).map((r) => R.publicRoom(st, r)) }) },
+    info: () => { R.sweep(st); save(); return ok({ paymentMode: 'test', categories: st.categories, creditsPerUsd: st.creditsPerUsd, rooms: st.rooms.filter((r) => r.active).map((r) => R.publicRoom(st, r)) }) },
     session: wrap(({ name, email }) => {
       const c = R.findOrCreateCustomer(st, { name, email })
       c.previewToken = c.previewToken || Math.random().toString(36).slice(2)
@@ -38,7 +38,7 @@ function previewBackend() {
     customize: wrap((token, id, patch) => { const c = me(token); if (!c) throw new Error('Sign in first.'); return { booking: R.customize(st, id, c.id, patch) } }),
     access: (token, roomId) => ok(R.accessCheck(st, roomId, me(token))),
     admin: {
-      state: () => { R.sweep(st); save(); return ok({ paymentMode: 'test', categories: st.categories, rooms: st.rooms, bookings: st.bookings, customers: st.customers.map(({ previewToken, ...c }) => c), revenue: R.revenue(st), log: st.log.slice(-200) }) },
+      state: () => { R.sweep(st); save(); return ok({ paymentMode: 'test', categories: st.categories, creditsPerUsd: st.creditsPerUsd, rooms: st.rooms, bookings: st.bookings, customers: st.customers.map(({ previewToken, ...c }) => c), revenue: R.revenue(st), log: st.log.slice(-200) }) },
       createRoom: wrap((_, body) => ({ room: R.createRoom(st, body) })),
       updateRoom: wrap((_, id, body) => ({ room: R.updateRoom(st, id, body) })),
       decide: wrap((_, id, approve, reason) => ({ booking: R.decide(st, id, approve, reason) })),
@@ -46,6 +46,7 @@ function previewBackend() {
       setTimes: wrap((_, id, start, end) => ({ booking: R.setTimes(st, id, start, end) })),
       assign: wrap((_, body) => ({ booking: R.assign(st, body) })),
       setCategories: wrap((_, list) => ({ categories: R.setCategories(st, list) })),
+      setCreditRate: wrap((_, n) => ({ creditsPerUsd: R.setCreditRate(st, n) })),
       applyCategory: wrap((_, id) => ({ rooms: R.applyCategory(st, id) })),
       reset: () => { st = R.emptyState(); R.seedRooms(st, PLAZA_ROOMS); save(); return ok({}) },
     },
@@ -88,6 +89,7 @@ function serverBackend(base) {
       setTimes: (t, id, start, end) => api('PATCH', `/api/admin/bookings/${id}`, { token: t, body: { start, end } }),
       assign: (t, b) => api('POST', '/api/admin/assign', { token: t, body: b }),
       setCategories: (t, list) => api('PUT', '/api/admin/categories', { token: t, body: { categories: list } }),
+      setCreditRate: (t, n) => api('PUT', '/api/admin/credit-rate', { token: t, body: { creditsPerUsd: n } }),
       applyCategory: (t, id) => api('POST', `/api/admin/categories/${id}/apply`, { token: t }),
     },
   }
@@ -116,7 +118,7 @@ export const useRentals = create((set, get) => ({
   async refresh() {
     try {
       const info = await getBackend().info()
-      set({ rooms: info.rooms.map((r) => ({ ...r, customization: r.now?.customization || {} })), categories: info.categories || [], paymentMode: info.paymentMode, loaded: true, error: null })
+      set({ rooms: info.rooms.map((r) => ({ ...r, customization: r.now?.customization || {} })), categories: info.categories || [], creditsPerUsd: info.creditsPerUsd || 100, paymentMode: info.paymentMode, loaded: true, error: null })
     } catch (e) {
       set({ error: e.message, loaded: true })
     }

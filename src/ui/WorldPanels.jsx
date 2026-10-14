@@ -76,7 +76,7 @@ export function WorldAdmin() {
 export function ElevatorPanel() {
   const ui = useElevatorUI()
   const close = useStore((s) => s.closePanel)
-  const names = ['Lobby · Bistro · Threads', 'Screening Room · Studio 202', 'Boardroom · Skyline Suite']
+  const names = ['Lobby · Bistro · Threads', 'Screening Room · Recording Studio', 'Boardroom · Skyline Suite']
   return (
     <Panel title="Elevator" eyebrow={ui.moving ? (ui.direction > 0 ? 'Going up' : 'Going down') : `Floor ${ui.floor + 1}`}>
       <div className="elevator-buttons">

@@ -37,7 +37,13 @@ export const DEFAULT_CATEGORIES = [
   { id: 'storefront-small', name: 'Small commercial storefront', month: 1999 },
   { id: 'storefront-large', name: 'Large commercial storefront', month: 4999 },
   { id: 'commercial-premium', name: 'Premium commercial building', month: 9999 },
+  // Official standard rates for furnished commercial rooms (offices, boardroom, studios, event rooms)
+  { id: 'commercial-standard', name: 'Standard furnished commercial room', hour: 900, day: 3000, week: 6500, month: 20000 },
 ]
+/** VSE Credits: in-game display currency. Prices are stored in USD cents; credits are shown alongside. */
+export const DEFAULT_CREDITS_PER_USD = 100
+export const credits = (cents, perUsd = DEFAULT_CREDITS_PER_USD) => Math.round(((cents || 0) / 100) * perUsd)
+export const creditsLabel = (cents, perUsd) => `${credits(cents, perUsd).toLocaleString('en-US')} VSE Credits`
 /** Default hourly rate for rooms marked as event venues (owner-configurable per room). */
 export const DEFAULT_EVENT_HOURLY = 499
 
@@ -48,7 +54,7 @@ const HOLDS = new Set(['pending_payment', 'pending_approval', 'approved'])
 const PENDING_PAYMENT_TTL = 30 * 60e3 // unpaid holds lapse after 30 minutes
 
 export function emptyState() {
-  return { rooms: [], bookings: [], customers: [], log: [], seq: 1000, categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })), pricingVersion: 2 }
+  return { rooms: [], bookings: [], customers: [], log: [], seq: 1000, categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })), pricingVersion: 3, creditsPerUsd: DEFAULT_CREDITS_PER_USD }
 }
 
 export class RentalError extends Error {
@@ -80,7 +86,7 @@ function normaliseRoom(r) {
     id: r.id,
     name: String(r.name || r.id).slice(0, 60),
     kind: String(r.kind || 'Rental space').slice(0, 60),
-    building: String(r.building || 'Vision Storms Plaza').slice(0, 60),
+    building: String(r.building || 'Vision Storms Energy Exchanges Plaza').slice(0, 60),
     floor: Number.isFinite(+r.floor) ? +r.floor : 0,
     occupancy: Math.max(1, Math.min(500, Math.round(+r.occupancy || 1))),
     prices: { hour: cents(r.prices?.hour), day: cents(r.prices?.day), week: cents(r.prices?.week), month: cents(r.prices?.month) },
@@ -374,9 +380,9 @@ export const money = (cents, currency = 'usd') => new Intl.NumberFormat('en-US',
 // ---------------- price categories ----------------
 // Which category each Plaza room starts in, and whether it can be booked by the hour for events.
 const PLAZA_DEFAULTS = {
-  'VSP-201': { category: 'luxury-room', eventVenue: true }, // screening room
-  'VSP-202': { category: 'standard-room', eventVenue: true }, // studio sessions
-  'VSP-301': { category: 'standard-room', eventVenue: true }, // meetings
+  'VSP-201': { category: 'commercial-standard', eventVenue: true }, // screening room
+  'VSP-202': { category: 'commercial-standard', eventVenue: true }, // recording studio
+  'VSP-301': { category: 'commercial-standard', eventVenue: true }, // boardroom
   'VSP-302': { category: 'vip-suite', eventVenue: false },
 }
 // the old seed prices (cents) – rooms still on exactly these get the new introductory prices
@@ -391,10 +397,15 @@ const samePrices = (a, b) => a && b && ['hour', 'day', 'week', 'month'].every((k
 
 export const categoryOf = (state, id) => (state.categories || DEFAULT_CATEGORIES).find((c) => c.id === id) || null
 
-/** Prices a room gets from its category: monthly, plus hourly when it is an event venue. */
+/**
+ * Prices a room gets from its category. A category may set hourly, daily, weekly and monthly rates
+ * (0 = not offered). Rooms marked as event venues in a monthly-only category keep a separate hourly rate.
+ */
 export function pricesFor(state, room, hourly) {
   const c = categoryOf(state, room.category)
-  return { hour: room.eventVenue ? (hourly ?? (room.prices?.hour || DEFAULT_EVENT_HOURLY)) : 0, day: 0, week: 0, month: c ? c.month : room.prices?.month || 0 }
+  if (!c) return { hour: 0, day: 0, week: 0, month: room.prices?.month || 0, ...(room.prices || {}) }
+  const eventHour = room.eventVenue ? (hourly ?? (room.prices?.hour || DEFAULT_EVENT_HOURLY)) : 0
+  return { hour: c.hour || eventHour, day: c.day || 0, week: c.week || 0, month: c.month || 0 }
 }
 
 /**
@@ -403,7 +414,7 @@ export function pricesFor(state, room, hourly) {
  * hand is kept. Existing bookings are never changed (they store their own price).
  */
 export function migratePricing(state, now) {
-  if ((state.pricingVersion || 0) >= 2 && state.categories) return false
+  if ((state.pricingVersion || 0) >= 2 && state.categories) return migratePricingV3(state, now)
   state.categories ||= DEFAULT_CATEGORIES.map((c) => ({ ...c }))
   for (const room of state.rooms) {
     const d = PLAZA_DEFAULTS[room.id]
@@ -415,7 +426,40 @@ export function migratePricing(state, now) {
     }
   }
   state.pricingVersion = 2
+  migratePricingV3(state, now)
   return true
+}
+
+// Version 3: official standard commercial rates ($9 hour / $30 day / $65 week / $200 month).
+// Rooms still on the untouched version-2 introductory prices move to the new category. Rooms the
+// owner priced by hand, and every existing booking, keep their prices.
+const V2_COMMERCIAL = { 'VSP-201': 'luxury-room', 'VSP-202': 'standard-room', 'VSP-301': 'standard-room' }
+function migratePricingV3(state, now) {
+  if ((state.pricingVersion || 0) >= 3) return false
+  state.categories ||= DEFAULT_CATEGORIES.map((c) => ({ ...c }))
+  const std = DEFAULT_CATEGORIES.find((c) => c.id === 'commercial-standard')
+  if (!state.categories.some((c) => c.id === std.id)) state.categories.push({ ...std })
+  for (const room of state.rooms) {
+    const old = V2_COMMERCIAL[room.id]
+    if (!old || room.category !== old) continue
+    const v2 = { hour: room.eventVenue ? DEFAULT_EVENT_HOURLY : 0, day: 0, week: 0, month: DEFAULT_CATEGORIES.find((c) => c.id === old).month }
+    if (!samePrices(room.prices, v2)) continue
+    room.category = std.id
+    room.prices = pricesFor(state, room)
+    log(state, 'room.repriced', { roomId: room.id, reason: 'standard commercial rates' }, now)
+  }
+  state.creditsPerUsd ||= DEFAULT_CREDITS_PER_USD
+  state.pricingVersion = 3
+  return true
+}
+
+/** Owner: change how many VSE Credits are shown per US dollar (display conversion). */
+export function setCreditRate(state, perUsd, now) {
+  const n = Math.round(Number(perUsd))
+  if (!(n >= 1 && n <= 100000)) fail('Credits per dollar must be between 1 and 100,000.')
+  state.creditsPerUsd = n
+  log(state, 'credits.rate', { perUsd: n }, now)
+  return n
 }
 
 /** Owner: replace the category list (validated). */
@@ -426,27 +470,39 @@ export function setCategories(state, list, now) {
     const id = String(c.id || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40)
     if (!id || seen.has(id)) fail('Each category needs its own ID.')
     seen.add(id)
-    const month = Math.round(Number(c.month))
-    if (!Number.isFinite(month) || month < 0 || month > 10_000_000) fail(`Check the monthly price for ${c.name || id}.`)
-    return { id, name: String(c.name || id).slice(0, 60), month }
+    const out = { id, name: String(c.name || id).slice(0, 60) }
+    for (const k of ['hour', 'day', 'week', 'month']) {
+      const v = Math.round(Number(c[k] || 0))
+      if (!Number.isFinite(v) || v < 0 || v > 10_000_000) fail(`Check the ${PLANS[k].label.toLowerCase()} price for ${c.name || id}.`)
+      out[k] = v
+    }
+    if (!out.hour && !out.day && !out.week && !out.month) fail(`${out.name} needs at least one price.`)
+    return out
   })
   log(state, 'categories.updated', { count: state.categories.length }, now)
   return state.categories
 }
 
-/** Owner: give every room in a category its current monthly price. Bookings keep theirs. */
+/** Owner: give every room in a category the category's current rates. Bookings keep theirs. */
 export function applyCategory(state, categoryId, now) {
   const c = categoryOf(state, categoryId)
   if (!c) fail('Category not found.', 404)
   const changed = []
-  for (const room of state.rooms) if (room.category === c.id) { room.prices = { ...room.prices, month: c.month }; changed.push(room.id) }
+  for (const room of state.rooms) if (room.category === c.id) { room.prices = pricesFor(state, room); changed.push(room.id) }
   log(state, 'category.applied', { categoryId, rooms: changed }, now)
   return changed
 }
 
-/** Default rentable rooms for Vision Storms Plaza (introductory prices). */
+/** Default rentable rooms for the Plaza (introductory prices). */
+// Default room names that were renamed; stored rooms still on an old default name get the new one.
+export const RENAMED_ROOMS = { 'Studio 202': 'Vision Recording Studio' }
 export function seedRooms(state, rooms, now) {
   migratePricing(state, now)
+  for (const room of state.rooms) {
+    if (room.building === 'Vision Storms Plaza') room.building = 'Vision Storms Energy Exchanges Plaza'
+    const cfg = rooms.find((r) => r.id === room.id)
+    if (cfg && RENAMED_ROOMS[room.name] === cfg.name) { log(state, 'room.renamed', { roomId: room.id, from: room.name, to: cfg.name }, now); room.name = cfg.name }
+  }
   for (const r of rooms) {
     if (!r.rentable || state.rooms.some((x) => x.id === r.id)) continue
     const d = PLAZA_DEFAULTS[r.id] || { category: 'standard-room', eventVenue: false }

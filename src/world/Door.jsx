@@ -34,13 +34,21 @@ export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, 
       <CuboidCollider args={[width / 2, height / 2, thickness / 2]} position={[width / 2, height / 2, 0]} />
       <group userData={{ noBatch: true }}>
       {/* aluminium frame + glass panel + brass pull bar */}
-      <mesh position={[width / 2, height / 2, 0]} material={black ? mats.shared('doorBlack', () => new THREE.MeshPhysicalMaterial({ color: '#0e0e10', roughness: 0.18, clearcoat: 1 })) : wood ? surface('wood', 0.6, 1.2, { color: '#a07c5c' }) : mats.aluminum} castShadow>
-        <boxGeometry args={[width, height, thickness]} />
-      </mesh>
-      {!wood && !black && (
-        <mesh position={[width / 2, height / 2 + 0.1, 0]} material={mats.glass}>
-          <boxGeometry args={[width - 0.3, height - 0.6, thickness + 0.02]} />
+      {(wood || black) && (
+        <mesh position={[width / 2, height / 2, 0]} material={black ? mats.shared('doorBlack', () => new THREE.MeshPhysicalMaterial({ color: '#0e0e10', roughness: 0.18, clearcoat: 1 })) : surface('wood', 0.6, 1.2, { color: '#a07c5c' })} castShadow>
+          <boxGeometry args={[width, height, thickness]} />
         </mesh>
+      )}
+      {!wood && !black && (
+        <>
+          {/* glass door: slim aluminium stiles and rails around a see-through pane, kick plate at the foot */}
+          {[[0.05, height / 2, 0.1, height], [width - 0.05, height / 2, 0.1, height], [width / 2, height - 0.06, width, 0.12], [width / 2, 0.14, width, 0.28]].map(([x, y, sx, sy], i) => (
+            <mesh key={i} position={[x, y, 0]} material={mats.aluminum} castShadow><boxGeometry args={[sx, sy, thickness]} /></mesh>
+          ))}
+          <mesh position={[width / 2, (height - 0.12 + 0.28) / 2, 0]} material={mats.glass}>
+            <boxGeometry args={[width - 0.2, height - 0.4, 0.03]} />
+          </mesh>
+        </>
       )}
       <mesh position={[width - 0.12, height * 0.45, 0]} material={glow}>
         <boxGeometry args={[0.04, wood ? 0.3 : 1.3, thickness + 0.12]} />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { useRentals } from '../rentals/client.js'
-import { FEATURES, money } from '../../shared/rentals.js'
+import { FEATURES, money, credits, DEFAULT_CREDITS_PER_USD } from '../../shared/rentals.js'
 import { PLAZA_ROOMS } from '../config/plaza.js'
 import { ROOM_INFO } from '../config/roomInfo.js'
 import { backend, useBackend } from '../backend/backend.js'
@@ -65,38 +65,53 @@ function Requests({ s, act }) {
   )
 }
 
-// Price categories: introductory monthly prices the owner can change at any time.
+// Price categories: hourly / daily / weekly / monthly rates the owner can change at any time.
+const PLAN_KEYS = ['hour', 'day', 'week', 'month']
+const normCat = (c) => ({ id: c.id, name: c.name, hour: c.hour || 0, day: c.day || 0, week: c.week || 0, month: c.month || 0 })
 function Prices({ s, act }) {
-  const [list, setList] = useState(() => (s.categories || []).map((c) => ({ ...c })))
-  useEffect(() => { setList((s.categories || []).map((c) => ({ ...c }))) }, [s.categories])
+  const [list, setList] = useState(() => (s.categories || []).map(normCat))
+  useEffect(() => { setList((s.categories || []).map(normCat)) }, [s.categories])
   const [msg, setMsg] = useState(null)
-  const dirty = JSON.stringify(list) !== JSON.stringify(s.categories || [])
+  const [rate, setRate] = useState(s.creditsPerUsd || DEFAULT_CREDITS_PER_USD)
+  useEffect(() => { setRate(s.creditsPerUsd || DEFAULT_CREDITS_PER_USD) }, [s.creditsPerUsd])
+  const dirty = JSON.stringify(list) !== JSON.stringify((s.categories || []).map(normCat))
   const roomsIn = (id) => s.rooms.filter((r) => r.category === id)
   const save = async () => { await act('setCategories', list); setMsg('Saved. Existing bookings keep the price they were made at.') }
+  const edit = (i, k, v) => setList(list.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
+  const perUsd = s.creditsPerUsd || DEFAULT_CREDITS_PER_USD
   return (
     <div className="admin-list">
-      <p className="hint">Monthly prices by property type. Change a price, save, then use “Apply to rooms” to give every room in that category the new monthly price. Bookings that already exist are never changed. Hourly event rates are set per room (Rooms tab).</p>
+      <p className="hint">Rates by property type, in US dollars (0 = not offered). The VSE Credits figure is shown next to every price at the conversion below. Change a price, save, then use “Apply to rooms” to give every room in that category the new rates. Bookings that already exist are never changed.</p>
       <div className="table-wrap">
         <table className="data">
-          <thead><tr><th>Category</th><th>Per month ($)</th><th>Rooms</th><th></th></tr></thead>
+          <thead><tr><th>Category</th><th>Hour ($)</th><th>Day ($)</th><th>Week ($)</th><th>Month ($)</th><th>Rooms</th><th></th></tr></thead>
           <tbody>
             {list.map((c, i) => (
               <tr key={c.id}>
-                <td><input aria-label="Category name" value={c.name} onChange={(e) => setList(list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
-                <td><input aria-label={'Monthly price for ' + c.name} type="number" min={0} step="0.01" value={(c.month / 100).toFixed(2)} onChange={(e) => setList(list.map((x, j) => (j === i ? { ...x, month: Math.round(+e.target.value * 100) } : x)))} style={{ width: 90 }} /></td>
+                <td><input aria-label="Category name" value={c.name} onChange={(e) => edit(i, 'name', e.target.value)} /></td>
+                {PLAN_KEYS.map((k) => (
+                  <td key={k}>
+                    <input aria-label={`${k} price for ${c.name}`} type="number" min={0} step="0.01" value={(c[k] / 100).toFixed(2)} onChange={(e) => edit(i, k, Math.max(0, Math.round(+e.target.value * 100) || 0))} style={{ width: 78 }} />
+                    <small className="credit-note">{c[k] ? credits(c[k], perUsd).toLocaleString('en-US') + ' cr' : '—'}</small>
+                  </td>
+                ))}
                 <td>{roomsIn(c.id).map((r) => r.id).join(', ') || '—'}</td>
-                <td><button className="btn ghost small" disabled={dirty || !roomsIn(c.id).length} onClick={() => act('applyCategory', c.id).then(() => setMsg(`${c.name}: rooms now ${money(c.month)}/month.`))}>Apply to rooms</button></td>
+                <td><button className="btn ghost small" disabled={dirty || !roomsIn(c.id).length} onClick={() => act('applyCategory', c.id).then(() => setMsg(`${c.name}: rooms now on ${PLAN_KEYS.filter((k) => c[k]).map((k) => money(c[k]) + '/' + k).join(', ')}.`))}>Apply to rooms</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div className="row-actions">
-        <button className="btn ghost" onClick={() => setList([...list, { id: 'category-' + (list.length + 1), name: 'New category', month: 999 }])}>Add category</button>
+        <button className="btn ghost" onClick={() => setList([...list, { id: 'category-' + (list.length + 1), name: 'New category', hour: 0, day: 0, week: 0, month: 999 }])}>Add category</button>
         <button className="btn primary" disabled={!dirty} onClick={save}>Save prices</button>
       </div>
+      <div className="row-actions">
+        <label className="field"><span>VSE Credits per US dollar</span><input type="number" min={1} step={1} value={rate} onChange={(e) => setRate(e.target.value)} style={{ width: 100 }} /></label>
+        <button className="btn ghost" disabled={+rate === perUsd} onClick={() => act('setCreditRate', +rate).then(() => setMsg(`Conversion saved: ${(+rate).toLocaleString('en-US')} VSE Credits = $1.00.`))}>Save conversion</button>
+      </div>
       {msg && <p className="hint">{msg}</p>}
-      <p className="hint">Payments: no money is charged until a payment provider is configured on the server. Monthly rentals are single 30-day payments; automatic monthly billing is not switched on.</p>
+      <p className="hint">Payments: no money is charged until a payment provider is configured on the server. Monthly rentals are single 30-day payments; automatic monthly billing is not switched on. VSE Credits are shown for reference only: the credit wallet and paying with credits are not switched on yet.</p>
     </div>
   )
 }
@@ -137,9 +152,9 @@ function Rooms({ s, act }) {
           </div>
           <div className="fields two">
             <label className="field"><span>Price category</span>
-              <select value={draft.category || ''} onChange={(e) => { const c = (s.categories || []).find((x) => x.id === e.target.value); setDraft({ ...draft, category: e.target.value || null, prices: c ? { ...draft.prices, month: c.month } : draft.prices }) }}>
+              <select value={draft.category || ''} onChange={(e) => { const c = (s.categories || []).find((x) => x.id === e.target.value); setDraft({ ...draft, category: e.target.value || null, prices: c ? { hour: c.hour || (draft.eventVenue ? draft.prices.hour : 0), day: c.day || 0, week: c.week || 0, month: c.month || 0 } : draft.prices }) }}>
                 <option value="">No category (custom prices)</option>
-                {(s.categories || []).map((c) => <option key={c.id} value={c.id}>{c.name} · {money(c.month)}/month</option>)}
+                {(s.categories || []).map((c) => <option key={c.id} value={c.id}>{c.name} · {['hour', 'day', 'week', 'month'].filter((k) => c[k]).map((k) => money(c[k]) + '/' + k).join(' · ')}</option>)}
               </select>
             </label>
             <label className="row toggle compact"><span><b>Event venue</b><small>Can also be booked by the hour.</small></span><input type="checkbox" checked={!!draft.eventVenue} onChange={(e) => setDraft({ ...draft, eventVenue: e.target.checked, prices: { ...draft.prices, hour: e.target.checked ? draft.prices.hour || 499 : 0 } })} /></label>

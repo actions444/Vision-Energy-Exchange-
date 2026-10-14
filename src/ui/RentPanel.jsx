@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { useRentals } from '../rentals/client.js'
-import { PLANS, VISIBILITY, FEATURES, money, endFor } from '../../shared/rentals.js'
+import { PLANS, VISIBILITY, FEATURES, money, endFor, credits } from '../../shared/rentals.js'
+
+// "$9.00 · 900 credits": the USD price is the real rate, VSE Credits are shown alongside (100 = $1 by default).
+const cr = (cents) => credits(cents, useRentals.getState().creditsPerUsd || 100).toLocaleString('en-US')
 import { useMusicLibrary } from '../music/library.js'
 import { useStore } from '../state/store.js'
 import { usePreview, useRentDraft, setForm, takePhotos, startTour, visitRoom } from '../rentals/preview.js'
@@ -35,7 +38,7 @@ export default function RentPanel({ roomId: initial }) {
   const room = r.rooms.find((x) => x.id === roomId)
 
   return (
-    <Panel title="Rent a space" eyebrow={r.mode === 'server' ? 'Vision Storms Plaza' : 'Preview sandbox'} wide>
+    <Panel title="Rent a space" eyebrow={r.mode === 'server' ? 'Vision Storms Energy Exchanges' : 'Preview sandbox'} wide>
       {r.mode !== 'server' && (
         <p className="notice">Preview sandbox: bookings are stored in this browser only, payments are simulated, and nothing here is secure. The owner connects the rental server to take real bookings.</p>
       )}
@@ -76,7 +79,7 @@ function Browse({ onPick, onView }) {
           </div>
           <button className="btn view-room" id={'view-' + room.id} onClick={() => onView(room.id)}>View room</button>
           <div className="prices">
-            {['month', 'week', 'day', 'hour'].filter((k) => room.prices[k] > 0).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k}{k === 'hour' ? ' (events)' : ''}</small></span>)}
+            {['hour', 'day', 'week', 'month'].filter((k) => room.prices[k] > 0).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k} · {cr(room.prices[k])} credits</small></span>)}
           </div>
           <button className="btn primary" onClick={() => onPick(room.id)}>Choose</button>
         </div>
@@ -138,7 +141,7 @@ function Book({ room, onDone }) {
         <div className="receipt">
           <b>{room.name} · {b.id}</b>
           <span>{fmt(b.start)} → {fmt(b.end)}</span>
-          <span>{b.quantity} × {money(b.unit, b.currency)} = <b>{money(b.amount, b.currency)}</b></span>
+          <span>{b.quantity} × {money(b.unit, b.currency)} = <b>{money(b.amount, b.currency)}</b> ({cr(b.amount)} VSE Credits)</span>
           <span className="badge">{STATUS[b.status]}</span>
         </div>
         {b.status === 'pending_payment' && (done.redirected ? (
@@ -166,10 +169,9 @@ function Book({ room, onDone }) {
       <div className="field">
         <span>Rate</span>
         <div className="seg small">
-          {plans.map((p) => <button type="button" key={p} className={plan === p ? 'on' : ''} onClick={() => setPlan(p)}>{PLANS[p].label} · {money(room.prices[p], room.currency)}</button>)}
+          {plans.map((p) => <button type="button" key={p} className={plan === p ? 'on' : ''} onClick={() => setPlan(p)}>{PLANS[p].label} · {money(room.prices[p], room.currency)}<small> · {cr(room.prices[p])} cr</small></button>)}
         </div>
         {plan === 'month' && <small className="hint">A month is 30 days, paid once. It does not renew or charge you again automatically.</small>}
-        {plan === 'hour' && <small className="hint">Hourly booking is for events in this venue.</small>}
       </div>
       <div className="fields two">
         <label className="field"><span>How many {plan}s</span><input id="rent-qty" type="number" min={1} max={365} value={qty} onChange={(e) => setQty(e.target.value)} /></label>
@@ -192,7 +194,8 @@ function Book({ room, onDone }) {
         </div>
       )}
       {r.customer && <p className="hint">Booking as {r.customer.name} ({r.customer.email}). <button type="button" className="linkish" onClick={r.signOut}>Not you?</button></p>}
-      <div className="total"><span>Total</span><b>{money(amount, room.currency)}</b></div>
+      <div className="total"><span>Total{+qty > 1 ? ` (${qty} × ${money(room.prices[plan], room.currency)})` : ''}</span><b>{money(amount, room.currency)}<small className="credit-eq">= {cr(amount)} VSE Credits</small></b></div>
+      <p className="hint">You pay in US dollars; the VSE Credits figure is the equivalent. Paying with VSE Credits will be offered once the credit wallet is live. A rental is charged once, never in both dollars and credits.</p>
       {err && <p className="error">{err}</p>}
       <button className="btn primary" type="submit" disabled={busy || clash || !amount}>{busy ? 'Working…' : 'Continue to checkout'}</button>
     </form>
@@ -300,7 +303,7 @@ function RoomPreview({ room, onBack, onBook }) {
           <small>{room.building} · floor {room.floor} · up to {room.occupancy} people{area ? ` · ${area} m² · 3.9 m ceilings` : ''}</small>
           <small className={room.now ? 'busy' : 'free'}>{availability(room)}</small>
         </div>
-        <div className="prices">{mins(room).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k}{k === 'hour' ? ' (events)' : ''}</small></span>)}</div>
+        <div className="prices">{['hour', 'day', 'week', 'month'].filter((k) => room.prices[k] > 0).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k} · {cr(room.prices[k])} credits</small></span>)}</div>
       </div>
       <RoomActions room={room} onView={() => takePhotos(room.id, true)} />
       {(room.description || info.description) && <p>{room.description || info.description}</p>}

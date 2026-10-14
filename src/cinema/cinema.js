@@ -15,9 +15,9 @@ import { audioCore } from '../audio/core.js'
 import { useMusic } from '../music/engine.js'
 
 export const SCREENS = {
-  'cinema-1': { id: 'cinema-1', name: 'Auditorium 1', venue: 'Vision Storms Cinema', zone: 'cinema-1' },
-  'cinema-2': { id: 'cinema-2', name: 'Auditorium 2', venue: 'Vision Storms Cinema', zone: 'cinema-2' },
-  'VSP-201': { id: 'VSP-201', name: 'Screening Room', venue: 'Vision Storms Plaza', zone: 'VSP-201' },
+  'cinema-1': { id: 'cinema-1', name: 'Auditorium 1', venue: 'Vision Cinema', zone: 'cinema-1' },
+  'cinema-2': { id: 'cinema-2', name: 'Auditorium 2', venue: 'Vision Cinema', zone: 'cinema-2' },
+  'VSP-201': { id: 'VSP-201', name: 'Screening Room', venue: 'Vision Storms Energy Exchanges Plaza', zone: 'VSP-201' },
 }
 export const screenForZone = (zoneId) => Object.values(SCREENS).find((s) => s.zone === zoneId) || null
 

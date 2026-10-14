@@ -402,3 +402,14 @@ ul.ticks { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-si
 .photo-strip { display: flex; gap: 8px; overflow-x: auto; }
 .photo-item { flex: none; width: 140px; display: grid; gap: 4px; }
 .photo-item img { width: 140px; height: 80px; object-fit: cover; border-radius: 8px; }
+.credit-note { display: block; opacity: .6; font-size: 11px; margin-top: 2px; }
+.credit-eq { display: block; font-size: 12px; font-weight: 500; opacity: .7; text-align: right; }
+/* guided objective */
+.hud-objective { flex-basis: 100%; display: flex; pointer-events: none; }
+.objective { pointer-events: auto; max-width: min(320px, calc(100vw - 32px)); display: grid; gap: 3px; padding: 10px 14px; border-radius: 12px; background: rgba(12, 10, 16, .72); border: 1px solid rgba(217, 184, 106, .45); backdrop-filter: blur(8px); color: #f4efe4; font-size: 13px; }
+.objective small { text-transform: uppercase; letter-spacing: .12em; font-size: 10px; color: #d9b86a; }
+.objective b { font-size: 15px; }
+.objective span { opacity: .8; }
+.objective .objective-done { color: #9fe0b6; font-size: 13px; }
+.objective .linkish { justify-self: start; font-size: 12px; opacity: .7; }
+@media (max-width: 640px) { .objective { font-size: 12px; padding: 8px 12px; } }

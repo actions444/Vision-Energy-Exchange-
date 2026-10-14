@@ -8,6 +8,8 @@ import { GALLERY } from './layout.js'
 import { DoubleDoor } from './Door.jsx'
 import { RecordsInterior, LoungeInterior } from './Rooms.jsx'
 import { CinemaInterior, CINEMA } from './Cinema.jsx'
+import CinemaExterior, { CINEMA_FRONT } from './CinemaExterior.jsx'
+import PlazaParking from './Parking.jsx'
 import PlazaBuilding, { PLAZA } from './PlazaBuilding.jsx'
 import { BrandSign } from './signs.jsx'
 import { Trees, FlowerBed, Bench, StreetLamp, Bollard, Fountain, ParkingLot, Planter, Lawn } from './props.jsx'
@@ -45,7 +47,8 @@ export default function City() {
       if (z > CROSS.z0 - 6 && z < CROSS.z1 + 6) continue
       const nearPlaza = Math.abs(z - (PLAZA.z0 + PLAZA.z1) / 2) < 5
       const nearVenue = Math.abs(z + 7) < 4 || Math.abs(z - 44) < 4
-      if (!nearPlaza) t.push([-8.6, CURB, z, 0.95 + ((z * 7) % 5) * 0.04])
+      const nearCinema = Math.abs(z - CINEMA_FRONT.cz) < CINEMA_FRONT.half + 1 // keep the portico clear
+      if (!nearPlaza && !nearCinema) t.push([-8.6, CURB, z, 0.95 + ((z * 7) % 5) * 0.04])
       if (!nearVenue) t.push([8.6, CURB, z, 1 + ((z * 3) % 5) * 0.04])
     }
     for (let x = -100; x <= 100; x += 16) {
@@ -56,7 +59,7 @@ export default function City() {
       const a = (i / 14) * Math.PI * 2
       t.push([(SQUARE.x0 + SQUARE.x1) / 2 + Math.cos(a) * 17, CURB, (SQUARE.z0 + SQUARE.z1) / 2 + Math.sin(a) * 18, 1.1 + (i % 3) * 0.1])
     }
-    for (let x = LOT.x0 + 4; x < LOT.x1; x += 9) t.push([x, CURB, LOT.z1 + 3, 1.15])
+    for (let x = LOT.x0 + 4; x < LOT.x1; x += 9) t.push([x, CURB, LOT.z1 + 3, 1.15]) // shade trees along the lot's north sidewalk
     return t
   }, [])
 
@@ -137,19 +140,19 @@ export default function City() {
       <Square />
 
       {/* parking for the plaza */}
-      <ParkingLot {...LOT} y={CURB} />
+      <PlazaParking {...LOT} y={CURB} />
 
       <PlazaBuilding />
 
       {/* storefront venues */}
-      <Venue id="cinema" name="VISION STORMS" sub="CINEMA · NOW SHOWING" x0={CINEMA.x0} x1={CINEMA.x1} z0={CINEMA.z0} z1={CINEMA.z1} h={16} ih={CINEMA.ih} facing="+x" seed={1} wall="limestone" floorKind="none" interior={<CinemaInterior />} />
+      <Venue id="cinema" name="VISION CINEMA" sub="CINEMA · NOW SHOWING" x0={CINEMA.x0} x1={CINEMA.x1} z0={CINEMA.z0} z1={CINEMA.z1} h={16} ih={CINEMA.ih} facing="+x" seed={1} wall="limestone" floorKind="none" frontage interior={<CinemaInterior />} />
+      <CinemaExterior />
       <Venue id="records" name="STORMS RECORDS" sub="VINYL · STEMS · MERCH" x0={10} x1={30} z0={-20} z1={6} h={12} facing="-x" seed={2} wall="brick" interior={<RecordsInterior x0={10} x1={30} z0={-20} z1={6} />} />
-      <Venue id="lounge" name="VISION STORMS" sub="LOUNGE · LIVE SETS" x0={10} x1={32} z0={32} z1={56} h={10} facing="-x" seed={4} wall="limestone" interior={<LoungeInterior x0={10} x1={32} z0={32} z1={56} />} />
+      <Venue id="lounge" name="VISION MUSIC LOUNGE" sub="LOUNGE · LIVE SETS" x0={10} x1={32} z0={32} z1={56} h={10} facing="-x" seed={4} wall="limestone" interior={<LoungeInterior x0={10} x1={32} z0={32} z1={56} />} />
       <FlowerBed x={8.3} z={-15} w={1.6} d={5} seed={4} />
       <FlowerBed x={8.3} z={1} w={1.6} d={5} seed={5} />
       <FlowerBed x={8.3} z={36} w={1.6} d={5} seed={6} />
       <FlowerBed x={8.3} z={52} w={1.6} d={5} seed={7} />
-      <Planter position={[-8.4, CURB, -18]} /><Planter position={[-8.4, CURB, 4]} />
 
       <Skyline />
     </StaticBatch>
@@ -193,7 +196,7 @@ function Square() {
       <StreetLamp position={[SQUARE.x0 + 2, CURB, cz + 4]} yaw={0} double />
       <StreetLamp position={[SQUARE.x1 - 2, CURB, cz - 4]} yaw={0} double />
       <mesh position={[SQUARE.x0 + 0.6, CURB + 0.6, cz - 8]} material={surface('limestone', 1, 0.3)} castShadow><boxGeometry args={[0.6, 1.2, 6.4]} /></mesh>
-      <BrandSign text="VISION STORMS SQUARE" position={[SQUARE.x0 + 0.29, CURB + 0.72, cz - 8]} rotation={[0, -Math.PI / 2, 0]} width={6} size={120} color="#2b2b2e" glow="#ffffff" />
+      <BrandSign text="ENERGY EXCHANGES SQUARE" position={[SQUARE.x0 + 0.29, CURB + 0.72, cz - 8]} rotation={[0, -Math.PI / 2, 0]} width={6} size={120} color="#2b2b2e" glow="#ffffff" />
     </group>
   )
 }
@@ -212,7 +215,7 @@ export function wallMaterials(ext, int, inward) {
   return order.map((f) => (f === inward ? int : ext))
 }
 
-function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall = 'limestone', ih = SHELL_H, floorKind }) {
+function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall = 'limestone', ih = SHELL_H, floorKind, frontage = false }) {
   const mats = getMaterials()
   const w = x1 - x0, d = z1 - z0
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2
@@ -232,8 +235,8 @@ function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall 
     return registerInteractable('venue-' + id, {
       position: new THREE.Vector3(fx + s * 0.8, CURB, cz),
       radius: 3,
-      label: `Vision Storms ${kind} · opens soon`,
-      onInteract: () => useStore.getState().showToast(`The ${kind} opens in a later stage. Vision Storms Plaza, the Reign Gallery, Storms Records and the Lounge are open.`),
+      label: `Vision ${kind} · opens soon`,
+      onInteract: () => useStore.getState().showToast(`The ${kind} opens in a later stage. The Energy Exchanges Plaza, Vision Cinema, Reign Gallery, Storms Records and Vision Music Lounge are open.`),
     })
   }, [id, enterable]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -281,8 +284,9 @@ function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall 
       <mesh position={[cx, CURB + h + 0.25, cz]} material={surface('concrete', 2, 0.2)}><boxGeometry args={[w, 0.5, d]} /></mesh>
       <mesh position={[cx, CURB + IH + 0.1, cz]} material={surface('limestone', 4, 0.2)}><boxGeometry args={[w + 0.3, 0.3, d + 0.3]} /></mesh>
       <group position={[fx, CURB, cz]} rotation={[0, yaw, 0]}>
-        <BrandSign text={name} sub={sub} position={[0, 5.0, 0.08]} width={Math.min(d - 3, 14)} />
-        <mesh position={[0, 3.95, 1.2]} material={mats.blackSteel} castShadow><boxGeometry args={[Math.min(d - 4, 11), 0.16, 2.4]} /></mesh>
+        {/* a custom frontage (e.g. the cinema portico) brings its own sign and canopy */}
+        {!frontage && <BrandSign text={name} sub={sub} position={[0, 5.0, 0.08]} width={Math.min(d - 3, 14)} />}
+        {!frontage && <mesh position={[0, 3.95, 1.2]} material={mats.blackSteel} castShadow><boxGeometry args={[Math.min(d - 4, 11), 0.16, 2.4]} /></mesh>}
         {[-1, 1].map((k) => (
           <group key={k} position={[k * (DOOR_HALF + 2.6), 0, 0.03]}>
             <mesh position={[0, 1.9, 0]} material={mats.glass}><boxGeometry args={[4.2, 3.0, 0.06]} /></mesh>

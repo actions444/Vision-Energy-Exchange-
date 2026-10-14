@@ -96,7 +96,7 @@ function Bistro() {
       <Sofa position={at(18, f, 0.85)} yaw={0} length={3.2} color="#7a3b33" label="Sit in booth" />
       <Table position={at(18, f, 1.95)} size={[2.2, 0.8]} />
       <Plant position={at(1, f, 9.3)} scale={1.1} />
-      <BrandSign text="VISION STORMS BISTRO" position={[P.X(0.33), P.Y(f) + 2.6, P.Z(5)]} rotation={[0, Math.PI / 2, 0]} width={5} size={120} color="#2b2b2e" glow="#ffffff" />
+      <BrandSign text="VISION BISTRO" position={[P.X(0.33), P.Y(f) + 2.6, P.Z(5)]} rotation={[0, Math.PI / 2, 0]} width={5} size={120} color="#2b2b2e" glow="#ffffff" />
       <RoomLights f={f} side="south" intensity={14} />
     </group>
   )
@@ -201,7 +201,7 @@ function Studio() {
       })}
       <PendantLight position={at(21, f, 22.4, CEIL)} drop={1.3} />
       <Sofa position={at(26.9, f, 25)} yaw={-Math.PI / 2} length={2.4} color="#3b3f46" />
-      <BrandSign text="STUDIO 202" sub="MUSIC · PODCASTS" position={[P.X(20), P.Y(f) + 2.8, P.Z(N0 + 0.03)]} width={3.6} size={120} color="#2b2b2e" glow="#ffffff" />
+      <BrandSign text="VISION RECORDING STUDIO" sub="MUSIC · PODCASTS" position={[P.X(20), P.Y(f) + 2.8, P.Z(N0 + 0.03)]} width={3.6} size={120} color="#2b2b2e" glow="#ffffff" />
       <RoomLights f={f} side="north" color="#ffe2c0" intensity={12} />
     </group>
   )
@@ -210,7 +210,7 @@ function Studio() {
 // ---------------- VSP-301 Boardroom (conference) ----------------
 function Boardroom() {
   const f = 2
-  const screen = useScreen('Boardroom', 'VSP-301 · Vision Storms Plaza')
+  const screen = useScreen('Boardroom', 'VSP-301 · Energy Exchanges Plaza')
   return (
     <group>
       <RoomFloor f={f} side="south" material={surface('carpet', 8, 3, { color: '#596069' })} />

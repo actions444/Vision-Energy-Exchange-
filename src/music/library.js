@@ -42,7 +42,7 @@ const DEMO_TRACKS = [
   { id: 't-boardroom-calm', title: 'Boardroom Calm', gen: { style: 'ambient', bpm: 62, bars: 12, root: 52, seed: 129 }, colors: ['#596069', '#c9d1d9', '#c9a96a'], shape: 'waves' },
   { id: 't-skyline-suite', title: 'Skyline Suite', gen: { style: 'lofi', bpm: 70, bars: 14, root: 50, seed: 131 }, colors: ['#3c4a5a', '#d3c7b6', '#a58a6c'], shape: 'rings' },
   { id: 't-private-hours', title: 'Private Hours', gen: { style: 'ambient', bpm: 58, bars: 12, root: 55, seed: 142 }, colors: ['#7d6a58', '#3c4a5a', '#e9e4d8'], shape: 'waves' },
-  // Neon Lounge: R&B / soul
+  // Vision Music Lounge: R&B / soul
   { id: 't-velvet-rope', title: 'Velvet Rope', gen: { style: 'rnb', bpm: 70, bars: 16, root: 51, seed: 151 }, colors: ['#5a2340', '#c98a5a', '#1c1424'], shape: 'waves' },
   { id: 't-late-checkout', title: 'Late Checkout', gen: { style: 'rnb', bpm: 76, bars: 16, root: 48, seed: 162 }, colors: ['#3a1f4d', '#e0a370', '#120d18'], shape: 'rings' },
   { id: 't-slow-motion', title: 'Slow Motion', gen: { style: 'rnb', bpm: 66, bars: 16, root: 53, seed: 173 }, colors: ['#6b2a3a', '#d8b48a', '#140f16'], shape: 'waves' },
@@ -58,7 +58,7 @@ const DEMO_PLAYLISTS = [
   { id: 'pl-gallery', name: 'Gallery Nights', kind: 'tracks', trackIds: ['t-marble-rain', 't-velvet-hour'], shuffle: false, demo: true },
   { id: 'pl-records', name: 'Storms Records Rotation', kind: 'tracks', trackIds: ['t-crate-digger', 't-needle-drop'], shuffle: true, demo: true },
   { id: 'pl-lounge', name: 'Lounge R&B & Soul', kind: 'tracks', trackIds: ['t-velvet-rope', 't-late-checkout', 't-slow-motion'], shuffle: true, demo: true },
-  { id: 'pl-club', name: 'Neon Lounge Club Night', kind: 'tracks', trackIds: ['t-after-hours', 't-purple-static'], shuffle: true, demo: true },
+  { id: 'pl-club', name: 'Vision Music Lounge Club Night', kind: 'tracks', trackIds: ['t-after-hours', 't-purple-static'], shuffle: true, demo: true },
   { id: 'pl-elevator', name: 'Elevator Music', kind: 'tracks', trackIds: ['t-going-up'], shuffle: false, demo: true },
   { id: 'pl-books', name: 'Reign Books Reading Room', kind: 'tracks', trackIds: ['t-margin-notes', 't-quiet-chapter', 't-reading-room'], shuffle: true, demo: true },
   { id: 'pl-streets', name: 'City Storm', kind: 'tracks', trackIds: ['t-thunder-avenue', 't-wet-asphalt'], shuffle: false, demo: true },
@@ -66,7 +66,7 @@ const DEMO_PLAYLISTS = [
   { id: 'pl-bistro', name: 'Bistro Sessions', kind: 'tracks', trackIds: ['t-corner-booth', 't-late-brunch', 't-marble-rain'], shuffle: true, demo: true },
   { id: 'pl-threads', name: 'Threads Runway', kind: 'tracks', trackIds: ['t-runway-glow', 't-fitting-room'], shuffle: true, demo: true },
   { id: 'pl-screening', name: 'Cinema Lobby', kind: 'tracks', trackIds: ['t-feature-presentation', 't-thunder-avenue'], shuffle: false, demo: true },
-  { id: 'pl-studio', name: 'Studio 202 Reel', kind: 'tracks', trackIds: ['t-booth-session', 't-mixdown'], shuffle: true, demo: true },
+  { id: 'pl-studio', name: 'Vision Recording Studio Reel', kind: 'tracks', trackIds: ['t-booth-session', 't-mixdown'], shuffle: true, demo: true },
   { id: 'pl-conference', name: 'Boardroom Calm', kind: 'tracks', trackIds: ['t-boardroom-calm'], shuffle: false, demo: true },
   { id: 'pl-suite', name: 'Skyline Suite', kind: 'tracks', trackIds: ['t-skyline-suite', 't-private-hours'], shuffle: true, demo: true },
 ]
@@ -183,6 +183,7 @@ function autoPlaylists(mt, demoFallback) {
   return [catalog, ...albums.values()]
 }
 
+const RENAMED_PLAYLISTS = { 'Neon Lounge Club Night': 'Vision Music Lounge Club Night', 'Studio 202 Reel': 'Vision Recording Studio Reel' }
 function mergeSaved(b, saved) {
   if (!saved) return { tracks: [...b.tracks], playlists: [...b.playlists], assignments: { ...b.assignments }, removed: [] }
   const tracks = [...b.tracks]
@@ -192,7 +193,9 @@ function mergeSaved(b, saved) {
     else tracks.push(t)
   }
   const playlists = [...b.playlists]
-  for (const p of saved.playlists || []) {
+  for (const p0 of saved.playlists || []) {
+    // renamed defaults: a saved copy still carrying the old default name gets the new one
+    const p = RENAMED_PLAYLISTS[p0.name] ? { ...p0, name: RENAMED_PLAYLISTS[p0.name] } : p0
     const i = playlists.findIndex((x) => x.id === p.id)
     if (i >= 0) playlists[i] = { ...playlists[i], ...p }
     else playlists.push(p)

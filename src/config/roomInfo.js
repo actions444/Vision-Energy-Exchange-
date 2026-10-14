@@ -52,7 +52,7 @@ export function doorSpot(id) {
   const south = r.side === 'south'
   const v = south ? CORRIDOR.v0 + 1.6 : CORRIDOR.v1 - 1.6
   // camera yaw: forward = (-sin yaw, -cos yaw); face the door (south: -z, north: +z)
-  return { position: [P.X(DOOR_U), P.Y(r.floor) + 0.2, P.Z(v)], yaw: south ? 0 : Math.PI, floor: r.floor + 1, building: 'Vision Storms Plaza' }
+  return { position: [P.X(DOOR_U), P.Y(r.floor) + 0.2, P.Z(v)], yaw: south ? 0 : Math.PI, floor: r.floor + 1, building: 'Vision Storms Energy Exchanges Plaza' }
 }
 
 /** Where a virtual tour starts: just inside the door, looking into the room. */

@@ -71,8 +71,8 @@ function useTitleCard(screenId, title) {
       const s = sessionFor(screenId, st)
       const movies = watchable()
       if (s) draw([s.shared ? 'Now showing' : 'Private screening', s.title || 'Feature presentation', s.shared ? (s.state === 'paused' ? 'Intermission' : 'Please take your seats') : 'Only you can see this screening'])
-      else if (movies.length) draw([SCREENS[screenId]?.venue || 'Vision Storms', title, `${movies.length} title${movies.length === 1 ? '' : 's'} available · use the screen controls to start a movie`])
-      else draw([SCREENS[screenId]?.venue || 'Vision Storms', title, 'No movies published yet'])
+      else if (movies.length) draw([SCREENS[screenId]?.venue || 'Vision Cinema', title, `${movies.length} title${movies.length === 1 ? '' : 's'} available · use the screen controls to start a movie`])
+      else draw([SCREENS[screenId]?.venue || 'Vision Cinema', title, 'No movies published yet'])
     }
     render()
     const a = useCinema.subscribe((s, p) => { if (s.shared !== p.shared || s.local !== p.local) render() })
