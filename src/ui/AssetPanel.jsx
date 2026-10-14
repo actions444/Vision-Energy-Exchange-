@@ -188,6 +188,10 @@ function Editor({ inst }) {
         <small className="hint">Exact lets you walk inside buildings and up stairs. Seating fits sofas and chairs: solid up to the seat, plus the backrest.</small>
       </div>
       <SeatEditor inst={inst} update={(patch) => a.updatePlaced(inst.iid, { seats: { count: 0, height: 0.45, depth: 0.1, flip: false, ...(inst.seats || {}), ...patch } })} />
+      <div className="pad">
+        <button className="btn ghost small" onClick={() => a.setFurnitureDefaults(inst.assetId, { collider: inst.collider, seats: inst.seats || null })}>Save collision &amp; seats as this model's defaults</button>
+        <small className="hint">Every new copy you place starts with these settings. A wireframe shows the collision while the model is selected.</small>
+      </div>
       <div className="pad actions">
         <button className="btn" onClick={() => {
           const p = playerState.position, yaw = playerState.yaw

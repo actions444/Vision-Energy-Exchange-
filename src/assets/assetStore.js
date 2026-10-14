@@ -71,6 +71,12 @@ export const useAssets = create((set, get) => ({
     db.get('files', id).then((rec) => rec && db.put('files', id, { ...rec, kind })).catch(() => {})
   },
 
+  /** Save collision + seating as this model's defaults (used every time it is placed). */
+  setFurnitureDefaults(id, furniture) {
+    set((s) => ({ library: s.library.map((a) => (a.id === id ? { ...a, furniture } : a)) }))
+    db.get('files', id).then((rec) => rec && db.put('files', id, { ...rec, furniture })).catch(() => {})
+  },
+
   removeAsset(id) {
     registry.delete(id)
     set((s) => ({
@@ -94,7 +100,8 @@ export const useAssets = create((set, get) => ({
       position: position.map((v) => +v.toFixed(2)),
       rotationY,
       scale,
-      collider: asset.kind === 'building' || asset.kind === 'venue' ? 'trimesh' : 'box',
+      collider: asset.furniture?.collider || (asset.kind === 'building' || asset.kind === 'venue' ? 'trimesh' : 'box'),
+      ...(asset.furniture?.seats ? { seats: { ...asset.furniture.seats } } : {}),
     }
     set((s) => ({ placed: [...s.placed, inst], selected: inst.iid }))
     scheduleSave()
@@ -132,7 +139,7 @@ export const useAssets = create((set, get) => ({
     try {
       const recs = await db.all('files')
       for (const r of recs) {
-        try { library.push(await register(r.id, r.name, r.kind, r.bytes, 'import')) } catch (e) { console.warn('Skipping saved asset', r.name, e) }
+        try { library.push({ ...(await register(r.id, r.name, r.kind, r.bytes, 'import')), ...(r.furniture ? { furniture: r.furniture } : {}) }) } catch (e) { console.warn('Skipping saved asset', r.name, e) }
       }
       const layout = await db.get('meta', 'layout')
       const ids = new Set(library.map((a) => a.id))

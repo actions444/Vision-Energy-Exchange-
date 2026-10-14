@@ -77,6 +77,20 @@ function PlacedAsset({ inst, selected }) {
           <primitive object={obj} />
         </group>
       </group>
+      {/* collision preview while selected */}
+      {selected && collider !== 'none' && (
+        <group position={position} rotation={[0, rotationY, 0]}>
+          {(collider === 'seat'
+            ? [[W, Math.max(0.05, (seatCfg?.height ?? 0.45) - 0.02), D, 0], [W, H, Math.min(0.15, D * 0.12) * 2, (seatCfg?.flip ? 1 : -1) * (D / 2 - Math.min(0.15, D * 0.12))]]
+            : [[W, H, D, 0]]
+          ).map(([w, h, d, z], i) => (
+            <mesh key={'cp' + i} position={[0, h / 2, z]}>
+              <boxGeometry args={[w, h, d]} />
+              <meshBasicMaterial color={collider === 'trimesh' ? '#9fb4ff' : '#ff7ac8'} wireframe transparent opacity={0.7} toneMapped={false} />
+            </mesh>
+          ))}
+        </group>
+      )}
       {selected && seatList.map((st, i) => (
         <mesh key={'seat' + i} position={[st.position[0], st.position[1] + 0.02, st.position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.16, 24]} />
