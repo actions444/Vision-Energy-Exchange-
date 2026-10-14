@@ -55,6 +55,24 @@ export default function Player() {
     const playing = useStore.getState().phase === 'playing'
     const panelOpen = !!useStore.getState().panel
 
+    // ---------- driving: the avatar rides in the vehicle (Vehicle.jsx moves playerState.position) ----------
+    if (playerState.vehicle) {
+      if (visual.current) visual.current.visible = false
+      b.setNextKinematicTranslation(playerState.position)
+      const wantOut = input.interact && !panelOpen
+      input.interact = false
+      input.jump = false
+      if (wantOut) playerState.vehicle.exit()
+      if (playerState.vehicle) {
+        if (lastPrompt.current !== 'exit-vehicle') {
+          lastPrompt.current = 'exit-vehicle'
+          useStore.getState().setPrompt({ id: 'exit-vehicle', label: 'Get out' })
+        }
+        return
+      }
+    }
+    if (visual.current) visual.current.visible = useStore.getState().phase === 'playing'
+
     // ---------- sitting ----------
     if (playerState.sitRequest) {
       const seat = playerState.sitRequest

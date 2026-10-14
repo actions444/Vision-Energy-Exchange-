@@ -1,78 +1,64 @@
-# Vision Storms World
+# Vision Storms World (→ Vision Storms Exchanges — Energy Exchanges)
 
-Trinity Reign's portfolio as a walkable, browser-based 3D city. Built with React 19, Three.js,
-React Three Fiber and Rapier physics.
+Trinity Reign's walkable, browser-based 3D commercial city. React 19, Three.js, React Three Fiber,
+Rapier physics, Zustand. Runs on desktop and phones.
 
 ```bash
 npm install
-npm run dev            # http://localhost:5173
-npm run build          # static site in dist/ (deploy to Netlify, Vercel, Cloudflare Pages, S3…)
-npm run server         # multiplayer relay on ws://localhost:8787
-npm run build:single && node scripts/artifact.mjs   # one-file build used for the shareable preview
+npm run dev            # http://localhost:5173 (development: owner tools on, uploads saved in this browser)
+npm run build          # static site in dist/
+ADMIN_TOKEN=… npm run server   # API + file storage + multiplayer relay + serves dist/ on :8787
+npm run build:single && node scripts/artifact.mjs   # one-file build used for the Claude-hosted page
 ```
 
-## What's in milestone 1
+## Where data lives (backends)
+
+`src/backend/backend.js` picks one automatically at startup:
+
+| Backend | When | Who can change shared content | Storage |
+| --- | --- | --- | --- |
+| **hosted** | the Claude-hosted page | the page's owner and editors (platform-enforced) | page database + file store, 20 MB per file, no audio/GLB types (MP3s are packed losslessly into MP4, see `src/media/mp3mp4.js`) |
+| **server** | `npm run server` (same origin, or the address saved at owner sign-in) | whoever signs in with `ADMIN_TOKEN` (Settings → Owner sign-in) | `server/data/store.json` + `server/data/files/` (2 GB per upload by default, range requests for streaming) |
+| **local** | `npm run dev` only | everyone (development) | this browser's IndexedDB |
+
+Visitors never see owner panels, and the backend refuses their writes (tested on the server and against a mock of the hosted platform).
+
+## What works
 
 | Area | Status |
 | --- | --- |
-| City | Wet-asphalt avenue and cross street, marble sidewalks with climbable curbs, neon curb lights, streetlights, plaza planters, six venues, a skyline, night sky, storm rain and lightning. Every solid object has a collider. |
-| Reign Gallery | Enterable. Working double doors (physics colliders swing with them), seven portfolio kiosks, a latest-drop screen that can play your own video, a connect wall and an audio-reactive equalizer sculpture. |
-| Storms Records, Neon Lounge | Enterable rooms with doors, crates, turntables, album wall, DJ booth, dance floor and light beams that react to the music. |
-| Vision Cinema, Reign Books | Exteriors with locked doors ("opens soon"). Interiors are a later milestone. |
-| Avatar | Full-body procedural avatar (two-segment arms and legs) with walk, run, jump, idle and wave animation driven by real movement speed. Neon color and skin tone are selectable. |
-| Movement | Rapier kinematic character controller: walking, running, jumping, wall sliding, slopes, auto-step over curbs, snap to ground. |
-| Camera | Third-person orbit camera with collision (never clips through walls). Drag to look, wheel to zoom. |
-| Controls | Desktop: WASD/arrows, Shift, Space, E, 1, B, T. Mobile: virtual joystick (push to the edge to run), drag to look, Jump/Run/Wave buttons, tap the prompt to interact. |
-| Portfolio | All content from the original site (roles, tagline, seven crafts, latest drop with tracklist, connect/socials) lives in `src/config/portfolio.js` and appears in the gallery. |
-| GLB/GLTF import | Drop Tripo 3D / Meshy AI exports into the Asset library. `.glb` or `.gltf` + `.bin` + textures; Draco and Meshopt compression supported. Place, move, rotate, resize, pick collision (exact trimesh / box / none), or use a character as your avatar (its idle/walk/run/jump/wave clips are detected by name). Imports are saved in the browser. |
-| Multiplayer | Real-time: other visitors appear as avatars with name tags, interpolated movement, wave emotes and chat bubbles. Two transports work today: tabs on the same device (BroadcastChannel) and the WebSocket relay in `server/`. |
-| Music system | See below. |
+| City | Avenue, cross street, lane markings, curbs, trees, streetlights, square with fountain, parking lot, skyline. Day/night cycle, weather (clear/cloudy/rain/storm), owner-controlled. |
+| Buildings | Reign Gallery, Storms Records, Lounge, **Vision Storms Cinema** (new), **Vision Storms Plaza** (3 floors, stairs, elevator, 6 furnished rooms). |
+| Avatar & movement | Procedural avatar or an imported GLB avatar; walk, run, jump, wave, sit/stand on any chair, sofa, bench or recliner; doors, stairs, elevator. Joystick + buttons on phones. |
+| **Driving** (new) | One fully drivable Sovereign SUV on the lot behind the Plaza: walk to the driver's door, E / tap to get in. WASD or joystick to drive and steer, Space / Brake button to brake, S to reverse, E / tap to get out. Ray-cast vehicle physics (suspension, tyre grip, all-wheel drive), collisions, speedometer, chase camera, headlights at night. |
+| **Media library** (new) | Owner tools → Media library: upload songs (MP3/M4A, tags + embedded cover read automatically), album covers, music videos, movies, audiobook chapters, e-books (PDF/TXT; PDF covers rendered). Drafts vs published, edit, delete, storage meter. Persistent. |
+| **Room music** | Crossfading room playlists. Published songs become the "Trinity Reign · Catalog" playlist plus one playlist per album. Defaults: Threads upbeat, Lounge R&B/soul, Studio 202 = your catalog (demo until you publish songs), theaters silent (the movie is the sound), streets optional ambient (Settings). The owner's music setup is shared with every visitor. |
+| **Player** | Play/pause, previous/next, shuffle, repeat (all/one/off), seek, volume, mute; remembers volume. |
+| **Storms Records** | "Browse albums" (HUD button inside the store): albums, playlists, your own list; pick songs to play while you're in the store. |
+| **Cinema** (new) | Lobby with box office (showtimes), concessions, posters from your movies; two stadium-seated auditoriums with recliners, aisles with step lights, sconces that dim, EXIT signs, screen & sound controls, 1.85:1 screens. The Plaza Screening Room is a small stadium theater too. Owner starts screenings for everyone (synchronized from a shared start time; late arrivals join at the current position; tested at 0.05–0.5 s drift); visitors can watch privately when nothing is scheduled. |
+| Rentals | Rules, booking, owner approval, access checks and a Stripe Checkout + verified webhook integration on the server. Payments stay off until Stripe keys are configured (`DEV_PAYMENTS=1` gives clearly labelled test payments). |
+| Multiplayer | WebSocket relay or same-device tabs: avatars, chat, emotes, sitting, owner-set weather. |
 
-## Room music system
+## Not done yet (honest list)
 
-- **Trigger zones**: `src/config/rooms.js` lists every music zone as a 3D box. `MusicZones.jsx` checks the local avatar against them each frame (smallest zone wins, 0.25 s dwell so doorways don't flicker).
-- **Crossfades**: `src/music/engine.js` keeps a pool of Web Audio decks. Changing room fades the old playlist out while the new one fades in (2.5 s). Each playlist remembers its track and position, so walking back resumes where it was.
-- **Player**: artwork, title, artist, room and playlist, volume, mute and next. Volume and mute are saved and apply in every room.
-- **Admin dashboard** (turn on Settings → Admin tools, then Music admin): upload MP3/M4A/WAV/OGG (title, artist and cover art are read from ID3 tags), change artwork, build and reorder playlists, shuffle, add licensed radio (direct stream or official embedded player, a license note is required), assign a playlist to every room, show trigger zones, copy a manifest.
-- **Mobile**: audio unlocks on the Enter tap (and on any later tap); if a browser still blocks it, the player shows "Tap to turn on music".
-- **Multiplayer**: music is never networked. Each visitor hears the room their own avatar is in.
-- **Demo**: four original demo playlists are synthesised in a Web Worker (Gallery Nights, Storms Records Rotation, Neon Lounge Live, City Storm), so the three rooms and the streets each play different music with no audio files shipped.
-
-### Adding a room
-1. Build its geometry (see `Venue` with an `interior` in `src/world/City.jsx`, or place an imported GLB with exact collision).
-2. Add a zone to `src/config/rooms.js` with its bounds and default playlist. It appears in Music admin automatically.
-
-### Shipping music to every visitor
-Admin edits are saved on the device you make them on. To publish them:
-1. Copy your MP3s to `public/music/` (artwork to `public/music/art/`).
-2. Music admin → Publish → Copy music manifest, save it as `public/music/manifest.json` (see `manifest.example.json`).
-3. Rebuild and deploy.
-
-Shipping 3D models works the same way: put GLBs in `public/assets/`, use Asset library → Copy layout, save as `public/assets/manifest.json`.
-
-## Multiplayer server
-`server/index.js` is a small WebSocket relay with rooms, input validation, chat rate-limiting and a `/health` endpoint. Deploy it to any Node host with WebSocket support (Render, Railway, Fly.io, a VPS), then pick Multiplayer → Relay server and enter its `wss://` address.
-To use a hosted realtime service instead (Colyseus, Socket.IO, Ably, PartyKit, Supabase Realtime…), add an adapter with the same four methods in `src/net/adapters.js`.
-
-## Still to build
-- Interiors for Vision Cinema and Reign Books; malls, clothing stores, restaurants and more theaters.
-- Server-authoritative multiplayer (the relay trusts clients), accounts, moderation, voice chat, persistent rooms.
-- A real admin login and server storage for uploads. Admin tools are a device switch, not security, and uploads stay in that browser until you ship them with the manifest.
-- Imported buildings get collision but no automatic doors; doors on GLB buildings need a door asset or a portal marker.
-- Retargeting animations between different character rigs; KTX2 texture support; LOD/streaming for large imported cities.
-- Radio crossfades on iPhone: iOS ignores script volume on `<audio>`, so streams start and stop without a fade there.
-- Real portfolio links, titles and socials (placeholders are marked "Example").
+- **Accounts:** no customer registration/login yet. The hosted page uses claude.ai sign-in (owner/editor vs viewer); the server has one owner token. Real accounts (roles, MFA, password resets) need a deployed auth service.
+- **Payments:** no live payments until Stripe keys and a deployed server are set up and tested. Nothing is activated from a browser-side confirmation.
+- **Movies on the hosted page** are limited to 20 MB files. Full-length films need the self-hosted server (or a video CDN such as Cloudflare Stream / Mux for many viewers).
+- **Driving in multiplayer:** other visitors see your avatar move, not the car (vehicle sync is next on the multiplayer list).
+- One vehicle so far; boats, homes, furniture marketplace, districts, creator marketplace and subscriptions are later phases of the master plan.
+- Reign Books interior, e-book reader UI and audiobook lounge are not built yet (uploads already work).
+- GLB uploads to shared storage (owner-placed models that persist for everyone) are not built yet; the Asset library still saves imports in the browser.
 
 ## Project map
 ```
-src/config      portfolio content, rooms/zones, palette
-src/world       city, gallery, enterable rooms, doors, materials, sky/rain
+src/backend     backend detection: hosted page / self-hosted server / dev
+src/media       media library, upload pipeline, MP3→MP4 packing, PDF rendering
+src/cinema      screenings, sync clock, the visitor's video player
+src/vehicles    vehicle catalog and the drivable vehicle
+src/music       zone tracker, crossfade engine, library, demo synth worker
+src/world       city, plaza, cinema, rooms, doors, furniture, materials, sky
 src/player      avatar, character controller, camera
-src/input       keyboard, touch joystick, drag-to-look
-src/assets      GLB/GLTF import, library, placed models, imported avatars
-src/net         network adapters, peer interpolation, remote avatars
-src/music       zone tracker, crossfade engine, library/admin data, demo synth worker, ID3 reader
-src/audio       shared Web Audio graph, gallery kiosk audio and video
-src/ui          title screen, HUD, panels, music player, admin dashboard
-server          WebSocket relay
+src/rentals     rental client;  shared/rentals.js  rules shared with the server
+src/ui          HUD, panels, owner tools
+server          API (content store, files, rentals, Stripe webhook) + multiplayer relay
 ```

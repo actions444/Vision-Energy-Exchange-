@@ -15,6 +15,8 @@ import { useAssets } from './assets/assetStore.js'
 import { installKeyboard, attachLook, input } from './input/input.js'
 import { playerState, cameraState } from './state/runtime.js'
 import UI from './ui/UI.jsx'
+import Vehicles from './vehicles/Vehicle.jsx'
+import { useDriving, vehicleBodies } from './vehicles/vehicles.js'
 import MusicZones from './music/MusicZones.jsx'
 import { useMusicLibrary, resolveTrackSource } from './music/library.js'
 import { musicEngine, useMusic } from './music/engine.js'
@@ -75,12 +77,13 @@ export default function App() {
       >
         <color attach="background" args={['#07050c']} />
         <Suspense fallback={null}>
-          <Physics timeStep="vary" gravity={[0, -9.81, 0]}>
+          <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
             <City />
             <Gallery />
             <PlacedAssets />
             <Player />
             <RemotePlayers />
+            <Vehicles />
             <CameraRig />
           </Physics>
           <Atmosphere />
@@ -100,4 +103,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies }

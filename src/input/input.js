@@ -5,6 +5,7 @@ export const input = {
   run: false,
   runToggle: false, // mobile run lock
   jump: false,
+  brake: false, // held (Space while driving, Brake button on touch)
   interact: false, // edge-triggered; consumer clears it
   emote: null, // 'wave' edge-triggered
   look: { dx: 0, dy: 0 }, // accumulated camera drag in pixels; consumer clears it
@@ -58,7 +59,7 @@ export function installKeyboard(handlers = {}) {
   const down = (e) => {
     if (e.code === 'Escape' && handlers.onKey) { handlers.onKey(e); return }
     if (isTyping(e)) return
-    if (e.code === 'Space') { input.jump = true; e.preventDefault() }
+    if (e.code === 'Space') { input.jump = true; input.brake = true; e.preventDefault() }
     if (e.code === 'KeyE' && !e.repeat) input.interact = true
     if (e.code === 'Digit1' && !e.repeat) input.emote = 'wave'
     if (handlers.onKey) handlers.onKey(e)
@@ -67,10 +68,10 @@ export function installKeyboard(handlers = {}) {
   }
   const up = (e) => {
     keys.delete(e.code)
-    if (e.code === 'Space') input.jump = false
+    if (e.code === 'Space') { input.jump = false; input.brake = false }
     recompute()
   }
-  const blur = () => { keys.clear(); input.jump = false; recompute() }
+  const blur = () => { keys.clear(); input.jump = false; input.brake = false; recompute() }
   window.addEventListener('keydown', down)
   window.addEventListener('keyup', up)
   window.addEventListener('blur', blur)

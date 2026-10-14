@@ -51,7 +51,7 @@ export default function CameraRig() {
     // camera collision
     let allowed = cameraState.distance
     const ray = new rapier.Ray(origin, dir)
-    const hit = world.castRay(ray, cameraState.distance + 0.3, true, undefined, undefined, undefined, undefined, (col) => col.handle !== playerState.colliderHandle && !col.isSensor())
+    const hit = world.castRay(ray, cameraState.distance + 0.3, true, undefined, undefined, undefined, undefined, (col) => col.handle !== playerState.colliderHandle && !col.isSensor() && !cameraState.ignore?.has(col.handle))
     if (hit) allowed = Math.max(0.4, hit.timeOfImpact - 0.3)
     // pull in fast, ease out slowly
     const rate = allowed < smoothD.current ? 25 : 4

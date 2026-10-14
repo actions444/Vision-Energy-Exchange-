@@ -22,6 +22,7 @@ import RecordsPanel from './RecordsPanel.jsx'
 import CinemaPanel from './CinemaPanel.jsx'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
+import { useDriving } from '../vehicles/vehicles.js'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media'])
 
@@ -242,6 +243,7 @@ function HUD() {
       )}
 
       {mode === 'multi' && <Chat />}
+      <DriveHud />
     </>
   )
 }
@@ -270,9 +272,24 @@ function Chat() {
   )
 }
 
+function DriveHud() {
+  const driving = useStore((s) => s.driving)
+  const speed = useDriving((s) => s.speed)
+  const gear = useDriving((s) => s.gear)
+  if (!driving) return null
+  return (
+    <div className="drive-hud" aria-live="off">
+      <b>{Math.round(speed * 2.237)}</b><small>mph</small>
+      <span className="gear">{gear}</span>
+      <em>{driving}</em>
+    </div>
+  )
+}
+
 // ---------- Mobile controls ----------
 function TouchControls() {
   const isTouch = useStore((s) => s.isTouch)
+  const driving = useStore((s) => s.driving)
   const [run, setRun] = useState(false)
   const base = useRef()
   const knob = useRef()
@@ -316,11 +333,17 @@ function TouchControls() {
       <div className="stick" ref={base} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <div className="knob" ref={knob} />
       </div>
+      {driving ? (
+        <div className="touch-buttons">
+          <button className="tb" {...hold('brake')}>Brake</button>
+        </div>
+      ) : (
       <div className="touch-buttons">
         <button className="tb" {...hold('jump')}>Jump</button>
         <button className={'tb' + (run ? ' on' : '')} onPointerDown={(e) => { e.stopPropagation(); setRun(!run); setRunToggle(!run) }}>Run</button>
         <button className="tb" onPointerDown={(e) => { e.stopPropagation(); input.emote = 'wave' }}>Wave</button>
       </div>
+      )}
     </div>
   )
 }
@@ -441,6 +464,8 @@ function HelpPanel() {
         <div><kbd>Esc</kbd><span>Close a panel</span></div>
       </div>
       <p className="hint">On a phone: left thumb on the joystick (push to the edge to run), drag anywhere else to look, tap the prompt to interact.</p>
+      <p className="hint">Driving: walk up to the driver's door of the black SUV on the lot behind the Plaza and press E (or tap). W/S or the joystick to drive and reverse, A/D to steer, Space (Brake on phones) to brake, E to get out.</p>
+      <p className="hint">The Vision Storms Cinema is on the left of the avenue: walk into an auditorium, take a recliner, and open Screen &amp; sound.</p>
       <p className="hint">The Reign Gallery is at the end of the avenue, straight ahead from where you start. Vision Storms Plaza is behind you on the left, past the crossroads: take the stairs or the elevator to its three floors.</p>
     </Panel>
   )
