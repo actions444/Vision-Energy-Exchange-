@@ -84,6 +84,12 @@ function normaliseRoom(r) {
     floor: Number.isFinite(+r.floor) ? +r.floor : 0,
     occupancy: Math.max(1, Math.min(500, Math.round(+r.occupancy || 1))),
     prices: { hour: cents(r.prices?.hour), day: cents(r.prices?.day), week: cents(r.prices?.week), month: cents(r.prices?.month) },
+    // listing details the owner edits (photos are image URLs from the media store)
+    description: r.description ? String(r.description).slice(0, 600) : '',
+    amenities: (Array.isArray(r.amenities) ? r.amenities : []).map((x) => String(x).slice(0, 80)).filter(Boolean).slice(0, 20),
+    furniture: (Array.isArray(r.furniture) ? r.furniture : []).map((x) => String(x).slice(0, 80)).filter(Boolean).slice(0, 30),
+    photos: (Array.isArray(r.photos) ? r.photos : []).filter((p) => p && typeof p.url === 'string' && /^(https?:\/\/|\/)/.test(p.url) && p.url.length < 500).map((p) => ({ url: p.url, caption: String(p.caption || '').slice(0, 80) })).slice(0, 12),
+    tourStart: Array.isArray(r.tourStart) && r.tourStart.length === 4 && r.tourStart.every(Number.isFinite) ? r.tourStart : null,
     category: r.category ? String(r.category).slice(0, 40) : null,
     eventVenue: !!r.eventVenue, // eligible for hourly event rentals
     currency: r.currency || 'usd',
@@ -356,6 +362,7 @@ export function publicRoom(state, room, now) {
     id: room.id, name: room.name, kind: room.kind, building: room.building, floor: room.floor,
     occupancy: room.occupancy, prices: room.prices, currency: room.currency, active: room.active,
     category: room.category, categoryName: categoryOf(state, room.category)?.name || null, eventVenue: room.eventVenue,
+    description: room.description, amenities: room.amenities, furniture: room.furniture, photos: room.photos, tourStart: room.tourStart,
     features: room.features, openWhenVacant: room.openWhenVacant,
     busy: busyRanges(state, room.id, now),
     now: b ? { visibility: b.visibility, until: b.end, customization: b.customization } : null,

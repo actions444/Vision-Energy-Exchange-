@@ -103,7 +103,7 @@ export default function Player() {
         return
       }
     }
-    if (visual.current) visual.current.visible = useStore.getState().phase === 'playing'
+    if (visual.current) visual.current.visible = useStore.getState().phase === 'playing' && !playerState.hideAvatar
 
     // ---------- sitting ----------
     if (playerState.sitRequest) {

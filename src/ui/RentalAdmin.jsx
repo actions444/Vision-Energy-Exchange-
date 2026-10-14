@@ -3,6 +3,11 @@ import { Panel } from './UI.jsx'
 import { useRentals } from '../rentals/client.js'
 import { FEATURES, money } from '../../shared/rentals.js'
 import { PLAZA_ROOMS } from '../config/plaza.js'
+import { ROOM_INFO } from '../config/roomInfo.js'
+import { backend, useBackend } from '../backend/backend.js'
+import { playerState, cameraState } from '../state/runtime.js'
+import { useStore } from '../state/store.js'
+import { useRentDraft } from '../rentals/preview.js'
 
 const fmt = (iso) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 const localInput = (iso) => { const d = new Date(iso); const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 16) }
@@ -155,6 +160,7 @@ function Rooms({ s, act }) {
               ))}
             </div>
           </div>
+          <ListingEditor draft={draft} setDraft={setDraft} />
           <Blackouts draft={draft} setDraft={setDraft} />
           <button className="btn primary" onClick={() => act('updateRoom', draft.id, draft)}>Save {draft.id}</button>
         </div>
@@ -285,6 +291,62 @@ function Connect({ reload }) {
       <label className="field"><span>Owner token</span><input id="rental-token" type="password" value={token} onChange={(e) => setToken(e.target.value)} /></label>
       <button className="btn primary" onClick={() => { r.setAdminToken(token); r.setBackend('server', url).then(reload) }}>Connect</button>
       <p className="hint">Payments: set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET on the server for real checkout (verified by webhook), or DEV_PAYMENTS=1 for labelled test payments. Customer sign-in is a development placeholder (name + email, no verification) until a real identity provider is added.</p>
+    </div>
+  )
+}
+
+/** What customers see in the listing: description, furniture, amenities, photos, tour start. */
+function ListingEditor({ draft, setDraft }) {
+  const info = ROOM_INFO[draft.id] || {}
+  const canUpload = useBackend((s) => s.admin && s.canWriteFiles)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  const lines = (v) => v.split('\n').map((x) => x.trim()).filter(Boolean)
+  const upload = async (files) => {
+    setBusy(true); setErr(null)
+    try {
+      const added = []
+      for (const f of files) {
+        if (!/^image\/(png|jpeg|webp)$/.test(f.type)) throw new Error('Photos must be JPG, PNG or WebP.')
+        const up = await backend().upload(f, f.type)
+        added.push({ url: up.url || backend().url(up.ref), caption: f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') })
+      }
+      setDraft({ ...draft, photos: [...(draft.photos || []), ...added].slice(0, 12) })
+    } catch (e) { setErr(e.message) }
+    setBusy(false)
+  }
+  const preview = () => { useRentDraft.setState({ roomId: draft.id, view: 'preview' }); useStore.getState().openPanel({ type: 'rent' }) }
+  return (
+    <div className="fields listing-editor">
+      <b>Listing</b>
+      <label className="field"><span>Description</span><textarea rows={2} value={draft.description || ''} placeholder={info.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
+      <div className="fields two">
+        <label className="field"><span>Furniture included (one per line)</span><textarea rows={4} value={(draft.furniture || []).join('\n')} placeholder={(info.furniture || []).join('\n')} onChange={(e) => setDraft({ ...draft, furniture: lines(e.target.value) })} /></label>
+        <label className="field"><span>Amenities (one per line)</span><textarea rows={4} value={(draft.amenities || []).join('\n')} placeholder={(info.amenities || []).join('\n')} onChange={(e) => setDraft({ ...draft, amenities: lines(e.target.value) })} /></label>
+      </div>
+      <small className="hint">Empty fields show the built-in description (shown greyed out).</small>
+      <div className="field">
+        <span>Photos ({(draft.photos || []).length}/12) · live photos of the room are added automatically</span>
+        <div className="photo-strip">
+          {(draft.photos || []).map((p, i) => (
+            <div key={p.url + i} className="photo-item">
+              <img src={p.url} alt="" />
+              <input aria-label="Caption" value={p.caption} onChange={(e) => setDraft({ ...draft, photos: draft.photos.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)) })} />
+              <button type="button" className="btn ghost small" onClick={() => setDraft({ ...draft, photos: draft.photos.filter((_, j) => j !== i) })}>Remove</button>
+            </div>
+          ))}
+        </div>
+        {canUpload ? (
+          <label className="btn file">{busy ? 'Uploading…' : 'Upload photos'}<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => { upload([...e.target.files]); e.target.value = '' }} /></label>
+        ) : <small className="hint">Photo uploads need the owner to be signed in to the shared storage (hosted page or your server).</small>}
+        {err && <p className="error">{err}</p>}
+      </div>
+      <div className="row-actions">
+        <button type="button" className="btn small" onClick={() => { const p = playerState.position; setDraft({ ...draft, tourStart: [+p.x.toFixed(2), +(p.y + 0.1).toFixed(2), +p.z.toFixed(2), +cameraState.yaw.toFixed(3)] }) }}>Set tour start to where I'm standing</button>
+        {draft.tourStart && <button type="button" className="btn ghost small" onClick={() => setDraft({ ...draft, tourStart: null })}>Use the default tour start</button>}
+        <button type="button" className="btn ghost small" onClick={preview}>Preview listing</button>
+      </div>
+      <small className="hint">Furniture in the room itself: walk in (owner access) and use Decorate. Save {draft.id} below to apply listing changes.</small>
     </div>
   )
 }

@@ -4,6 +4,8 @@ import { useRentals } from '../rentals/client.js'
 import { PLANS, VISIBILITY, FEATURES, money, endFor } from '../../shared/rentals.js'
 import { useMusicLibrary } from '../music/library.js'
 import { useStore } from '../state/store.js'
+import { usePreview, useRentDraft, setForm, takePhotos, startTour, visitRoom } from '../rentals/preview.js'
+import { ROOM_INFO, roomArea, doorSpot } from '../config/roomInfo.js'
 
 const STATUS = {
   pending_payment: 'Waiting for payment',
@@ -20,9 +22,16 @@ const localInput = (d) => { const z = new Date(d.getTime() - d.getTimezoneOffset
 // Customer side: pick a room, see prices, choose dates, check out, manage bookings.
 export default function RentPanel({ roomId: initial }) {
   const r = useRentals()
-  const [tab, setTab] = useState(initial ? 'book' : 'browse')
-  const [roomId, setRoomId] = useState(initial || null)
+  const d = useRentDraft()
+  // where the panel is (kept in a store so a virtual tour can bring you back to the same place)
+  useEffect(() => {
+    if (initial) useRentDraft.setState({ roomId: initial, tab: 'browse', view: 'preview' })
+    else if (d.view === 'tour') useRentDraft.setState({ view: 'preview' })
+  }, [initial]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { r.refresh() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const tab = d.view === 'preview' ? 'preview' : d.tab
+  const roomId = d.roomId
+  const setTab = (t) => useRentDraft.setState({ tab: t, view: null })
   const room = r.rooms.find((x) => x.id === roomId)
 
   return (
@@ -33,19 +42,27 @@ export default function RentPanel({ roomId: initial }) {
       {r.mode === 'server' && r.paymentMode === 'test' && <p className="notice">This server is in test-payment mode. No money is charged.</p>}
       {r.mode === 'server' && r.paymentMode === 'none' && <p className="notice">Checkout is not available yet: the owner has not connected a payment provider.</p>}
       <div className="seg tabs" role="tablist">
-        <button className={tab === 'browse' ? 'on' : ''} onClick={() => setTab('browse')}>Spaces</button>
+        <button className={tab === 'browse' || tab === 'preview' ? 'on' : ''} onClick={() => setTab('browse')}>Spaces</button>
         <button className={tab === 'book' ? 'on' : ''} onClick={() => setTab('book')} disabled={!room}>Book</button>
         <button className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>My rentals{r.myBookings.length ? ` (${r.myBookings.length})` : ''}</button>
       </div>
       {r.error && <p className="error">{r.error}</p>}
-      {tab === 'browse' && <Browse onPick={(id) => { setRoomId(id); setTab('book') }} />}
+      {tab === 'browse' && <Browse onPick={(id) => useRentDraft.setState({ roomId: id, tab: 'book', view: null })} onView={(id) => useRentDraft.setState({ roomId: id, view: 'preview' })} />}
+      {tab === 'preview' && room && <RoomPreview room={room} onBack={() => useRentDraft.setState({ view: null, tab: 'browse' })} onBook={() => useRentDraft.setState({ view: null, tab: 'book' })} />}
       {tab === 'book' && room && <Book room={room} onDone={() => setTab('mine')} />}
       {tab === 'mine' && <Mine />}
     </Panel>
   )
 }
 
-function Browse({ onPick }) {
+const mins = (room) => ['month', 'week', 'day', 'hour'].filter((k) => room.prices[k] > 0)
+function availability(room) {
+  if (room.now) return room.now.visibility === 'public' ? `In use until ${fmt(room.now.until)} (open to visitors)` : `Booked until ${fmt(room.now.until)}`
+  const next = (room.busy || []).filter((b) => new Date(b.start) > new Date()).sort((a, b) => a.start.localeCompare(b.start))[0]
+  return next ? `Available now · next booking ${fmt(next.start)}` : 'Available now'
+}
+
+function Browse({ onPick, onView }) {
   const rooms = useRentals((s) => s.rooms)
   if (!rooms.length) return <p className="hint">No spaces are offered for rent right now.</p>
   return (
@@ -54,8 +71,10 @@ function Browse({ onPick }) {
         <div className="admin-row" key={room.id}>
           <div className="grow">
             <b>{room.name} <span className="badge">{room.id}</span></b>
-            <small>{room.categoryName ? room.categoryName + ' · ' : ''}{room.kind} · floor {room.floor} · up to {room.occupancy} people{room.now ? ' · in use now' : ''}</small>
+            <small>{room.categoryName ? room.categoryName + ' · ' : ''}{room.kind} · {room.building} · floor {room.floor} · up to {room.occupancy} people{roomArea(room.id) ? ` · ${roomArea(room.id)} m²` : ''}</small>
+            <small className={room.now ? 'busy' : 'free'}>{availability(room)}</small>
           </div>
+          <button className="btn view-room" id={'view-' + room.id} onClick={() => onView(room.id)}>View room</button>
           <div className="prices">
             {['month', 'week', 'day', 'hour'].filter((k) => room.prices[k] > 0).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k}{k === 'hour' ? ' (events)' : ''}</small></span>)}
           </div>
@@ -68,13 +87,16 @@ function Browse({ onPick }) {
 
 function Book({ room, onDone }) {
   const r = useRentals()
-  const plans = ['month', 'week', 'day', 'hour'].filter((p) => room.prices[p] > 0)
-  const [plan, setPlan] = useState(plans[0])
-  const [qty, setQty] = useState(1)
-  const [start, setStart] = useState(() => { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); return localInput(d) })
-  const [guests, setGuests] = useState(1)
-  const [visibility, setVisibility] = useState('private')
-  const [invites, setInvites] = useState('')
+  const plans = mins(room)
+  // the form lives in a store so it survives viewing the room or taking a tour
+  const f = useRentDraft((s) => s.forms[room.id]) || {}
+  const field = (k, def) => [f[k] ?? def, (v) => setForm(room.id, { [k]: v })]
+  const [plan, setPlan] = field('plan', plans[0])
+  const [qty, setQty] = field('qty', 1)
+  const [start, setStart] = field('start', (() => { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); return localInput(d) })())
+  const [guests, setGuests] = field('guests', 1)
+  const [visibility, setVisibility] = field('visibility', 'private')
+  const [invites, setInvites] = field('invites', '')
   const [name, setName] = useState(useStore.getState().profile.name || '')
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -140,6 +162,7 @@ function Book({ room, onDone }) {
       <div className="admin-row">
         <div className="grow"><b>{room.name} <span className="badge">{room.id}</span></b><small>{room.kind} · {room.building} · floor {room.floor} · up to {room.occupancy} people</small></div>
       </div>
+      <RoomActions room={room} />
       <div className="field">
         <span>Rate</span>
         <div className="seg small">
@@ -225,6 +248,70 @@ function Mine() {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/** View room / virtual tour / visit, shown above the prices. */
+function RoomActions({ room, onView }) {
+  return (
+    <div className="room-actions">
+      <button type="button" className="btn view-room" onClick={() => (onView ? onView() : useRentDraft.setState({ view: 'preview', roomId: room.id }))}>View room</button>
+      <button type="button" className="btn" id={'tour-' + room.id} onClick={() => startTour(room.id)}>Take virtual tour</button>
+      {doorSpot(room.id) && <button type="button" className="btn ghost" onClick={() => visitRoom(room.id)}>Visit room</button>}
+    </div>
+  )
+}
+
+/** Photos of the actual room + details, with tour / visit / book. */
+function RoomPreview({ room, onBack, onBook }) {
+  const shots = usePreview((s) => s.photos[room.id])
+  const shooting = usePreview((s) => s.shooting === room.id)
+  const [i, setI] = useState(0)
+  useEffect(() => { takePhotos(room.id) }, [room.id])
+  const info = ROOM_INFO[room.id] || {}
+  const images = [...(room.photos || []).map((p) => ({ url: p.url, label: p.caption || 'Photo' })), ...(shots?.images || []).map((x) => ({ ...x, live: true }))]
+  const cur = images[Math.min(i, images.length - 1)]
+  const furniture = room.furniture?.length ? room.furniture : info.furniture || []
+  const amenities = room.amenities?.length ? room.amenities : info.amenities || []
+  const area = roomArea(room.id)
+  return (
+    <div className="room-preview">
+      <button className="btn ghost small" id="return-listing" onClick={onBack}>← Return to listing</button>
+      <div className="gallery">
+        {cur ? <img src={cur.url} alt={`${room.name}: ${cur.label}`} /> : <div className="gallery-wait">{shooting ? 'Taking live photos of the room…' : 'No photos yet.'}</div>}
+        {cur && <span className="gallery-label">{cur.label}{cur.live ? ' · live view of the room' : ''} · {Math.min(i, images.length - 1) + 1}/{images.length}</span>}
+        {images.length > 1 && (
+          <>
+            <button className="gallery-nav prev" aria-label="Previous photo" onClick={() => setI((i - 1 + images.length) % images.length)}>‹</button>
+            <button className="gallery-nav next" aria-label="Next photo" onClick={() => setI((i + 1) % images.length)}>›</button>
+          </>
+        )}
+      </div>
+      {images.length > 1 && (
+        <div className="thumbs">
+          {images.map((im, k) => <button key={k} className={k === i ? 'on' : ''} onClick={() => setI(k)} aria-label={im.label}><img src={im.url} alt="" /></button>)}
+          {shooting && <span className="hint small">taking photos…</span>}
+        </div>
+      )}
+      <div className="room-head">
+        <div>
+          <h3>{room.name} <span className="badge">{room.id}</span></h3>
+          <small>{room.building} · floor {room.floor} · up to {room.occupancy} people{area ? ` · ${area} m² · 3.9 m ceilings` : ''}</small>
+          <small className={room.now ? 'busy' : 'free'}>{availability(room)}</small>
+        </div>
+        <div className="prices">{mins(room).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k}{k === 'hour' ? ' (events)' : ''}</small></span>)}</div>
+      </div>
+      <RoomActions room={room} onView={() => takePhotos(room.id, true)} />
+      {(room.description || info.description) && <p>{room.description || info.description}</p>}
+      <div className="fields two">
+        <div><b>Furniture included</b><ul className="ticks">{furniture.map((x) => <li key={x}>{x}</li>)}</ul></div>
+        <div><b>Amenities</b><ul className="ticks">{amenities.map((x) => <li key={x}>{x}</li>)}</ul></div>
+      </div>
+      <div className="row-actions">
+        <button className="btn ghost" onClick={onBack}>Return to listing</button>
+        <button className="btn primary" id="book-this" onClick={onBook}>Book this room</button>
+      </div>
     </div>
   )
 }

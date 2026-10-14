@@ -33,6 +33,15 @@ export default function CameraRig() {
       return
     }
 
+    // a scripted viewpoint (room photos) takes over the camera
+    if (cameraState.override) {
+      const o = cameraState.override
+      camera.position.set(...o.pos)
+      camera.lookAt(...o.look)
+      input.look.dx = input.look.dy = 0
+      return
+    }
+
     // apply drag / wheel
     const touchScale = useStore.getState().isTouch ? 0.007 : 0.005
     cameraState.yaw -= input.look.dx * touchScale

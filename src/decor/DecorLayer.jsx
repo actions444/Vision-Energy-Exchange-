@@ -6,14 +6,17 @@ import { DECOR_SPACES, spaceById } from './spaces.js'
 import { itemById, floorMaterial, wallMaterial, LIGHT_PRESETS } from './catalog.jsx'
 import { LightAnchor } from '../world/props.jsx'
 import { playerState } from '../state/runtime.js'
+import { usePreview } from '../rentals/preview.js'
 
 // Renders every space's design (saved, or the draft being edited) and the placement preview.
 export default function DecorLayer() {
   const st = useDecor()
+  const mask = usePreview((s) => s.mask)
   return (
     <group userData={{ noBatch: true }}>
       {DECOR_SPACES.map((s) => {
         const d = designFor(s.id, st)
+        if (d && mask === s.id && d.by === 'renter') return null // hide a private renter's things on tours
         return d ? <SpaceDesign key={s.id} space={s} design={d} selected={st.open && st.spaceId === s.id ? st.selected : null} hide={st.placing?.uid} /> : null
       })}
       {st.open && st.placing && <Ghost />}

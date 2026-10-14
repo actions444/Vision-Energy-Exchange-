@@ -24,6 +24,7 @@ import AdminAccess from './AdminAccess.jsx'
 import DecorPanel from './DecorPanel.jsx'
 import { useDecor, openDecorator } from '../decor/decor.js'
 import { spaceAt } from '../decor/spaces.js'
+import { usePreview, endTour } from '../rentals/preview.js'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
 import { useDriving } from '../vehicles/vehicles.js'
@@ -190,6 +191,7 @@ function HUD() {
   const [menu, setMenu] = useState(false)
   const [spaceId, setSpaceId] = useState(null)
   const decorOpen = useDecor((s) => s.open)
+  const tour = usePreview((s) => s.tour)
   useEffect(() => { const t = setInterval(() => setSpaceId(spaceAt(playerState.position)?.id || null), 500); return () => clearInterval(t) }, [])
 
   const exit = () => {
@@ -200,7 +202,7 @@ function HUD() {
   }
   const buttons = [
     admin && ['owner', 'Owner tools', () => openPanel({ type: 'admin' }), 'Media library, music, rentals, time & weather'],
-    spaceId && !decorOpen && ['decorate', 'Decorate', () => openDecorator(spaceId), 'Furniture, lighting, flooring, walls and doors for this room'],
+    spaceId && !decorOpen && !tour && ['decorate', 'Decorate', () => openDecorator(spaceId), 'Furniture, lighting, flooring, walls and doors for this room'],
     zoneId === 'records' && ['albums', 'Browse albums', () => openPanel({ type: 'records' })],
     screenForZone(zoneId) && ['screen', 'Screen & sound', () => { unlockCinema(); openPanel({ type: 'cinema', screenId: screenForZone(zoneId).id }) }],
     ['rent', 'Rent a space', () => openPanel({ type: 'rent' })],
@@ -254,6 +256,12 @@ function HUD() {
 
       {mode === 'multi' && <Chat />}
       <DriveHud />
+      {tour && (
+        <div className="tour-bar" role="status">
+          <span><b>Virtual tour</b> · {tour.name} ({tour.roomId}) · look around freely; nothing here can be changed</span>
+          <button className="btn primary small" id="tour-return" onClick={endTour}>Return to listing</button>
+        </div>
+      )}
     </>
   )
 }

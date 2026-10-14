@@ -12,6 +12,7 @@ import { BrandSign } from './signs.jsx'
 import { canvasTexture, wrapText } from './canvasText.js'
 import { screenVideo } from '../audio/audio.js'
 import { useRentals } from '../rentals/client.js'
+import { usePreview } from '../rentals/preview.js'
 import { FONTS } from '../config/theme.js'
 import { Auditorium, ExitSign } from './Cinema.jsx'
 import { DOOR_U } from '../config/plaza.js'
@@ -231,9 +232,11 @@ function Boardroom() {
 // ---------------- VSP-302 Skyline Suite (private rental) ----------------
 function Suite() {
   const f = 2
+  const masked = usePreview((s) => s.mask === 'VSP-302') // touring visitors don't see a private renter's sign/message
   const custom = useRentals((s) => s.rooms.find((r) => r.id === 'VSP-302')?.customization) || {}
-  const accent = useMemo(() => new THREE.MeshStandardMaterial({ color: custom.wallColor || '#3c4a5a', roughness: 0.85 }), [custom.wallColor])
-  const screen = useScreen(custom.welcome || 'Skyline Suite', 'Private rental suite · VSP-302')
+  const eff = masked ? {} : custom
+  const accent = useMemo(() => new THREE.MeshStandardMaterial({ color: eff.wallColor || '#3c4a5a', roughness: 0.85 }), [eff.wallColor])
+  const screen = useScreen(eff.welcome || 'Skyline Suite', 'Private rental suite · VSP-302')
   return (
     <group>
       <RoomFloor f={f} side="north" material={surface('wood', 7, 3, { color: '#a58a6c' })} />
@@ -251,7 +254,7 @@ function Suite() {
       <Plant position={at(26.8, f, 19)} scale={1.2} />
       <Plant position={at(10.5, f, 19)} />
       <PendantLight position={at(16, f, 23.5, CEIL)} drop={1.1} />
-      {custom.signText && <BrandSign text={custom.signText} position={[P.X(16), P.Y(f) + 3.2, P.Z(N1 - 0.05)]} rotation={[0, Math.PI, 0]} width={6} size={110} color="#f4f1ea" />}
+      {eff.signText && <BrandSign text={eff.signText} position={[P.X(16), P.Y(f) + 3.2, P.Z(N1 - 0.05)]} rotation={[0, Math.PI, 0]} width={6} size={110} color="#f4f1ea" />}
       <RoomLights f={f} side="north" intensity={16} />
     </group>
   )

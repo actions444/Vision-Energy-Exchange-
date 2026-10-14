@@ -1,3 +1,4 @@
+import { inMaskedRoom } from '../rentals/preview.js'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -39,6 +40,8 @@ function RemotePlayer({ id, name, accent, skin }) {
     if (first.current) { pos.current.set(x, y, z); first.current = false }
     pos.current.lerp(new THREE.Vector3(x, y, z), 1 - Math.exp(-20 * dt))
     group.current.position.copy(pos.current)
+    // privacy: visitors inside a privately booked room aren't shown during a tour/photos of it
+    group.current.visible = !inMaskedRoom(pos.current.x, pos.current.y, pos.current.z)
     let d = (pd.targetYaw ?? 0) - inner.current.rotation.y
     d = Math.atan2(Math.sin(d), Math.cos(d))
     inner.current.rotation.y += d * (1 - Math.exp(-12 * dt))
