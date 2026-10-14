@@ -28,8 +28,8 @@ export const DOOR_U = 20 // room doors on the corridor walls (centre)
 export const PLAZA_ROOMS = [
   { id: 'VSP-101', floor: 0, side: 'south', name: 'Vision Storms Bistro', kind: 'Restaurant', playlist: 'pl-bistro', occupancy: 60 },
   { id: 'VSP-102', floor: 0, side: 'north', name: 'Storms Threads', kind: 'Clothing store', playlist: 'pl-threads', occupancy: 30 },
-  { id: 'VSP-201', floor: 1, side: 'south', name: 'Screening Room', kind: 'Movie theater', playlist: 'pl-screening', occupancy: 32, rentable: true },
-  { id: 'VSP-202', floor: 1, side: 'north', name: 'Studio 202', kind: 'Music & podcast studio', playlist: 'pl-studio', occupancy: 8, rentable: true },
+  { id: 'VSP-201', floor: 1, side: 'south', name: 'Screening Room', kind: 'Movie theater', playlist: null, occupancy: 32, rentable: true },
+  { id: 'VSP-202', floor: 1, side: 'north', name: 'Studio 202', kind: 'Music & podcast studio', playlist: 'pl-catalog', occupancy: 8, rentable: true },
   { id: 'VSP-301', floor: 2, side: 'south', name: 'Boardroom', kind: 'Conference room', playlist: 'pl-conference', occupancy: 12, rentable: true },
   { id: 'VSP-302', floor: 2, side: 'north', name: 'Skyline Suite', kind: 'Private rental suite', playlist: 'pl-suite', occupancy: 6, rentable: true },
 ]

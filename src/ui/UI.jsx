@@ -16,12 +16,22 @@ import { AdminHub, WorldAdmin, ElevatorPanel, Clock } from './WorldPanels.jsx'
 import { useRentals } from '../rentals/client.js'
 import { musicEngine } from '../music/engine.js'
 import { prewarmDemoTracks } from '../music/library.js'
-import { useMusicAdmin } from '../music/adminState.js'
+import { useBackend, ownerSignIn } from '../backend/backend.js'
+import MediaAdmin from './MediaAdmin.jsx'
+import RecordsPanel from './RecordsPanel.jsx'
+import CinemaPanel from './CinemaPanel.jsx'
+import { screenForZone, unlockCinema } from '../cinema/cinema.js'
+import { useMusic } from '../music/engine.js'
+
+const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media'])
 
 export default function UI() {
   const phase = useStore((s) => s.phase)
   const ready = useStore((s) => s.ready)
   const panel = useStore((s) => s.panel)
+  const admin = useBackend((s) => s.admin)
+  // owner panels never render for visitors (the backend also refuses their writes)
+  const ok = !ADMIN_PANELS.has(panel?.type) || admin
   return (
     <>
       {!ready && <Loading />}
@@ -29,12 +39,15 @@ export default function UI() {
       {phase === 'playing' && <HUD />}
       {phase === 'playing' && <TouchControls />}
       {phase === 'playing' && <MusicPlayer />}
-      {panel?.type === 'music' && <MusicAdmin />}
-      {panel?.type === 'admin' && <AdminHub />}
-      {panel?.type === 'world' && <WorldAdmin />}
+      {ok && panel?.type === 'music' && <MusicAdmin />}
+      {ok && panel?.type === 'admin' && <AdminHub />}
+      {ok && panel?.type === 'world' && <WorldAdmin />}
+      {ok && panel?.type === 'media' && <MediaAdmin />}
+      {panel?.type === 'records' && <RecordsPanel />}
+      {panel?.type === 'cinema' && <CinemaPanel screenId={panel.screenId} />}
       {panel?.type === 'elevator' && <ElevatorPanel />}
       {panel?.type === 'rent' && <RentPanel roomId={panel.roomId} />}
-      {panel?.type === 'rentals' && <RentalAdmin />}
+      {ok && panel?.type === 'rentals' && <RentalAdmin />}
       {panel?.type === 'content' && <ContentPanel id={panel.id} />}
       {panel?.type === 'assets' && <AssetPanel />}
       {panel?.type === 'settings' && <SettingsPanel />}
@@ -70,6 +83,7 @@ function StartScreen() {
   const enter = async (e) => {
     e.preventDefault()
     musicEngine.unlock() // inside the click, so mobile browsers allow sound
+    unlockCinema()
     setTimeout(prewarmDemoTracks, 2500)
     const info = { name: profile.name.trim().slice(0, 20) || 'Guest', accent: profile.accent, skin: profile.skin }
     if (mode === 'single') {
@@ -164,7 +178,9 @@ function HUD() {
   const peers = usePeers((s) => s.peers)
   const status = usePeers((s) => s.status)
   const transport = usePeers((s) => s.transport)
-  const adminTools = useMusicAdmin((s) => s.adminTools)
+  const admin = useBackend((s) => s.admin)
+  const zoneId = useMusic((s) => s.zoneId)
+  const [menu, setMenu] = useState(false)
 
   const exit = () => {
     net.disconnect()
@@ -172,6 +188,17 @@ function HUD() {
     musicEngine.stopAll()
     useStore.getState().exitWorld()
   }
+  const buttons = [
+    admin && ['owner', 'Owner tools', () => openPanel({ type: 'admin' }), 'Media library, music, rentals, time & weather'],
+    zoneId === 'records' && ['albums', 'Browse albums', () => openPanel({ type: 'records' })],
+    screenForZone(zoneId) && ['screen', 'Screen & sound', () => { unlockCinema(); openPanel({ type: 'cinema', screenId: screenForZone(zoneId).id }) }],
+    ['rent', 'Rent a space', () => openPanel({ type: 'rent' })],
+    ['assets', 'My avatar', () => openPanel({ type: 'assets' }), 'Import your own 3D avatar (stays on this device)'],
+    ['settings', 'Settings', () => openPanel({ type: 'settings' })],
+    ['help', 'Help', () => openPanel({ type: 'help' })],
+    ['respawn', 'Respawn', () => { playerState.respawn = true; cameraState.yaw = 0 }, 'Return to the start of the avenue'],
+    ['exit', 'Exit', exit],
+  ].filter(Boolean)
 
   return (
     <>
@@ -184,15 +211,20 @@ function HUD() {
           </span>
           <Clock />
         </div>
-        <nav className="hud-right">
-          {adminTools && <button onClick={() => openPanel({ type: 'admin' })}>Owner tools</button>}
-          <button onClick={() => openPanel({ type: 'rent' })}>Rent a space</button>
-          <button onClick={() => openPanel({ type: 'assets' })}>Assets</button>
-          <button onClick={() => openPanel({ type: 'settings' })}>Settings</button>
-          <button onClick={() => openPanel({ type: 'help' })}>Help</button>
-          <button onClick={() => { playerState.respawn = true; cameraState.yaw = 0 }} title="Return to the start of the avenue">Respawn</button>
-          <button onClick={exit}>Exit</button>
-        </nav>
+        {isTouch ? (
+          <nav className="hud-right hud-menu">
+            <button id="hud-menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>{menu ? 'Close' : 'Menu'}</button>
+            {menu && (
+              <div className="hud-menu-list" onClick={() => setMenu(false)}>
+                {buttons.map(([id, label, fn]) => <button key={id} id={'hud-' + id} onClick={fn}>{label}</button>)}
+              </div>
+            )}
+          </nav>
+        ) : (
+          <nav className="hud-right">
+            {buttons.map(([id, label, fn, title]) => <button key={id} id={'hud-' + id} onClick={fn} title={title}>{label}</button>)}
+          </nav>
+        )}
       </div>
 
       {media.audio && (
@@ -320,7 +352,7 @@ function SettingsPanel() {
   const setSetting = useStore((s) => s.setSetting)
   const profile = useStore((s) => s.profile)
   const setProfile = useStore((s) => s.setProfile)
-  const { adminTools, setAdminTools } = useMusicAdmin()
+  const outdoor = useMusic((s) => s.outdoor)
   const Toggle = ({ k, label, desc }) => (
     <label className="row toggle">
       <span><b>{label}</b><small>{desc}</small></span>
@@ -355,11 +387,42 @@ function SettingsPanel() {
         </div>
       </div>
       <label className="row toggle">
-        <span><b>Owner tools</b><small>Shows the Owner tools button (time & weather, rentals, music) on this device. Rentals on a server still need the owner token.</small></span>
-        <input id="set-admin" type="checkbox" checked={adminTools} onChange={(e) => setAdminTools(e.target.checked)} />
+        <span><b>Outdoor music</b><small>Ambient music on the streets. Rooms keep their own music either way.</small></span>
+        <input id="set-outdoor" type="checkbox" checked={outdoor} onChange={(e) => musicEngine.setOutdoor(e.target.checked)} />
       </label>
+      <OwnerAccess />
       <p className="hint">To play as one of your own 3D characters, import it in Assets and choose “Use as avatar”.</p>
     </Panel>
+  )
+}
+
+/** Who can change shared content, and owner sign-in for a self-hosted server. */
+function OwnerAccess() {
+  const b = useBackend()
+  const [url, setUrl] = useState(() => b.serverUrl || (location.protocol.startsWith('http') ? location.origin : ''))
+  const [token, setToken] = useState('')
+  const [err, setErr] = useState(null)
+  const [busy, setBusy] = useState(false)
+  if (b.kind === 'hosted') {
+    return <p className="hint">{b.admin ? 'You are signed in as an editor of this page, so the Owner tools (media uploads, music, rentals, time & weather) are on.' : 'Owner tools are only shown to the owner and editors of this page.'}</p>
+  }
+  if (b.kind === 'local') return <p className="hint">Development mode: the Owner tools are on and uploads are saved in this browser only.</p>
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true); setErr(null)
+    try { await ownerSignIn(url.trim(), token.trim()); setToken(''); location.reload() } catch (x) { setErr(x.message || 'Could not reach that server.') }
+    setBusy(false)
+  }
+  if (b.admin) return <p className="hint">Signed in as the owner on {b.serverUrl}. <button className="btn ghost small" onClick={() => { try { localStorage.removeItem('vsw-owner-token') } catch {}; location.reload() }}>Sign out</button></p>
+  return (
+    <form className="fields owner-signin" onSubmit={submit}>
+      <b>Owner sign-in</b>
+      <small className="hint">For a self-hosted Vision Storms server. Visitors don't need this.</small>
+      <label className="field"><span>Server address</span><input id="owner-url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://your-server.example" /></label>
+      <label className="field"><span>Owner token</span><input id="owner-token" type="password" autoComplete="current-password" value={token} onChange={(e) => setToken(e.target.value)} /></label>
+      {err && <p className="error">{err}</p>}
+      <button className="btn" type="submit" disabled={busy || !url || !token}>{busy ? 'Checking…' : 'Sign in'}</button>
+    </form>
   )
 }
 

@@ -7,6 +7,7 @@ import { useStore } from '../state/store.js'
 import { GALLERY } from './layout.js'
 import { DoubleDoor } from './Door.jsx'
 import { RecordsInterior, LoungeInterior } from './Rooms.jsx'
+import { CinemaInterior, CINEMA } from './Cinema.jsx'
 import PlazaBuilding, { PLAZA } from './PlazaBuilding.jsx'
 import { BrandSign } from './signs.jsx'
 import { Trees, FlowerBed, Bench, StreetLamp, Bollard, Fountain, ParkingLot, Planter, Lawn } from './props.jsx'
@@ -139,7 +140,7 @@ export default function City() {
       <PlazaBuilding />
 
       {/* storefront venues */}
-      <Venue id="cinema" name="VISION STORMS" sub="CINEMA · NOW SHOWING" x0={-34} x1={-10} z0={-22} z1={8} h={16} facing="+x" seed={1} wall="limestone" />
+      <Venue id="cinema" name="VISION STORMS" sub="CINEMA · NOW SHOWING" x0={CINEMA.x0} x1={CINEMA.x1} z0={CINEMA.z0} z1={CINEMA.z1} h={16} ih={CINEMA.ih} facing="+x" seed={1} wall="limestone" floorKind="none" interior={<CinemaInterior />} />
       <Venue id="records" name="STORMS RECORDS" sub="VINYL · STEMS · MERCH" x0={10} x1={30} z0={-20} z1={6} h={12} facing="-x" seed={2} wall="brick" interior={<RecordsInterior x0={10} x1={30} z0={-20} z1={6} />} />
       <Venue id="lounge" name="VISION STORMS" sub="LOUNGE · LIVE SETS" x0={10} x1={32} z0={32} z1={56} h={10} facing="-x" seed={4} wall="limestone" interior={<LoungeInterior x0={10} x1={32} z0={32} z1={56} />} />
       <FlowerBed x={8.3} z={-15} w={1.6} d={5} seed={4} />
@@ -209,11 +210,11 @@ export function wallMaterials(ext, int, inward) {
   return order.map((f) => (f === inward ? int : ext))
 }
 
-function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall = 'limestone' }) {
+function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall = 'limestone', ih = SHELL_H, floorKind }) {
   const mats = getMaterials()
   const w = x1 - x0, d = z1 - z0
   const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2
-  const tower = mats.windows(seed, Math.round(w / 4), Math.max(1, Math.round((h - 6) / 4)))
+  const tower = mats.windows(seed, Math.round(w / 4), Math.max(1, Math.round((h - ih) / 4)))
   const ext = surface(wall, wall === 'brick' ? d / 3 : d / 6, wall === 'brick' ? 2 : 1.2)
   const plaster = surface('plaster', 4, 2)
   const floor = wall === 'brick' ? surface('wood', w / 3, d / 3) : mats.marbleFloor(3, 3)
@@ -234,7 +235,7 @@ function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall 
     })
   }, [id, enterable]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const t = SHELL_T, IH = SHELL_H
+  const t = SHELL_T, IH = ih
   const facadeX = fx - (s * t) / 2
   const backX = (facing === '+x' ? x0 : x1) + (s * t) / 2
   const segA = cz - DOOR_HALF - z0
@@ -267,16 +268,16 @@ function Venue({ id, name, sub, x0, x1, z0, z1, h, facing, seed, interior, wall 
             <mesh key={i} position={[x, y, z]} material={wallMaterials(ext, plaster, inward)} castShadow receiveShadow><boxGeometry args={[sx, sy, sz]} /></mesh>
           ))}
           <mesh position={[cx, CURB + IH + 0.15, cz]} material={ceiling}><boxGeometry args={[w, 0.3, d]} /></mesh>
-          <mesh position={[cx, CURB + 0.004, cz]} rotation={[-Math.PI / 2, 0, 0]} material={floor} receiveShadow><planeGeometry args={[w - t * 2, d - t * 2]} /></mesh>
+          {floorKind !== 'none' && <mesh position={[cx, CURB + 0.004, cz]} rotation={[-Math.PI / 2, 0, 0]} material={floor} receiveShadow><planeGeometry args={[w - t * 2, d - t * 2]} /></mesh>}
           <DoubleDoor id={'door-' + id} center={[facadeX, CURB, cz]} halfWidth={DOOR_HALF} height={DOOR_H} facing={yaw} accent="#c9a96a" label={`${kind} doors`} />
           <Interior x0={x0} x1={x1} z0={z0} z1={z1}>{interior}</Interior>
         </>
       ) : (
-        <mesh position={[cx, CURB + 3, cz]} material={ext} castShadow receiveShadow><boxGeometry args={[w, 6, d]} /></mesh>
+        <mesh position={[cx, CURB + IH / 2, cz]} material={ext} castShadow receiveShadow><boxGeometry args={[w, IH, d]} /></mesh>
       )}
-      <mesh position={[cx, CURB + 6 + (h - 6) / 2 + (enterable ? 0.15 : 0), cz]} material={tower} castShadow><boxGeometry args={[w - 0.6, h - 6 - (enterable ? 0.3 : 0), d - 0.6]} /></mesh>
+      <mesh position={[cx, CURB + IH + (h - IH) / 2 + (enterable ? 0.15 : 0), cz]} material={tower} castShadow><boxGeometry args={[w - 0.6, h - IH - (enterable ? 0.3 : 0), d - 0.6]} /></mesh>
       <mesh position={[cx, CURB + h + 0.25, cz]} material={surface('concrete', 2, 0.2)}><boxGeometry args={[w, 0.5, d]} /></mesh>
-      <mesh position={[cx, CURB + 6.1, cz]} material={surface('limestone', 4, 0.2)}><boxGeometry args={[w + 0.3, 0.3, d + 0.3]} /></mesh>
+      <mesh position={[cx, CURB + IH + 0.1, cz]} material={surface('limestone', 4, 0.2)}><boxGeometry args={[w + 0.3, 0.3, d + 0.3]} /></mesh>
       <group position={[fx, CURB, cz]} rotation={[0, yaw, 0]}>
         <BrandSign text={name} sub={sub} position={[0, 5.0, 0.08]} width={Math.min(d - 3, 14)} />
         <mesh position={[0, 3.95, 1.2]} material={mats.blackSteel} castShadow><boxGeometry args={[Math.min(d - 4, 11), 0.16, 2.4]} /></mesh>

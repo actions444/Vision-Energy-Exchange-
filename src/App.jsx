@@ -20,6 +20,9 @@ import { useMusicLibrary, resolveTrackSource } from './music/library.js'
 import { musicEngine, useMusic } from './music/engine.js'
 import { useEnv } from './state/environment.js'
 import { useRentals, rentalAccess } from './rentals/client.js'
+import { detectBackend, useBackend, backend } from './backend/backend.js'
+import { startMedia, useMedia } from './media/media.js'
+import { startCinema, runCinema, useCinema, cinemaVideo } from './cinema/cinema.js'
 
 function Ready() {
   useEffect(() => { useStore.setState({ ready: true }) }, [])
@@ -31,7 +34,14 @@ export default function App() {
 
   useEffect(() => {
     useAssets.getState().restore()
-    useMusicLibrary.getState().init()
+    // find the backend (hosted page, self-hosted server, or dev), then load the shared media
+    // library and music setup from it
+    detectBackend().finally(() => {
+      startMedia()
+      useMusicLibrary.getState().init()
+      startCinema()
+      runCinema()
+    })
     return installKeyboard({
       onKey: (e) => {
         const st = useStore.getState()
@@ -90,4 +100,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo }

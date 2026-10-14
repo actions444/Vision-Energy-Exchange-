@@ -13,6 +13,8 @@ import { canvasTexture, wrapText } from './canvasText.js'
 import { screenVideo } from '../audio/audio.js'
 import { useRentals } from '../rentals/client.js'
 import { FONTS } from '../config/theme.js'
+import { Auditorium, ExitSign } from './Cinema.jsx'
+import { DOOR_U } from '../config/plaza.js'
 import { StaticBatch } from './batch.jsx'
 
 // Furnishings for the six Plaza rooms. Every chair, stool and sofa is sittable.
@@ -139,19 +141,23 @@ function Threads() {
 // ---------------- VSP-201 Screening Room (movie theater) ----------------
 function Screening() {
   const f = 1
-  const screen = useScreen('Feature Presentation', 'Vision Storms Cinema')
-  const rows = [8, 11, 14, 17]
+  // the room becomes a small stadium-seated theater: 4 tiers of recliners, a 16:9-ish screen,
+  // aisle, exit sign, screen & sound controls; plays movies from the media library
   return (
     <group>
       <RoomFloor f={f} side="south" material={surface('carpet', 8, 3, { color: '#3a2a2e' })} />
-      <WallScreen position={at(0.36, f, 5.1, 2.25)} yaw={Math.PI / 2} size={[8, 3.4]} material={screen} />
-      {rows.flatMap((u, r) => Array.from({ length: 7 }, (_, i) => [u, 1.6 + i * 1.05, r])).map(([u, v, r], i) => (
-        <Chair key={i} position={at(u, f, v)} yaw={-Math.PI / 2} color={r % 2 ? '#6a1f26' : '#5a1a20'} label="Take a seat" />
-      ))}
-      <Speaker position={at(0.8, f, 0.9)} yaw={Math.PI / 2} scale={1.8} />
-      <Speaker position={at(0.8, f, 9.3)} yaw={Math.PI / 2} scale={1.8} />
+      <Auditorium
+        screenId="VSP-201"
+        title="Screening Room"
+        x0={P.X(0.3)} x1={P.X(15.6)} z0={P.Z(S0)} z1={P.Z(S1)} entry="z1"
+        floorY={P.Y(f)} height={CEIL} rows={4} rowDepth={1.6} tier={0.13} firstRow={5.2} corridor={1.3} aisle={1.0}
+        screenH={2.35} backExit={false} seatColor="#4a1a22"
+      />
+      <ExitSign position={at(DOOR_U, f, S1 - 0.06, 2.65)} yaw={Math.PI} />
       <Counter position={at(25.5, f, 3)} yaw={Math.PI / 2} length={3} top="wood" />
-      <RoomLights f={f} side="south" color="#ffd9b0" intensity={8} />
+      <Sofa position={at(22, f, 0.85)} yaw={0} length={2.6} color="#4a1a22" label="Sit on lounge sofa" />
+      <Plant position={at(27, f, 9.2)} />
+      <RoomLights f={f} side="south" color="#ffd9b0" intensity={6} us={[19, 24]} />
     </group>
   )
 }

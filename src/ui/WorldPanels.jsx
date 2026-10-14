@@ -21,6 +21,7 @@ export function AdminHub() {
     ['world', 'Time & weather', 'Set the time of day, run or pause the cycle, change the weather.'],
     ['rentals', 'Rentals', 'Rentable rooms, prices, availability, requests, assignments and revenue.'],
     ['music', 'Music', 'Upload music, build playlists, choose what every room plays.'],
+    ['media', 'Media library', 'Upload songs, album covers, music videos, movies, audiobooks and e-books. Publish what visitors see.'],
     ['assets', '3D assets', 'Import GLB/GLTF models and place them in the world.'],
   ]
   return (

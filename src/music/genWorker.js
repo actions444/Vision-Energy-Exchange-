@@ -14,6 +14,10 @@ const PROGS = {
   synthwave: [[0, 3, 7], [-4, 0, 3], [-7, -3, 0], [-2, 2, 5]],
   trap: [[0, 3, 7], [0, 3, 7], [-4, 0, 3], [-5, -1, 2]],
   ambient: [[0, 7, 10, 14], [-4, 3, 7, 12], [-7, 0, 3, 10], [-2, 5, 9, 14]],
+  // R&B / soul: major-seventh and ninth voicings (I maj9 - vi m9 - ii m9 - V 13sus)
+  rnb: [[0, 4, 7, 11, 14], [-3, 0, 4, 7, 11], [2, 5, 9, 12, 16], [-5, 0, 2, 5, 9]],
+  // relaxing instrumental (bookstore): gentle major-key piano arpeggios
+  piano: [[0, 4, 7, 11], [-3, 0, 4, 7], [-7, -3, 0, 4], [-5, -1, 2, 7]],
 }
 
 function render({ style, bpm, bars, root, seed }) {
@@ -169,6 +173,33 @@ function render({ style, bpm, bars, root, seed }) {
       if (section !== 'intro') for (let i = 0; i < 4; i++) if (r() < 0.55) pluck(t0 + i * beat + (r() < 0.3 ? beat / 2 : 0), midi(root + 24 + scale[Math.floor(r() * 7)]), 0.06, 0.9)
     }
 
+    if (style === 'rnb') {
+      const swing = beat / 6
+      // electric piano: soft triangle + sine with slow tremolo, comped on 1 and the "and" of 2
+      ;[0, beat * 1.5 + swing].forEach((p, k) => chord.forEach((n, i) => note(t0 + p, midi(root + 12 + n), k ? beat * 1.8 : beat * 1.3, { wave: i % 2 ? 'sine' : 'tri', v: 0.04, a: 0.012, rel: 0.5, lp: 2000, trem: 0.3 })))
+      // round sub bass with a passing note
+      note(t0, midi(root - 12 + chord[0]), beat * 1.6, { v: 0.32, a: 0.02, lp: 260 })
+      note(t0 + beat * 2.5 + swing, midi(root - 12 + chord[0] + 7), beat * 0.9, { v: 0.24, a: 0.02, lp: 260 })
+      note(t0 + beat * 3.5 + swing, midi(root - 12 + prog[(bar + 1) % prog.length][0] - 1), beat * 0.45, { v: 0.2, a: 0.02, lp: 260 })
+      if (drums) {
+        mix(kick, t0, 0.75); mix(kick, t0 + beat * 1.5 + swing, 0.45); mix(kick, t0 + beat * 2.75, 0.5)
+        mix(snare, t0 + beat, 0.22); mix(snare, t0 + beat * 3, 0.26)
+        for (let i = 0; i < 8; i++) mix(hat, t0 + i * beat / 2 + (i % 2 ? swing : 0), i % 2 ? 0.07 : 0.11)
+      }
+      // a few vocal-like lead notes (sine with slow attack, glide)
+      if (section === 'main' && bar % 2 === 1) for (let i = 0; i < 3; i++) if (r() < 0.7) note(t0 + i * beat + beat / 2, midi(root + 24 + pent[Math.floor(r() * 5)]), beat * 0.9, { v: 0.05, a: 0.08, rel: 0.4, glideTo: r() < 0.3 ? midi(root + 24 + pent[Math.floor(r() * 5)]) : 0 })
+    }
+
+    if (style === 'piano') {
+      // broken-chord piano with long release, a slow left hand and occasional melody
+      note(t0, midi(root - 12 + chord[0]), barLen * 0.95, { wave: 'tri', v: 0.09, a: 0.006, rel: 1.6, lp: 700 })
+      for (let i = 0; i < 8; i++) {
+        const n = chord[[0, 1, 2, 3, 2, 1, 2, 3][i] % chord.length]
+        pluck(t0 + i * beat / 2 + (r() - 0.5) * 0.02, midi(root + 12 + n), 0.06 + r() * 0.02, 2.2, 'tri')
+      }
+      if (section === 'main' && r() < 0.8) pluck(t0 + beat * (r() < 0.5 ? 0 : 2), midi(root + 24 + chord[Math.floor(r() * chord.length)]), 0.07, 3, 'sine')
+    }
+
     if (style === 'ambient') {
       if (bar % 2 === 0) chord.forEach((n, i) => note(t0, midi(root + n), barLen * 2, { wave: 'saw', v: 0.028, a: 2.5, rel: 1.5, lp: 650, detune: (i - 1.5) * 8 }))
       note(t0, midi(root - 24 + chord[0]), barLen, { v: 0.16, a: 1.5, rel: 1, lp: 200 })
@@ -188,6 +219,12 @@ function render({ style, bpm, bars, root, seed }) {
   }
 
   // master: lo-fi darkening, fades, soft clip + normalise
+  if (style === 'piano' || style === 'rnb') {
+    // small room reverb: a few feedback-free taps
+    const taps = [[0.031, 0.22], [0.057, 0.18], [0.089, 0.14], [0.13, 0.1], [0.19, 0.07]]
+    const dry = out.slice()
+    for (const [d, g] of taps) { const o = Math.floor(d * SR); for (let i = o; i < N; i++) out[i] += dry[i - o] * g }
+  }
   if (style === 'lofi') { let y = 0; const k = 1 - Math.exp((-2 * Math.PI * 3200) / SR); for (let i = 0; i < N; i++) { y += k * (out[i] - y); out[i] = y } }
   const fadeIn = Math.min(2, barLen) * SR, fadeOut = 2.8 * SR
   let peak = 0

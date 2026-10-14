@@ -2,18 +2,22 @@
 //  - WebSocket relay for multiplayer (rooms, positions, sitting, emotes, chat, owner-set weather/time)
 //  - Rental API (see rentalsApi.js) with owner auth, server-side access checks and payment webhooks
 //  - Serves the built site from ../dist when it exists, so one process can host everything
-// Run: npm run server   (PORT, ADMIN_TOKEN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, DEV_PAYMENTS, PUBLIC_URL, CORS_ORIGIN)
+// Run: npm run server   (PORT, ADMIN_TOKEN, DATA_DIR, MAX_UPLOAD_BYTES, MAX_STORAGE_BYTES, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, DEV_PAYMENTS, PUBLIC_URL, CORS_ORIGIN)
 import { WebSocketServer } from 'ws'
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRentalsApi } from './rentalsApi.js'
+import { createStoreApi } from './storeApi.js'
 
 const PORT = Number(process.env.PORT || 8787)
 const MAX_PER_ROOM = Number(process.env.MAX_PER_ROOM || 50)
 const CORS = process.env.CORS_ORIGIN || '*'
 const DIST = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'dist')
 const rentals = createRentalsApi()
+const DATA_DIR = process.env.DATA_DIR || path.join(path.dirname(new URL(import.meta.url).pathname), 'data')
+const bearer = (req) => (/^Bearer (.+)$/.exec(req.headers.authorization || '') || [])[1]
+const store = createStoreApi({ dataDir: DATA_DIR, isAdmin: (req) => rentals.isAdminToken(bearer(req)) })
 
 const rooms = new Map() // room -> { members: Map(id -> { ws, info, admin }), env }
 const rid = () => Math.random().toString(36).slice(2, 10)
@@ -29,14 +33,17 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', CORS)
-  res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, x-customer-token')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, x-customer-token, range')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+  res.setHeader('Access-Control-Expose-Headers', 'content-range, accept-ranges, content-length')
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end() }
   const url = new URL(req.url, 'http://localhost')
   if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' })
-    return res.end(JSON.stringify({ ok: true, rooms: rooms.size, players: [...rooms.values()].reduce((a, r) => a + r.members.size, 0), payments: rentals.paymentMode }))
+    return res.end(JSON.stringify({ ok: true, now: Date.now(), rooms: rooms.size, players: [...rooms.values()].reduce((a, r) => a + r.members.size, 0), payments: rentals.paymentMode }))
   }
+  // media library, music setup, screenings, model placements + uploaded files (streams large uploads)
+  if (await store(req, res, url)) return
   if (url.pathname.startsWith('/api/')) {
     let raw = ''
     for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) { res.writeHead(413); return res.end() } }
