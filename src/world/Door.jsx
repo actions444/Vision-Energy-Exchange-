@@ -3,18 +3,19 @@ import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { registerInteractable } from '../state/runtime.js'
-import { getMaterials } from './materials.js'
+import { useStore } from '../state/store.js'
+import { getMaterials, surface } from './materials.js'
 
 // A hinged door leaf with a real physics collider that swings with it.
 // `hinge` is the hinge position, the leaf extends along its local +x by `width`.
 // `baseYaw` orients the closed leaf, `openAngle` is the swing (sign chooses direction).
-export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, open, accent, thickness = 0.12 }) {
+export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, open, accent, thickness = 0.12, wood = false }) {
   const body = useRef()
   const angle = useRef(0)
   const q = useMemo(() => new THREE.Quaternion(), [])
   const e = useMemo(() => new THREE.Euler(), [])
   const mats = getMaterials()
-  const glow = useMemo(() => mats.neon(accent, 2.5), [accent, mats])
+  const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 0.9 }), [accent])
 
   useFrame((_, dt) => {
     const target = open ? openAngle : 0
@@ -27,16 +28,20 @@ export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, 
   return (
     <RigidBody ref={body} type="kinematicPosition" colliders={false} position={hinge} rotation={[0, baseYaw, 0]}>
       <CuboidCollider args={[width / 2, height / 2, thickness / 2]} position={[width / 2, height / 2, 0]} />
-      {/* frame + smoked glass panel + neon pull bar */}
-      <mesh position={[width / 2, height / 2, 0]} material={mats.darkMetal} castShadow>
+      <group userData={{ noBatch: true }}>
+      {/* aluminium frame + glass panel + brass pull bar */}
+      <mesh position={[width / 2, height / 2, 0]} material={wood ? surface('wood', 0.6, 1.2, { color: '#a07c5c' }) : mats.aluminum} castShadow>
         <boxGeometry args={[width, height, thickness]} />
       </mesh>
-      <mesh position={[width / 2, height / 2 + 0.1, 0]} material={mats.glass}>
-        <boxGeometry args={[width - 0.3, height - 0.6, thickness + 0.02]} />
+      {!wood && (
+        <mesh position={[width / 2, height / 2 + 0.1, 0]} material={mats.glass}>
+          <boxGeometry args={[width - 0.3, height - 0.6, thickness + 0.02]} />
+        </mesh>
+      )}
+      <mesh position={[width - 0.12, height * 0.45, 0]} material={glow}>
+        <boxGeometry args={[0.04, wood ? 0.3 : 1.3, thickness + 0.12]} />
       </mesh>
-      <mesh position={[width - 0.22, height / 2, 0]} material={glow}>
-        <boxGeometry args={[0.05, 1.3, thickness + 0.14]} />
-      </mesh>
+      </group>
     </RigidBody>
   )
 }
@@ -70,4 +75,43 @@ export function DoubleDoor({ id, center, halfWidth, height, facing = 0, accent =
       <DoorLeaf hinge={rightHinge} width={halfWidth} height={height} baseYaw={facing + Math.PI} openAngle={-1.6} open={open} accent={accent} />
     </>
   )
+}
+
+/**
+ * Single hinged room door. `hinge` is the hinge position on the floor; the leaf extends along
+ * local +x (rotated by baseYaw) for `width`; openAngle's sign picks the swing direction.
+ * `check` (optional, async) can refuse opening, e.g. a rented private room: () => ({ ok, reason }).
+ */
+export function SingleDoor({ id, hinge, width = 1.1, height = 2.3, baseYaw = 0, openAngle = 1.5, label = 'door', check, lockedLabel }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const st = useRef({ open, busy, locked: false })
+  st.current.open = open
+  st.current.busy = busy
+  st.current.check = check
+  st.current.lockedLabel = lockedLabel
+  const c = Math.cos(baseYaw), s = Math.sin(baseYaw)
+  const mid = new THREE.Vector3(hinge[0] + (c * width) / 2, hinge[1], hinge[2] - (s * width) / 2)
+
+  useEffect(() => registerInteractable(id, {
+    position: mid,
+    radius: 1.9,
+    label: () => (st.current.busy ? 'Checking access…' : st.current.open ? `Close ${label}` : st.current.lockedLabel?.() || `Open ${label}`),
+    onInteract: async () => {
+      if (st.current.busy) return
+      if (st.current.open || !st.current.check) { setOpen((o) => !o); return }
+      setBusy(true)
+      try {
+        const r = await st.current.check()
+        if (r.ok) setOpen(true)
+        else useStore.getState().showToast(r.reason || 'This door is locked.')
+      } catch {
+        useStore.getState().showToast('Could not check access right now.')
+      } finally {
+        setBusy(false)
+      }
+    },
+  }), [id, label]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return <DoorLeaf hinge={hinge} width={width} height={height} baseYaw={baseYaw} openAngle={openAngle} open={open} accent="#c9a96a" thickness={0.06} wood />
 }

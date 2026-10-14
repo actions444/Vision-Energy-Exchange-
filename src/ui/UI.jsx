@@ -10,6 +10,10 @@ import AssetPanel from './AssetPanel.jsx'
 import { stopAudio } from '../audio/audio.js'
 import MusicPlayer from './MusicPlayer.jsx'
 import MusicAdmin from './MusicAdmin.jsx'
+import RentPanel from './RentPanel.jsx'
+import RentalAdmin from './RentalAdmin.jsx'
+import { AdminHub, WorldAdmin, ElevatorPanel, Clock } from './WorldPanels.jsx'
+import { useRentals } from '../rentals/client.js'
 import { musicEngine } from '../music/engine.js'
 import { prewarmDemoTracks } from '../music/library.js'
 import { useMusicAdmin } from '../music/adminState.js'
@@ -26,6 +30,11 @@ export default function UI() {
       {phase === 'playing' && <TouchControls />}
       {phase === 'playing' && <MusicPlayer />}
       {panel?.type === 'music' && <MusicAdmin />}
+      {panel?.type === 'admin' && <AdminHub />}
+      {panel?.type === 'world' && <WorldAdmin />}
+      {panel?.type === 'elevator' && <ElevatorPanel />}
+      {panel?.type === 'rent' && <RentPanel roomId={panel.roomId} />}
+      {panel?.type === 'rentals' && <RentalAdmin />}
       {panel?.type === 'content' && <ContentPanel id={panel.id} />}
       {panel?.type === 'assets' && <AssetPanel />}
       {panel?.type === 'settings' && <SettingsPanel />}
@@ -70,7 +79,7 @@ function StartScreen() {
     }
     setBusy(true)
     try { localStorage.setItem('vsw-server', url) } catch {}
-    const ok = await net.connect(transport, { room: room.trim() || 'lobby', url, info })
+    const ok = await net.connect(transport, { room: room.trim() || 'lobby', url, info, adminToken: useRentals.getState().adminToken || undefined })
     setBusy(false)
     if (ok) enterWorld('multi')
   }
@@ -173,9 +182,11 @@ function HUD() {
             {mode === 'single' ? 'Single-player' : status === 'online' ? `Multiplayer · ${peers.length + 1} here` : `Multiplayer · ${status}`}
             {mode === 'multi' && <em>{transport === 'tabs' ? 'tabs' : 'server'}</em>}
           </span>
+          <Clock />
         </div>
         <nav className="hud-right">
-          {adminTools && <button onClick={() => openPanel({ type: 'music' })}>Music admin</button>}
+          {adminTools && <button onClick={() => openPanel({ type: 'admin' })}>Owner tools</button>}
+          <button onClick={() => openPanel({ type: 'rent' })}>Rent a space</button>
           <button onClick={() => openPanel({ type: 'assets' })}>Assets</button>
           <button onClick={() => openPanel({ type: 'settings' })}>Settings</button>
           <button onClick={() => openPanel({ type: 'help' })}>Help</button>
@@ -325,8 +336,8 @@ function SettingsPanel() {
           <button className={settings.quality === 'low' ? 'on' : ''} onClick={() => setSetting('quality', 'low')}>Low</button>
         </div>
       </div>
-      <Toggle k="bloom" label="Neon glow" desc="Cinematic bloom on neon lights." />
-      <Toggle k="rain" label="Storm" desc="Rain and lightning over the city." />
+      <Toggle k="bloom" label="Light glow" desc="Soft bloom around lamps, signs and screens." />
+      <Toggle k="rain" label="Rain effects" desc="Show falling rain when the weather is rainy." />
       <div className="row">
         <span><b>Neon color</b><small>Your avatar's accent lights.</small></span>
         <div className="swatches">
@@ -344,7 +355,7 @@ function SettingsPanel() {
         </div>
       </div>
       <label className="row toggle">
-        <span><b>Admin tools</b><small>Shows the Music admin button on this device. This is a convenience switch, not a login.</small></span>
+        <span><b>Owner tools</b><small>Shows the Owner tools button (time & weather, rentals, music) on this device. Rentals on a server still need the owner token.</small></span>
         <input id="set-admin" type="checkbox" checked={adminTools} onChange={(e) => setAdminTools(e.target.checked)} />
       </label>
       <p className="hint">To play as one of your own 3D characters, import it in Assets and choose “Use as avatar”.</p>
@@ -359,7 +370,7 @@ function HelpPanel() {
         <div><kbd>W A S D</kbd><span>Walk (arrow keys work too)</span></div>
         <div><kbd>Shift</kbd><span>Run</span></div>
         <div><kbd>Space</kbd><span>Jump</span></div>
-        <div><kbd>E</kbd><span>Open doors, use kiosks</span></div>
+        <div><kbd>E</kbd><span>Open doors, sit, stand, call the elevator, use kiosks</span></div>
         <div><kbd>1</kbd><span>Wave</span></div>
         <div><kbd>Drag</kbd><span>Look around · mouse wheel zooms</span></div>
         <div><kbd>B</kbd><span>Asset library</span></div>
@@ -367,7 +378,7 @@ function HelpPanel() {
         <div><kbd>Esc</kbd><span>Close a panel</span></div>
       </div>
       <p className="hint">On a phone: left thumb on the joystick (push to the edge to run), drag anywhere else to look, tap the prompt to interact.</p>
-      <p className="hint">The Reign Gallery is at the end of the avenue, straight ahead from where you start.</p>
+      <p className="hint">The Reign Gallery is at the end of the avenue, straight ahead from where you start. Vision Storms Plaza is behind you on the left, past the crossroads: take the stairs or the elevator to its three floors.</p>
     </Panel>
   )
 }

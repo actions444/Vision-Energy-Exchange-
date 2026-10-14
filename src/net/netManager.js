@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { SoloAdapter, TabAdapter, WebSocketAdapter } from './adapters.js'
+import { useEnv } from '../state/environment.js'
 
 // React-facing summary of the session (who's here, status, chat log).
 export const usePeers = create(() => ({
@@ -22,7 +23,7 @@ export const net = {
   selfInfo: null,
   lastSend: 0,
 
-  async connect(kind, { room = 'lobby', url, info }) {
+  async connect(kind, { room = 'lobby', url, info, adminToken }) {
     this.disconnect()
     this.selfInfo = info
     const adapter = kind === 'tabs' ? new TabAdapter() : kind === 'server' ? new WebSocketAdapter(url) : new SoloAdapter()
@@ -31,11 +32,12 @@ export const net = {
       this.selfId = await adapter.connect({
         room,
         info,
+        adminToken,
         onMessage: (m) => this.receive(m),
         onStatus: (s) => usePeers.setState({ status: s }),
       })
       this.adapter = adapter
-      if (kind !== 'solo') usePeers.setState({ status: 'online' })
+      if (kind !== 'solo') usePeers.setState({ status: 'online', isAdmin: !!adapter.admin || kind === 'tabs' })
       return true
     } catch (e) {
       usePeers.setState({ status: 'error', error: e.message })
@@ -53,6 +55,11 @@ export const net = {
 
   receive(m) {
     if (!m || !m.id || m.id === this.selfId) return
+    if (m.t === 'env') {
+      // owner changed time of day / weather for everyone
+      useEnv.getState().set({ time: m.time, weather: m.weather, running: m.running, speed: m.speed })
+      return
+    }
     const now = performance.now()
     let pd = peerData.get(m.id)
     if (m.t === 'join') {
@@ -82,6 +89,8 @@ export const net = {
       pd.targetYaw = m.y
       pd.speed = m.s
       pd.grounded = !!m.g
+      pd.sit = m.st ? 1 : 0
+      pd.sitHeight = m.sh || 0.45
     } else if (m.t === 'emote') {
       pd.emote = m.e
       pd.emoteUntil = now + 2400
@@ -109,9 +118,13 @@ export const net = {
       y: +ps.yaw.toFixed(3),
       s: +ps.speed.toFixed(2),
       g: ps.grounded ? 1 : 0,
+      st: ps.sit ? 1 : 0,
+      sh: +(ps.sitHeight || 0.45).toFixed(2),
     })
   },
   sendEmote(e) { this.adapter.send({ t: 'emote', e }) },
+  /** Owner only (the server ignores everyone else): share time of day + weather. */
+  sendEnv(env) { this.adapter.send({ t: 'env', ...env }) },
   sendChat(text) {
     const clean = text.trim().slice(0, 140)
     if (!clean) return

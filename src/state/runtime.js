@@ -10,6 +10,12 @@ export const playerState = {
   emote: null,
   emoteUntil: 0,
   colliderHandle: null,
+  seated: null, // the seat object while sitting
+  sit: 0, // 1 while seated (drives the pose; sent to other players)
+  sitHeight: 0.45,
+  sitRequest: null,
+  respawn: false,
+  teleport: null,
 }
 
 export const cameraState = {

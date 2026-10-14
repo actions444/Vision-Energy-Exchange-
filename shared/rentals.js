@@ -1,0 +1,359 @@
+// Virtual commercial property rentals: the rules, shared by the server (authoritative) and the
+// in-browser preview sandbox. Pure functions over a plain state object, no I/O.
+//
+// Money is stored in integer cents. Times are ISO-8601 strings (UTC).
+
+export const PLANS = {
+  hour: { label: 'Hourly', ms: 3600e3 },
+  day: { label: 'Daily', ms: 86400e3 },
+  week: { label: 'Weekly', ms: 7 * 86400e3 },
+  month: { label: 'Monthly', ms: 30 * 86400e3 },
+}
+
+/** Features a renter may be allowed to customise, with validation. */
+export const FEATURES = {
+  signText: { label: 'Wall sign text', validate: (v) => typeof v === 'string' && v.length <= 40 },
+  welcome: { label: 'Screen welcome message', validate: (v) => typeof v === 'string' && v.length <= 60 },
+  wallColor: { label: 'Accent wall colour', validate: (v) => /^#[0-9a-f]{6}$/i.test(v) },
+  playlist: { label: 'Room playlist', validate: (v) => typeof v === 'string' && v.length <= 64 },
+}
+
+export const VISIBILITY = { public: 'Public (anyone can enter)', private: 'Private (only me)', invite: 'Invitation only' }
+
+// Bookings in these states hold the room's calendar
+const HOLDS = new Set(['pending_payment', 'pending_approval', 'approved'])
+const PENDING_PAYMENT_TTL = 30 * 60e3 // unpaid holds lapse after 30 minutes
+
+export function emptyState() {
+  return { rooms: [], bookings: [], customers: [], log: [], seq: 1000 }
+}
+
+export class RentalError extends Error {
+  constructor(message, status = 400) { super(message); this.status = status }
+}
+const fail = (msg, status) => { throw new RentalError(msg, status) }
+const nowIso = (now) => new Date(now ?? Date.now()).toISOString()
+const overlap = (a0, a1, b0, b1) => a0 < b1 && b0 < a1
+
+function log(state, type, data, now) {
+  state.log.push({ at: nowIso(now), type, ...data })
+  if (state.log.length > 2000) state.log.splice(0, state.log.length - 2000)
+}
+
+// ---------------- rooms ----------------
+export function createRoom(state, input, now) {
+  const id = String(input.id || '').trim().toUpperCase()
+  if (!/^[A-Z0-9][A-Z0-9-]{2,15}$/.test(id)) fail('Room ID must be 3-16 letters, numbers or dashes, like VSP-302.')
+  if (state.rooms.some((r) => r.id === id)) fail(`Room ID ${id} is already in use.`, 409)
+  const room = normaliseRoom({ ...input, id })
+  state.rooms.push(room)
+  log(state, 'room.created', { roomId: id }, now)
+  return room
+}
+
+function normaliseRoom(r) {
+  const cents = (v) => Math.max(0, Math.round(Number(v) || 0))
+  return {
+    id: r.id,
+    name: String(r.name || r.id).slice(0, 60),
+    kind: String(r.kind || 'Rental space').slice(0, 60),
+    building: String(r.building || 'Vision Storms Plaza').slice(0, 60),
+    floor: Number.isFinite(+r.floor) ? +r.floor : 0,
+    occupancy: Math.max(1, Math.min(500, Math.round(+r.occupancy || 1))),
+    prices: { hour: cents(r.prices?.hour), day: cents(r.prices?.day), week: cents(r.prices?.week), month: cents(r.prices?.month) },
+    currency: r.currency || 'usd',
+    active: r.active !== false,
+    autoApprove: !!r.autoApprove,
+    openWhenVacant: r.openWhenVacant !== false,
+    features: (r.features || []).filter((f) => FEATURES[f]),
+    blackouts: (r.blackouts || []).map((b) => ({ start: new Date(b.start).toISOString(), end: new Date(b.end).toISOString(), reason: String(b.reason || '').slice(0, 80) })),
+  }
+}
+
+export function updateRoom(state, id, patch, now) {
+  const i = state.rooms.findIndex((r) => r.id === id)
+  if (i < 0) fail('Room not found.', 404)
+  state.rooms[i] = normaliseRoom({ ...state.rooms[i], ...patch, id, prices: { ...state.rooms[i].prices, ...(patch.prices || {}) } })
+  log(state, 'room.updated', { roomId: id }, now)
+  return state.rooms[i]
+}
+
+// ---------------- pricing & availability ----------------
+export function quote(room, plan, quantity) {
+  if (!PLANS[plan]) fail('Choose hourly, daily, weekly or monthly.')
+  const q = Math.round(+quantity)
+  if (!(q >= 1 && q <= 365)) fail('Quantity must be between 1 and 365.')
+  const unit = room.prices[plan]
+  if (!unit) fail(`${room.name} is not offered ${PLANS[plan].label.toLowerCase()}.`)
+  return { unit, quantity: q, amount: unit * q, currency: room.currency }
+}
+
+export function endFor(start, plan, quantity) {
+  return new Date(new Date(start).getTime() + PLANS[plan].ms * quantity).toISOString()
+}
+
+/** Bookings and blackouts that overlap [start, end). */
+export function conflicts(state, roomId, start, end, ignoreId, now) {
+  const s = new Date(start).getTime(), e = new Date(end).getTime()
+  const t = now ?? Date.now()
+  const room = state.rooms.find((r) => r.id === roomId)
+  const out = []
+  for (const b of state.bookings) {
+    if (b.roomId !== roomId || b.id === ignoreId || !HOLDS.has(b.status)) continue
+    if (b.status === 'pending_payment' && t - new Date(b.createdAt).getTime() > PENDING_PAYMENT_TTL) continue
+    if (overlap(s, e, new Date(b.start).getTime(), new Date(b.end).getTime())) out.push({ type: 'booking', id: b.id, start: b.start, end: b.end })
+  }
+  for (const bo of room?.blackouts || []) {
+    if (overlap(s, e, new Date(bo.start).getTime(), new Date(bo.end).getTime())) out.push({ type: 'blackout', start: bo.start, end: bo.end, reason: bo.reason })
+  }
+  return out
+}
+
+/** Public calendar: busy ranges for the next `days` days (no customer details). */
+export function busyRanges(state, roomId, now, days = 120) {
+  const t = now ?? Date.now()
+  return conflicts(state, roomId, new Date(t).toISOString(), new Date(t + days * 86400e3).toISOString(), null, t).map(({ start, end, type }) => ({ start, end, type }))
+}
+
+// ---------------- customers ----------------
+export function findOrCreateCustomer(state, { name, email }, now) {
+  const em = String(email || '').trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) fail('Enter a valid email address.')
+  const nm = String(name || '').trim().slice(0, 40) || em.split('@')[0]
+  let c = state.customers.find((x) => x.email === em)
+  if (!c) {
+    c = { id: 'C' + ++state.seq, name: nm, email: em, createdAt: nowIso(now) }
+    state.customers.push(c)
+    log(state, 'customer.created', { customerId: c.id }, now)
+  } else if (name) c.name = nm
+  return c
+}
+
+// ---------------- bookings ----------------
+export function createBooking(state, { roomId, customerId, plan, quantity, start, guests = 1, visibility = 'private', invites = [] }, now) {
+  const room = state.rooms.find((r) => r.id === roomId)
+  if (!room) fail('Room not found.', 404)
+  if (!room.active) fail(`${room.name} is not available for rent right now.`)
+  const customer = state.customers.find((c) => c.id === customerId)
+  if (!customer) fail('Sign in before booking.', 401)
+  const st = new Date(start)
+  if (isNaN(st)) fail('Choose a start date and time.')
+  if (st.getTime() < (now ?? Date.now()) - 5 * 60e3) fail('The start time is in the past.')
+  const g = Math.round(+guests)
+  if (!(g >= 1)) fail('Guests must be at least 1.')
+  if (g > room.occupancy) fail(`${room.name} holds up to ${room.occupancy} people.`)
+  if (!VISIBILITY[visibility]) fail('Choose public, private or invitation only.')
+  const q = quote(room, plan, quantity)
+  const end = endFor(st, plan, q.quantity)
+  const clash = conflicts(state, roomId, st.toISOString(), end, null, now)
+  if (clash.length) fail(`${room.name} is already booked or blocked for part of that time.`, 409)
+  const b = {
+    id: 'B' + ++state.seq,
+    roomId,
+    customerId,
+    customerName: customer.name,
+    plan,
+    quantity: q.quantity,
+    unit: q.unit,
+    amount: q.amount,
+    currency: q.currency,
+    guests: g,
+    start: st.toISOString(),
+    end,
+    visibility,
+    invites: cleanInvites(invites),
+    customization: {},
+    status: 'pending_payment',
+    payment: { status: 'unpaid' },
+    createdAt: nowIso(now),
+  }
+  state.bookings.push(b)
+  log(state, 'booking.created', { bookingId: b.id, roomId }, now)
+  return b
+}
+
+const cleanInvites = (list) => [...new Set((list || []).map((s) => String(s).trim().toLowerCase()).filter(Boolean))].slice(0, 50)
+
+/**
+ * Record a verified payment. Only the server calls this after verifying with the payment
+ * provider (or the explicit test-payment mode). The amount must match the booking.
+ */
+export function markPaid(state, bookingId, { provider, ref, amount, currency }, now) {
+  const b = state.bookings.find((x) => x.id === bookingId)
+  if (!b) fail('Booking not found.', 404)
+  if (b.payment.status === 'paid') return b // idempotent (webhooks retry)
+  if (b.status !== 'pending_payment') fail('This booking is not waiting for payment.', 409)
+  if (amount !== b.amount || (currency && currency.toLowerCase() !== b.currency)) fail('Paid amount does not match the booking.', 402)
+  const room = state.rooms.find((r) => r.id === b.roomId)
+  b.payment = { status: 'paid', provider, ref, amount, paidAt: nowIso(now), test: provider === 'test' }
+  b.status = room?.autoApprove ? 'approved' : 'pending_approval'
+  if (b.status === 'approved') b.decidedAt = nowIso(now)
+  log(state, 'booking.paid', { bookingId, provider }, now)
+  return b
+}
+
+export function decide(state, bookingId, approve, reason, now) {
+  const b = state.bookings.find((x) => x.id === bookingId)
+  if (!b) fail('Booking not found.', 404)
+  if (b.status !== 'pending_approval') fail('Only paid requests waiting for approval can be approved or rejected.', 409)
+  if (approve) {
+    const clash = conflicts(state, b.roomId, b.start, b.end, b.id, now).filter((c) => c.type === 'blackout' || state.bookings.find((x) => x.id === c.id)?.status === 'approved')
+    if (clash.length) fail('Another approved booking or a blackout overlaps this time.', 409)
+  }
+  b.status = approve ? 'approved' : 'rejected'
+  b.decidedAt = nowIso(now)
+  if (!approve) { b.rejectReason = String(reason || '').slice(0, 200); if (b.payment.status === 'paid') b.payment.refundDue = true }
+  log(state, approve ? 'booking.approved' : 'booking.rejected', { bookingId }, now)
+  return b
+}
+
+/** Owner assigns a room directly (e.g. an offline payment or a comp). */
+export function assign(state, { roomId, customer, start, end, visibility = 'private', note = '', amount = 0 }, now) {
+  const room = state.rooms.find((r) => r.id === roomId)
+  if (!room) fail('Room not found.', 404)
+  const c = findOrCreateCustomer(state, customer, now)
+  const s = new Date(start), e = new Date(end)
+  if (isNaN(s) || isNaN(e) || e <= s) fail('Choose a start and an end after it.')
+  if (conflicts(state, roomId, s.toISOString(), e.toISOString(), null, now).length) fail('That time overlaps another booking or blackout.', 409)
+  const b = {
+    id: 'B' + ++state.seq, roomId, customerId: c.id, customerName: c.name, plan: 'custom', quantity: 1,
+    unit: Math.round(+amount || 0), amount: Math.round(+amount || 0), currency: room.currency, guests: 1,
+    start: s.toISOString(), end: e.toISOString(), visibility, invites: [], customization: {},
+    status: 'approved', payment: { status: amount > 0 ? 'paid' : 'comp', provider: 'owner', note: String(note).slice(0, 120) },
+    createdAt: nowIso(now), decidedAt: nowIso(now), assigned: true,
+  }
+  state.bookings.push(b)
+  log(state, 'booking.assigned', { bookingId: b.id, roomId }, now)
+  return b
+}
+
+export function setTimes(state, bookingId, start, end, now) {
+  const b = state.bookings.find((x) => x.id === bookingId)
+  if (!b) fail('Booking not found.', 404)
+  const s = new Date(start), e = new Date(end)
+  if (isNaN(s) || isNaN(e) || e <= s) fail('Choose a start and an end after it.')
+  if (conflicts(state, b.roomId, s.toISOString(), e.toISOString(), b.id, now).length) fail('That time overlaps another booking or blackout.', 409)
+  b.start = s.toISOString()
+  b.end = e.toISOString()
+  log(state, 'booking.rescheduled', { bookingId }, now)
+  return b
+}
+
+export function cancel(state, bookingId, by, now) {
+  const b = state.bookings.find((x) => x.id === bookingId)
+  if (!b) fail('Booking not found.', 404)
+  if (!HOLDS.has(b.status)) fail('This booking can no longer be cancelled.', 409)
+  b.status = 'cancelled'
+  b.cancelledBy = by
+  if (b.payment.status === 'paid') b.payment.refundDue = true
+  log(state, 'booking.cancelled', { bookingId, by }, now)
+  return b
+}
+
+/** Renter changes what the owner allows them to change. */
+export function customize(state, bookingId, customerId, patch, now) {
+  const b = state.bookings.find((x) => x.id === bookingId)
+  if (!b) fail('Booking not found.', 404)
+  if (b.customerId !== customerId) fail('Only the renter can customise this room.', 403)
+  if (b.status !== 'approved') fail('Customise the room once the booking is approved.', 409)
+  const room = state.rooms.find((r) => r.id === b.roomId)
+  const next = { ...b.customization }
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (k === 'visibility') { if (!VISIBILITY[v]) fail('Unknown privacy setting.'); b.visibility = v; continue }
+    if (k === 'invites') { b.invites = cleanInvites(v); continue }
+    if (!room.features.includes(k)) fail(`The owner has not allowed changing "${FEATURES[k]?.label || k}".`, 403)
+    if (v === '' || v === null) { delete next[k]; continue }
+    if (!FEATURES[k].validate(v)) fail(`That ${FEATURES[k].label.toLowerCase()} is not valid.`)
+    next[k] = v
+  }
+  b.customization = next
+  log(state, 'booking.customized', { bookingId }, now)
+  return b
+}
+
+/** The booking in effect for a room right now, if any. */
+export function currentBooking(state, roomId, now) {
+  const t = now ?? Date.now()
+  return state.bookings.find((b) => b.roomId === roomId && b.status === 'approved' && new Date(b.start).getTime() <= t && t < new Date(b.end).getTime()) || null
+}
+
+/**
+ * Can this visitor go into the room? The server answers this; doors ask before opening.
+ * @param customer { id, email } or null for an anonymous visitor
+ */
+export function accessCheck(state, roomId, customer, now) {
+  const room = state.rooms.find((r) => r.id === roomId)
+  if (!room) return { ok: true, reason: null, state: 'not-rentable' }
+  const b = currentBooking(state, roomId, now)
+  if (!b) return room.openWhenVacant ? { ok: true, state: 'vacant' } : { ok: false, state: 'closed', reason: `${room.name} is closed while it is not rented.` }
+  if (b.visibility === 'public') return { ok: true, state: 'public' }
+  if (customer && b.customerId === customer.id) return { ok: true, state: 'renter' }
+  if (b.visibility === 'invite' && customer && (b.invites.includes(customer.email) || b.invites.includes((customer.name || '').toLowerCase()))) return { ok: true, state: 'invited' }
+  return { ok: false, state: b.visibility, reason: b.visibility === 'invite' ? `${room.name} is booked for an invitation-only event.` : `${room.name} is booked privately right now.` }
+}
+
+/** Mark finished bookings as completed. */
+export function sweep(state, now) {
+  const t = now ?? Date.now()
+  let changed = false
+  for (const b of state.bookings) {
+    if (b.status === 'approved' && new Date(b.end).getTime() <= t) { b.status = 'completed'; changed = true }
+    if (b.status === 'pending_payment' && t - new Date(b.createdAt).getTime() > PENDING_PAYMENT_TTL) { b.status = 'expired'; changed = true }
+  }
+  return changed
+}
+
+/** Revenue from verified payments (test payments reported separately). */
+export function revenue(state) {
+  const paid = state.bookings.filter((b) => b.payment.status === 'paid' && b.status !== 'rejected' && b.status !== 'cancelled')
+  const live = paid.filter((b) => !b.payment.test)
+  const test = paid.filter((b) => b.payment.test)
+  const byRoom = {}, byMonth = {}
+  for (const b of live) {
+    byRoom[b.roomId] = (byRoom[b.roomId] || 0) + b.amount
+    const m = (b.payment.paidAt || b.createdAt).slice(0, 7)
+    byMonth[m] = (byMonth[m] || 0) + b.amount
+  }
+  return {
+    total: live.reduce((a, b) => a + b.amount, 0),
+    testTotal: test.reduce((a, b) => a + b.amount, 0),
+    refundsDue: state.bookings.filter((b) => b.payment.refundDue).reduce((a, b) => a + b.amount, 0),
+    byRoom,
+    byMonth,
+    count: live.length,
+  }
+}
+
+/** What anyone may see about a room (no customer data). */
+export function publicRoom(state, room, now) {
+  const b = currentBooking(state, room.id, now)
+  return {
+    id: room.id, name: room.name, kind: room.kind, building: room.building, floor: room.floor,
+    occupancy: room.occupancy, prices: room.prices, currency: room.currency, active: room.active,
+    features: room.features, openWhenVacant: room.openWhenVacant,
+    busy: busyRanges(state, room.id, now),
+    now: b ? { visibility: b.visibility, until: b.end, customization: b.customization } : null,
+  }
+}
+
+export const money = (cents, currency = 'usd') => new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format((cents || 0) / 100)
+
+/** Default rentable rooms for Vision Storms Plaza (example prices). */
+export function seedRooms(state, rooms, now) {
+  const defaults = {
+    'VSP-201': { hour: 4000, day: 25000, week: 120000, month: 380000 },
+    'VSP-202': { hour: 2500, day: 15000, week: 80000, month: 260000 },
+    'VSP-301': { hour: 3000, day: 18000, week: 90000, month: 300000 },
+    'VSP-302': { hour: 2000, day: 12000, week: 65000, month: 220000 },
+  }
+  for (const r of rooms) {
+    if (!r.rentable || state.rooms.some((x) => x.id === r.id)) continue
+    createRoom(state, {
+      id: r.id, name: r.name, kind: r.kind, floor: r.floor + 1, occupancy: r.occupancy,
+      prices: defaults[r.id] || { hour: 2000, day: 12000, week: 60000, month: 200000 },
+      features: r.id === 'VSP-302' ? ['signText', 'welcome', 'wallColor', 'playlist'] : ['welcome', 'playlist'],
+      autoApprove: false,
+    }, now)
+  }
+  return state
+}

@@ -5,7 +5,9 @@ import * as THREE from 'three'
 import { getMaterials } from './materials.js'
 import { GALLERY as G } from './layout.js'
 import { DoubleDoor } from './Door.jsx'
-import { neonSignTexture, canvasTexture, wrapText, roundRect } from './canvasText.js'
+import { canvasTexture, wrapText, roundRect } from './canvasText.js'
+import { BrandSign } from './signs.jsx'
+import { LightAnchor } from './props.jsx'
 import { CRAFTS, LATEST, CONNECT, ARTIST } from '../config/portfolio.js'
 import { NEON, FONTS } from '../config/theme.js'
 import { registerInteractable } from '../state/runtime.js'
@@ -28,15 +30,14 @@ export default function Gallery() {
     wall: mats.marbleWall(4, 1.5),
     wallSide: mats.marbleWall(3, 1.5),
     floor: mats.marbleFloor(5, 4),
-    ceiling: new THREE.MeshStandardMaterial({ color: '#07060c', roughness: 0.6, metalness: 0.3 }),
-    teal: mats.neon(NEON.teal, 3),
-    pink: mats.neon(NEON.pink, 3),
-    purple: mats.neon(NEON.purple, 3),
-    yellow: mats.neon(NEON.yellow, 3),
+    ceiling: new THREE.MeshStandardMaterial({ color: '#f2f0ec', roughness: 0.9 }),
+    // architectural LED lines (warm white) and brushed metal trims instead of neon
+    teal: new THREE.MeshStandardMaterial({ color: '#b9a37a', roughness: 0.3, metalness: 0.9 }),
+    pink: new THREE.MeshStandardMaterial({ color: '#8f8a83', roughness: 0.4, metalness: 0.8 }),
+    purple: new THREE.MeshStandardMaterial({ color: '#fff4e2', emissive: '#ffe9c8', emissiveIntensity: 1.6 }),
+    yellow: new THREE.MeshStandardMaterial({ color: '#fff4e2', emissive: '#ffe9c8', emissiveIntensity: 1.2 }),
   }), [mats])
-  const sign = useMemo(() => neonSignTexture('REIGN GALLERY', NEON.pink, { size: 170 }), [])
-  const sub = useMemo(() => neonSignTexture('TRINITY REIGN · VISION STORMS', NEON.teal, { size: 70, font: FONTS.mono, weight: 500, height: 128 }), [])
-  const inner = useMemo(() => neonSignTexture('TRINITY REIGN', NEON.yellow, { size: 180 }), [])
+
 
   const H = G.height
   const t = G.wall
@@ -86,23 +87,16 @@ export default function Gallery() {
       </mesh>
 
       {/* ---------- facade ---------- */}
-      <mesh position={[0, Y0 + 6.7, frontZ + 0.03]}>
-        <planeGeometry args={[14, 3.5]} />
-        <meshBasicMaterial map={sign} transparent toneMapped={false} depthWrite={false} />
-      </mesh>
-      <mesh position={[0, Y0 + 5.1, frontZ + 0.03]}>
-        <planeGeometry args={[9, 1.1]} />
-        <meshBasicMaterial map={sub} transparent toneMapped={false} depthWrite={false} />
-      </mesh>
+      <BrandSign text="REIGN GALLERY" sub="TRINITY REIGN · VISION STORMS" position={[0, Y0 + 6.4, frontZ + 0.03]} width={14} color="#232326" glow="#fff3dc" />
       {/* door frame neon */}
       <mesh position={[-dh - 0.08, Y0 + G.doorHeight / 2, frontZ + 0.05]} material={m.teal}><boxGeometry args={[0.1, G.doorHeight, 0.1]} /></mesh>
       <mesh position={[dh + 0.08, Y0 + G.doorHeight / 2, frontZ + 0.05]} material={m.teal}><boxGeometry args={[0.1, G.doorHeight, 0.1]} /></mesh>
       <mesh position={[0, Y0 + G.doorHeight + 0.08, frontZ + 0.05]} material={m.teal}><boxGeometry args={[dh * 2 + 0.26, 0.1, 0.1]} /></mesh>
       {/* building edge outlines */}
       {[[G.minX, frontZ], [G.maxX, frontZ], [G.minX, G.minZ], [G.maxX, G.minZ]].map(([x, z], i) => (
-        <mesh key={i} position={[x, Y0 + H / 2, z]} material={i % 2 ? m.pink : m.purple}><boxGeometry args={[0.14, H + 0.4, 0.14]} /></mesh>
+        <mesh key={i} position={[x, Y0 + H / 2, z]} material={m.pink}><boxGeometry args={[0.14, H + 0.4, 0.14]} /></mesh>
       ))}
-      <mesh position={[0, Y0 + H + 0.42, frontZ]} material={m.purple}><boxGeometry args={[W, 0.1, 0.1]} /></mesh>
+      <mesh position={[0, Y0 + H + 0.42, frontZ]} material={m.pink}><boxGeometry args={[W, 0.1, 0.1]} /></mesh>
       {/* canopy */}
       <mesh position={[0, Y0 + G.doorHeight + 0.6, frontZ + 1.6]} material={mats.darkMetal} castShadow>
         <boxGeometry args={[7, 0.18, 3.2]} />
@@ -110,16 +104,13 @@ export default function Gallery() {
       <mesh position={[0, Y0 + G.doorHeight + 0.5, frontZ + 1.6]} rotation={[Math.PI / 2, 0, 0]} material={m.yellow}>
         <planeGeometry args={[6.4, 2.8]} />
       </mesh>
-      <pointLight position={[0, Y0 + 4, frontZ + 2.2]} color={NEON.yellow} intensity={12} distance={12} decay={1.6} />
+      <LightAnchor position={[0, Y0 + 4, frontZ + 2.2]} color="#ffe2b8" intensity={14} distance={12} night />
 
       <DoubleDoor id="gallery-doors" center={[0, Y0, frontZ - t / 2]} halfWidth={dh} height={G.doorHeight} facing={0} accent={NEON.teal} label="gallery doors" />
 
       {/* ---------- interior ---------- */}
-      <mesh position={[0, Y0 + 7.8, G.minZ + t + 0.03]}>
-        <planeGeometry args={[11, 2.75]} />
-        <meshBasicMaterial map={inner} transparent toneMapped={false} depthWrite={false} />
-      </mesh>
-      {/* ceiling neon strips */}
+      <BrandSign text="TRINITY REIGN" position={[0, Y0 + 7.8, G.minZ + t + 0.03]} width={11} color="#26262a" glow="#ffffff" />
+      {/* linear LED ceiling lights */}
       {[-9, -3, 3, 9].map((x, i) => (
         <mesh key={x} position={[x, Y0 + H - 0.05, CZ]} material={[m.purple, m.pink, m.teal, m.purple][i]}>
           <boxGeometry args={[0.12, 0.06, D - 2]} />
@@ -127,11 +118,12 @@ export default function Gallery() {
       ))}
       {/* floor edge light */}
       {[G.minX + t + 0.05, G.maxX - t - 0.05].map((x, i) => (
-        <mesh key={x} position={[x, Y0 + 0.04, CZ]} material={i ? m.teal : m.pink}><boxGeometry args={[0.06, 0.06, D - 1.2]} /></mesh>
+        <mesh key={x} position={[x, Y0 + 0.04, CZ]} material={m.pink}><boxGeometry args={[0.06, 0.06, D - 1.2]} /></mesh>
       ))}
-      <pointLight position={[0, Y0 + 7, CZ + 5]} color="#d9b8ff" intensity={30} distance={22} decay={1.4} />
-      <pointLight position={[0, Y0 + 7, CZ - 5]} color={NEON.pink} intensity={22} distance={20} decay={1.4} />
-      <pointLight position={[0, Y0 + 3, G.minZ + 5]} color={NEON.teal} intensity={10} distance={12} decay={1.6} />
+      <LightAnchor position={[0, Y0 + 7, CZ + 5]} color="#fff2e0" intensity={30} distance={22} />
+      <LightAnchor position={[0, Y0 + 7, CZ - 5]} color="#fff2e0" intensity={26} distance={20} />
+      <LightAnchor position={[-9, Y0 + 5, CZ]} color="#ffe9cf" intensity={14} distance={14} />
+      <LightAnchor position={[9, Y0 + 5, CZ]} color="#ffe9cf" intensity={14} distance={14} />
 
       {/* kiosks: three per side wall, three on the back wall */}
       {CRAFTS.slice(0, 3).map((c, i) => (
@@ -188,7 +180,7 @@ function kioskPanelTexture(c) {
 function Kiosk({ content: c, position, yaw }) {
   const mats = getMaterials()
   const tex = useMemo(() => kioskPanelTexture(c), [c])
-  const glow = useMemo(() => mats.neon(c.color, 3), [mats, c.color])
+  const glow = useMemo(() => mats.neon(c.color, 0.9), [mats, c.color])
   const ring = useRef()
   const fwd = [Math.sin(yaw), 0, Math.cos(yaw)]
   const ped = [position[0] + fwd[0] * 1.6, position[1], position[2] + fwd[2] * 1.6]
@@ -238,7 +230,7 @@ function KioskObject({ id, color }) {
   const ref = useRef()
   const spin = useRef()
   const mats = getMaterials()
-  const glow = useMemo(() => mats.neon(color, 2.5), [mats, color])
+  const glow = useMemo(() => mats.neon(color, 1.1), [mats, color])
   const screenTex = useMemo(() => (id === 'websites' ? miniSiteTexture() : id === 'ebooks' ? miniBookTexture() : null), [id])
 
   useFrame(({ clock }, dt) => {
@@ -480,7 +472,7 @@ function LatestStage() {
       <mesh position={[0, Y0 + 4.1, sz + 0.06]} material={screenMat}>
         <planeGeometry args={[9.6, 5.4]} />
       </mesh>
-      <mesh position={[0, Y0 + 4.1, sz + 0.03]} material={mats.neon(NEON.purple, 2.5)}>
+      <mesh position={[0, Y0 + 4.1, sz + 0.03]} material={mats.blackSteel}>
         <planeGeometry args={[9.9, 5.7]} />
       </mesh>
       <RigidBody type="fixed" colliders={false}>
@@ -488,11 +480,11 @@ function LatestStage() {
         <mesh position={[0, Y0 + 0.15, sz + 1.5]} material={mats.marbleWall(3, 1)} receiveShadow castShadow>
           <boxGeometry args={[9.6, 0.3, 3]} />
         </mesh>
-        <mesh position={[0, Y0 + 0.31, sz + 3]} material={mats.neon(NEON.yellow, 3)}>
+        <mesh position={[0, Y0 + 0.31, sz + 3]} material={mats.aluminum}>
           <boxGeometry args={[9.6, 0.03, 0.05]} />
         </mesh>
       </RigidBody>
-      <spotLight ref={spot} position={[0, Y0 + 8, sz + 7]} angle={0.5} penumbra={0.6} intensity={40} distance={20} color={NEON.purple} />
+      <spotLight ref={spot} position={[0, Y0 + 8, sz + 7]} angle={0.5} penumbra={0.6} intensity={40} distance={20} color="#fff0dc" />
     </group>
   )
 }
@@ -540,7 +532,7 @@ function Equalizer({ position }) {
       <mesh position={[0, 0.15, 0]} material={mats.marbleWall(2, 0.3)} receiveShadow>
         <cylinderGeometry args={[2.6, 2.7, 0.3, 64]} />
       </mesh>
-      <mesh position={[0, 0.31, 0]} rotation={[-Math.PI / 2, 0, 0]} material={mats.neon(NEON.purple, 2)}>
+      <mesh position={[0, 0.31, 0]} rotation={[-Math.PI / 2, 0, 0]} material={mats.aluminum}>
         <ringGeometry args={[2.55, 2.62, 64]} />
       </mesh>
       <mesh position={[0, 1.2, 0]} material={mats.chrome} castShadow>

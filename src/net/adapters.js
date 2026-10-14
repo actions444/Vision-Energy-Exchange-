@@ -13,6 +13,7 @@
 //   { t: 'join', id, info }           a peer arrived (info = { name, accent, skin })
 //   { t: 'state', id, p, y, s, g }    position [x,y,z], yaw, speed, grounded
 //   { t: 'emote', id, e }             e.g. 'wave'
+//   { t: 'env', id, time, weather, running, speed }   owner-set time of day / weather
 //   { t: 'chat', id, text }
 //   { t: 'leave', id }
 
@@ -79,14 +80,14 @@ export class TabAdapter {
 export class WebSocketAdapter {
   kind = 'server'
   constructor(url) { this.url = url }
-  connect({ room, info, onMessage, onStatus }) {
+  connect({ room, info, adminToken, onMessage, onStatus }) {
     return new Promise((resolve, reject) => {
       let ws
       try { ws = new WebSocket(this.url) } catch (e) { reject(new Error('Invalid server address.')); return }
       this.ws = ws
       let welcomed = false
       const timer = setTimeout(() => { if (!welcomed) { ws.close(); reject(new Error('The server did not answer within 8 seconds.')) } }, 8000)
-      ws.onopen = () => ws.send(JSON.stringify({ t: 'join', room, info }))
+      ws.onopen = () => ws.send(JSON.stringify({ t: 'join', room, info, adminToken: adminToken || undefined }))
       ws.onmessage = (ev) => {
         let msg
         try { msg = JSON.parse(ev.data) } catch { return }
@@ -94,9 +95,11 @@ export class WebSocketAdapter {
           welcomed = true
           clearTimeout(timer)
           this.id = msg.id
+          this.admin = !!msg.admin
           onStatus?.('online')
           resolve(msg.id)
           for (const p of msg.peers || []) onMessage({ t: 'join', id: p.id, info: p.info })
+          if (msg.env) onMessage({ t: 'env', id: '__server', ...msg.env })
           return
         }
         onMessage(msg)

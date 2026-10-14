@@ -231,3 +231,41 @@ code { font-family: var(--mono); font-size: 12px; background: rgba(255,255,255,.
   .fields.two { grid-template-columns: 1fr; }
   .now-playing { top: calc(96px + var(--safe-t)); }
 }
+
+/* stage 2: rentals, world tools, elevator */
+.notice { margin: 0; padding: 10px 14px; border-radius: 12px; background: rgba(255, 232, 61, .08); border: 1px solid rgba(255, 232, 61, .35); font-size: 13px; }
+.prices { display: flex; gap: 10px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.prices span { font-weight: 800; }
+.prices small { color: var(--dim); font-weight: 500; }
+.receipt { display: grid; gap: 4px; padding: 14px; border-radius: 14px; background: rgba(255,255,255,.05); border: 1px solid var(--line); }
+.total { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-top: 1px solid var(--line); font-size: 18px; font-variant-numeric: tabular-nums; }
+.total b { font-family: var(--display); font-size: 24px; }
+.booking { display: grid; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid var(--line); }
+.linkish { background: none; border: 0; color: var(--teal); text-decoration: underline; padding: 0; }
+.fields.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.checks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.checks label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+.table-wrap { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data th, table.data td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.data th { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.data .actions { display: flex; gap: 6px; }
+table.data input { padding: 4px 6px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stats div { padding: 12px; border-radius: 14px; background: rgba(255,255,255,.05); display: grid; gap: 4px; }
+.stats small { color: var(--dim); font-size: 12px; }
+.stats b { font-family: var(--display); font-size: 22px; font-variant-numeric: tabular-nums; }
+.hub-item { text-align: left; display: grid; gap: 2px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); }
+.hub-item:hover { border-color: var(--yellow); }
+.hub-item small { color: var(--dim); }
+.clock-big { font-family: var(--display); font-weight: 800; font-size: 40px; font-variant-numeric: tabular-nums; }
+.seg.wrap { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
+.elevator-buttons { display: grid; gap: 10px; }
+.floor-btn { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 12px; text-align: left; padding: 10px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); }
+.floor-btn b { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--dim); font-family: var(--display); font-size: 20px; }
+.floor-btn.on b { border-color: var(--yellow); color: var(--yellow); }
+.floor-btn small { color: var(--dim); }
+input[type="number"], input[type="datetime-local"], input[type="email"], input[type="password"] { background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; }
+input[type="color"] { width: 64px; height: 36px; border: 0; background: none; }
+@media (max-width: 640px) { .fields.four { grid-template-columns: 1fr 1fr; } }

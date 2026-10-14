@@ -41,7 +41,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a' }) 
     lUA: useRef(), lFA: useRef(), rUA: useRef(), rFA: useRef(),
     lUL: useRef(), lLL: useRef(), rUL: useRef(), rLL: useRef(),
   }
-  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0 })
+  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0 })
 
   useFrame((_, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
@@ -53,6 +53,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a' }) 
     a.run = k(a.run, THREE.MathUtils.clamp((speed - 3) / 3, 0, 1), 6)
     a.air = k(a.air, state.grounded ? 0 : 1, 12)
     a.wave = k(a.wave, state.emote === 'wave' ? 1 : 0, 8)
+    a.sit = k(a.sit, state.sit ? 1 : 0, 9)
     // stride frequency scales with speed (longer strides when running)
     a.phase += dt * (speed > 0.05 ? 3.2 + speed * 1.15 : 0)
 
@@ -96,6 +97,28 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a' }) 
     r.spine.current.rotation.y = -s * 0.12 * a.amp
     r.spine.current.scale.set(1, 1 + breath * 0.3, 1 + breath)
     r.head.current.rotation.x = -a.run * 0.12
+
+    // seated pose: thighs forward, shins down, hands resting on the knees
+    const st = a.sit
+    if (st > 0.001) {
+      const L = THREE.MathUtils.lerp
+      r.lUL.current.rotation.x = L(r.lUL.current.rotation.x, -1.52, st)
+      r.rUL.current.rotation.x = L(r.rUL.current.rotation.x, -1.52, st)
+      r.lLL.current.rotation.x = L(r.lLL.current.rotation.x, 1.5, st)
+      r.rLL.current.rotation.x = L(r.rLL.current.rotation.x, 1.5, st)
+      r.lUA.current.rotation.x = L(r.lUA.current.rotation.x, -0.45, st)
+      r.lFA.current.rotation.x = L(r.lFA.current.rotation.x, -0.75, st)
+      if (a.wave < 0.5) {
+        r.rUA.current.rotation.x = L(r.rUA.current.rotation.x, -0.45, st)
+        r.rFA.current.rotation.x = L(r.rFA.current.rotation.x, -0.75, st)
+      }
+      r.lUA.current.rotation.z = L(r.lUA.current.rotation.z, 0.12, st)
+      r.hips.current.position.y = L(r.hips.current.position.y, (state.sitHeight || 0.45) + 0.06, st)
+      r.hips.current.position.z = L(0, -0.05, st)
+      r.hips.current.rotation.y = L(r.hips.current.rotation.y, 0, st)
+      r.spine.current.rotation.x = L(r.spine.current.rotation.x, -0.06, st)
+      r.spine.current.rotation.y = L(r.spine.current.rotation.y, 0, st)
+    } else r.hips.current.position.z = 0
   })
 
   return (

@@ -9,6 +9,7 @@ import { useAssets, registry } from '../assets/assetStore.js'
 import Avatar from './Avatar.jsx'
 import { ImportedAvatar } from '../assets/PlacedAssets.jsx'
 import { net } from '../net/netManager.js'
+import { elevator } from '../world/elevator.js'
 
 const WALK = 2.6
 const RUN = 6.2
@@ -54,6 +55,52 @@ export default function Player() {
     const playing = useStore.getState().phase === 'playing'
     const panelOpen = !!useStore.getState().panel
 
+    // ---------- sitting ----------
+    if (playerState.sitRequest) {
+      const seat = playerState.sitRequest
+      playerState.sitRequest = null
+      if (!seat.occupiedBy && !playerState.seated) {
+        seat.occupiedBy = 'me'
+        playerState.seated = seat
+        playerState.sit = 1
+        playerState.sitHeight = seat.height
+        playerState.emote = null
+        v.current.set(0, 0, 0)
+      }
+    }
+    if (playerState.seated) {
+      const seat = playerState.seated
+      const wantStand = input.interact && !panelOpen
+      input.interact = false
+      input.jump = false
+      if (wantStand || playerState.respawn || playerState.teleport) {
+        // stand up in front of the seat
+        seat.occupiedBy = null
+        playerState.seated = null
+        playerState.sit = 0
+        const fx = Math.sin(seat.yaw), fz = Math.cos(seat.yaw)
+        const out = { x: seat.position[0] + fx * 0.75, y: seat.floorY + 0.05, z: seat.position[2] + fz * 0.75 }
+        if (!playerState.respawn && !playerState.teleport) { b.setNextKinematicTranslation(out); playerState.position.set(out.x, out.y, out.z) }
+        useStore.getState().setPrompt(null)
+        lastPrompt.current = null
+      } else {
+        const at = { x: seat.position[0], y: seat.floorY, z: seat.position[2] }
+        b.setNextKinematicTranslation(at)
+        playerState.position.set(at.x, at.y, at.z)
+        playerState.speed = 0
+        playerState.grounded = true
+        let d = seat.yaw - playerState.yaw
+        d = Math.atan2(Math.sin(d), Math.cos(d))
+        playerState.yaw += d * (1 - Math.exp(-14 * dt))
+        if (visual.current) visual.current.rotation.y = playerState.yaw
+        if (lastPrompt.current !== 'stand') {
+          lastPrompt.current = 'stand'
+          useStore.getState().setPrompt({ id: 'stand', label: 'Stand up' })
+        }
+        return
+      }
+    }
+
     // --- desired horizontal velocity, relative to camera yaw ---
     const yaw = cameraState.yaw
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw)
@@ -79,12 +126,15 @@ export default function Player() {
       playerState.vy -= GRAVITY * dt
     }
 
-    const desired = { x: v.current.x * dt, y: playerState.vy * dt, z: v.current.z * dt }
-    c.computeColliderMovement(col, desired)
+    // riding the elevator: the car carries you; its floor is excluded from the collision query
+    const riding = elevator.contains(playerState.position)
+    if (riding) { playerState.vy = 0; input.jump = false }
+    const desired = { x: v.current.x * dt, y: riding ? 0 : playerState.vy * dt, z: v.current.z * dt }
+    c.computeColliderMovement(col, desired, undefined, undefined, riding ? (other) => !elevator.carHandles.has(other.handle) : undefined)
     const m = c.computedMovement()
-    const grounded = c.computedGrounded()
+    const grounded = riding || c.computedGrounded()
     const p = b.translation()
-    const next = { x: p.x + m.x, y: p.y + m.y, z: p.z + m.z }
+    const next = { x: p.x + m.x, y: riding ? elevator.y : p.y + m.y, z: p.z + m.z }
     // hit head on ceiling
     if (playerState.vy > 0 && m.y < desired.y * 0.5) playerState.vy = 0
     playerState.grounded = grounded && playerState.vy <= 0.01

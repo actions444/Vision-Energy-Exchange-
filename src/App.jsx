@@ -18,6 +18,8 @@ import UI from './ui/UI.jsx'
 import MusicZones from './music/MusicZones.jsx'
 import { useMusicLibrary, resolveTrackSource } from './music/library.js'
 import { musicEngine, useMusic } from './music/engine.js'
+import { useEnv } from './state/environment.js'
+import { useRentals, rentalAccess } from './rentals/client.js'
 
 function Ready() {
   useEffect(() => { useStore.setState({ ready: true }) }, [])
@@ -57,6 +59,7 @@ export default function App() {
           gl.toneMapping = THREE.ACESFilmicToneMapping
           gl.toneMappingExposure = 1.05
           attachLook(gl.domElement)
+          window.__vswGl = gl
           gl.domElement.addEventListener('contextmenu', (e) => e.preventDefault())
         }}
       >
@@ -74,8 +77,8 @@ export default function App() {
           <MusicZones />
           {settings.bloom && (
             <EffectComposer multisampling={high ? 4 : 0}>
-              <Bloom mipmapBlur intensity={high ? 1.15 : 0.9} luminanceThreshold={0.75} luminanceSmoothing={0.2} />
-              <Vignette offset={0.25} darkness={0.75} />
+              <Bloom mipmapBlur intensity={high ? 0.55 : 0.45} luminanceThreshold={0.92} luminanceSmoothing={0.15} />
+              <Vignette offset={0.3} darkness={0.45} />
             </EffectComposer>
           )}
           <Ready />
@@ -87,4 +90,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess }

@@ -94,3 +94,49 @@ export function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r)
   ctx.closePath()
 }
+
+/** Clean architectural lettering (channel-letter style) on a transparent background. */
+export function signTexture(text, { color = '#f4f1ea', width = 1024, height = 256, size = 150, font = FONTS.display, weight = 700, spacing = 0.06, sub = null, subColor = null } = {}) {
+  return canvasTexture(width, height, (ctx, w, h) => {
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    let s = size
+    const fit = () => {
+      ctx.font = `${weight} ${s}px ${font}`
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(s * spacing)}px`
+    }
+    fit()
+    while (ctx.measureText(text).width > w * 0.92 && s > 20) { s -= 4; fit() }
+    const y = sub ? h * 0.4 : h / 2
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'
+    ctx.shadowBlur = 6
+    ctx.fillStyle = color
+    ctx.fillText(text, w / 2, y)
+    if (sub) {
+      ctx.font = `500 ${Math.round(s * 0.28)}px ${FONTS.mono}`
+      if ('letterSpacing' in ctx) ctx.letterSpacing = `${Math.round(s * 0.06)}px`
+      ctx.fillStyle = subColor || color
+      ctx.fillText(sub, w / 2, h * 0.8)
+    }
+  })
+}
+
+/** Small plaque: room number + name, for doors and directories. */
+export function plaqueTexture(lines, { width = 512, height = 256, bg = '#1d1f23', fg = '#f1ede4', accent = '#c9a96a' } = {}) {
+  return canvasTexture(width, height, (ctx, w, h) => {
+    ctx.fillStyle = bg
+    roundRect(ctx, 0, 0, w, h, 18)
+    ctx.fill()
+    ctx.fillStyle = accent
+    ctx.fillRect(28, 28, 6, h - 56)
+    ctx.textBaseline = 'alphabetic'
+    let y = 0
+    lines.forEach((l, i) => {
+      const big = i === 0
+      ctx.font = big ? `700 ${Math.round(h * 0.2)}px ${FONTS.mono}` : `700 ${Math.round(h * 0.17)}px ${FONTS.body}`
+      ctx.fillStyle = big ? accent : fg
+      y += big ? h * 0.3 : h * 0.23
+      ctx.fillText(l, 56, y, w - 80)
+    })
+  })
+}

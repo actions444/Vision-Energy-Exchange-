@@ -1,3 +1,5 @@
+import { PLAZA, P, PLAZA_ROOMS, roomBounds } from './plaza.js'
+
 // Music zones. Each entry is a 3D trigger volume (axis-aligned box, metres) with a default
 // playlist. When an avatar is inside several zones (e.g. a store inside a mall), the
 // smallest zone wins, so nested rooms just work.
@@ -42,5 +44,28 @@ export const ZONES = [
     yaw: -Math.PI / 2,
   },
 ]
+
+// Vision Storms Plaza: the building (lobby, corridors, stairs) plus one zone per room
+ZONES.push({
+  id: 'plaza',
+  name: 'Vision Storms Plaza',
+  kind: 'Lobby & corridors',
+  bounds: [[PLAZA.x0, -1, PLAZA.z0], [PLAZA.x1, P.Y(PLAZA.floors), PLAZA.z1]],
+  playlist: 'pl-lobby',
+  spawn: [PLAZA.x1 - 3, 0.3, (PLAZA.z0 + PLAZA.z1) / 2],
+  yaw: Math.PI / 2,
+})
+for (const r of PLAZA_ROOMS) {
+  const b = roomBounds(r)
+  ZONES.push({
+    id: r.id,
+    name: `${r.name} (${r.id})`,
+    kind: `${r.kind} · floor ${r.floor + 1}`,
+    bounds: b,
+    playlist: r.playlist,
+    spawn: [P.X(20), P.Y(r.floor) + 0.2, r.side === 'south' ? P.Z(8.6) : P.Z(19.4)],
+    yaw: r.side === 'south' ? 0 : Math.PI,
+  })
+}
 
 export const zoneById = (id) => ZONES.find((z) => z.id === id)

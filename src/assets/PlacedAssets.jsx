@@ -91,13 +91,19 @@ function PlacedAsset({ inst, selected }) {
 }
 
 // ---------- Imported character as the player's avatar ----------
+const X_AXIS = new THREE.Vector3(1, 0, 0)
 const CLIP_PATTERNS = {
   idle: /idle|stand|breath|rest/i,
   walk: /walk/i,
   run: /run|jog|sprint/i,
   jump: /jump|fall|air/i,
   wave: /wave|greet|hello/i,
+  sit: /sit|seat|chair/i,
 }
+
+// Common bone names in Tripo / Meshy / Mixamo-style rigs, for a fallback seated pose.
+const THIGH = /(left|right|^l|^r|_l|_r|\.l|\.r).*(up_?leg|thigh)|(up_?leg|thigh).*(left|right|_l|_r|\.l|\.r)/i
+const SHIN = /(left|right|^l|^r|_l|_r|\.l|\.r).*(leg|calf|shin|knee)$|^(mixamorig:)?(left|right)leg$|(calf|shin|knee).*(left|right|_l|_r|\.l|\.r)/i
 
 export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
   const info = registry.get(assetId)
@@ -120,6 +126,19 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
   const current = useRef(null)
   const bob = useRef()
   const t = useRef(0)
+  // fallback sitting: bend thigh and shin bones if the model has no sit animation
+  const legBones = useMemo(() => {
+    const thighs = [], shins = []
+    obj.traverse((o) => {
+      if (!o.isBone) return
+      const n = o.name.replace(/^mixamorig:?/i, '')
+      if (THIGH.test(n) && !/twist|end/i.test(n)) thighs.push({ b: o, q: o.quaternion.clone() })
+      else if (SHIN.test(n) && !/up|twist|end|toe|foot/i.test(n)) shins.push({ b: o, q: o.quaternion.clone() })
+    })
+    return { thighs: thighs.slice(0, 2), shins: shins.slice(0, 2) }
+  }, [obj])
+  const sitAmt = useRef(0)
+  const tmpQ = useMemo(() => new THREE.Quaternion(), [])
 
   useEffect(() => () => mixer.stopAllAction(), [mixer])
 
@@ -127,7 +146,8 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     t.current += dt
     const sp = state.speed || 0
     let want = 'idle'
-    if (!state.grounded && actions.jump) want = 'jump'
+    if (state.sit && actions.sit) want = 'sit'
+    else if (!state.grounded && actions.jump) want = 'jump'
     else if (state.emote === 'wave' && actions.wave) want = 'wave'
     else if (sp > 4 && actions.run) want = 'run'
     else if (sp > 0.2) want = actions.walk ? 'walk' : actions.run ? 'run' : 'idle'
@@ -139,8 +159,17 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     }
     if (next && (want === 'walk' || want === 'run')) next.timeScale = THREE.MathUtils.clamp(sp / (want === 'run' ? 6 : 2.6), 0.6, 1.6)
     mixer.update(dt)
-    // models without clips still get a little life
-    if (bob.current) bob.current.position.y = Object.keys(actions).length ? 0 : Math.abs(Math.sin(t.current * (sp > 0.2 ? 9 : 2))) * (sp > 0.2 ? 0.06 : 0.015)
+    // procedural sit for rigs without a sit clip: bend thighs and shins, lower the model
+    const animated = Object.keys(actions).length > 0
+    sitAmt.current += ((state.sit && !actions.sit ? 1 : 0) - sitAmt.current) * Math.min(1, dt * 8)
+    if (legBones.thighs.length && (sitAmt.current > 0.001 || !animated)) {
+      for (const { b, q } of legBones.thighs) { if (!animated) b.quaternion.copy(q); b.quaternion.multiply(tmpQ.setFromAxisAngle(X_AXIS, -1.5 * sitAmt.current)) }
+      for (const { b, q } of legBones.shins) { if (!animated) b.quaternion.copy(q); b.quaternion.multiply(tmpQ.setFromAxisAngle(X_AXIS, 1.45 * sitAmt.current)) }
+    }
+    if (bob.current) {
+      const drop = -(0.53 * height - ((state.sitHeight || 0.45) + 0.06)) * sitAmt.current
+      bob.current.position.y = drop + (animated || state.sit ? 0 : Math.abs(Math.sin(t.current * (sp > 0.2 ? 9 : 2))) * (sp > 0.2 ? 0.06 : 0.015))
+    }
   })
 
   return (

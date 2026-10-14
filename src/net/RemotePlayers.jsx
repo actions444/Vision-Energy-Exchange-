@@ -19,7 +19,7 @@ function RemotePlayer({ id, name, accent, skin }) {
   const group = useRef()
   const inner = useRef()
   const bubble = useRef()
-  const anim = useRef({ speed: 0, grounded: true, emote: null })
+  const anim = useRef({ speed: 0, grounded: true, emote: null, sit: 0, sitHeight: 0.45 })
   const tag = useMemo(() => nameTagTexture(name || 'Visitor', accent || '#00e5d0'), [name, accent])
   const bubbleState = useRef({ rev: -1 })
   const bubbleTex = useMemo(() => canvasTexture(512, 192, () => {}), [])
@@ -45,6 +45,8 @@ function RemotePlayer({ id, name, accent, skin }) {
     anim.current.speed = pd.speed
     anim.current.grounded = pd.grounded
     anim.current.emote = now < pd.emoteUntil ? pd.emote : null
+    anim.current.sit = pd.sit || 0
+    anim.current.sitHeight = pd.sitHeight || 0.45
 
     // chat bubble
     const showBubble = pd.bubble && now < pd.bubbleUntil

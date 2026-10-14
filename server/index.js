@@ -1,70 +1,93 @@
-// Vision Storms World relay server.
-// A small real-time backend: visitors join a room, and the server relays position, emote
-// and chat messages to everyone else in that room. Run with `npm run server`.
-// Deploy to any Node host that supports WebSockets (Render, Railway, Fly.io, a VPS) and
-// enter its wss:// address in the Multiplayer option of the title screen.
+// Vision Storms World server
+//  - WebSocket relay for multiplayer (rooms, positions, sitting, emotes, chat, owner-set weather/time)
+//  - Rental API (see rentalsApi.js) with owner auth, server-side access checks and payment webhooks
+//  - Serves the built site from ../dist when it exists, so one process can host everything
+// Run: npm run server   (PORT, ADMIN_TOKEN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, DEV_PAYMENTS, PUBLIC_URL, CORS_ORIGIN)
 import { WebSocketServer } from 'ws'
 import http from 'node:http'
+import fs from 'node:fs'
+import path from 'node:path'
+import { createRentalsApi } from './rentalsApi.js'
 
 const PORT = Number(process.env.PORT || 8787)
 const MAX_PER_ROOM = Number(process.env.MAX_PER_ROOM || 50)
+const CORS = process.env.CORS_ORIGIN || '*'
+const DIST = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'dist')
+const rentals = createRentalsApi()
 
-const rooms = new Map() // room -> Map(id -> { ws, info })
+const rooms = new Map() // room -> { members: Map(id -> { ws, info, admin }), env }
 const rid = () => Math.random().toString(36).slice(2, 10)
-
 const clean = (s, n) => String(s ?? '').replace(/[\u0000-\u001f]/g, '').slice(0, n)
 const cleanInfo = (info = {}) => ({
   name: clean(info.name, 20) || 'Guest',
   accent: /^#[0-9a-f]{6}$/i.test(info.accent) ? info.accent : '#a33cff',
   skin: /^#[0-9a-f]{6}$/i.test(info.skin) ? info.skin : '#d9a37a',
 })
+const WEATHERS = new Set(['clear', 'cloudy', 'rain', 'storm'])
 
-const server = http.createServer((req, res) => {
-  if (req.url === '/health') {
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.glb': 'model/gltf-binary', '.mp3': 'audio/mpeg', '.wasm': 'application/wasm' }
+
+const server = http.createServer(async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', CORS)
+  res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, x-customer-token')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS')
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end() }
+  const url = new URL(req.url, 'http://localhost')
+  if (url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size, players: [...rooms.values()].reduce((a, r) => a + r.size, 0) }))
-    return
+    return res.end(JSON.stringify({ ok: true, rooms: rooms.size, players: [...rooms.values()].reduce((a, r) => a + r.members.size, 0), payments: rentals.paymentMode }))
+  }
+  if (url.pathname.startsWith('/api/')) {
+    let raw = ''
+    for await (const chunk of req) { raw += chunk; if (raw.length > 1e6) { res.writeHead(413); return res.end() } }
+    if (await rentals(req, res, url, raw)) return
+  }
+  // static site
+  if (fs.existsSync(DIST)) {
+    const file = path.normalize(path.join(DIST, url.pathname === '/' ? 'index.html' : url.pathname))
+    if (file.startsWith(DIST) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+      res.writeHead(200, { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' })
+      return fs.createReadStream(file).pipe(res)
+    }
+    res.writeHead(200, { 'content-type': 'text/html' })
+    return fs.createReadStream(path.join(DIST, 'index.html')).pipe(res)
   }
   res.writeHead(200, { 'content-type': 'text/plain' })
-  res.end('Vision Storms World relay is running.')
+  res.end('Vision Storms World server is running.')
 })
 
 const wss = new WebSocketServer({ server, maxPayload: 4 * 1024 })
 
 function broadcast(room, from, msg) {
   const data = JSON.stringify(msg)
-  for (const [id, peer] of rooms.get(room) || []) {
-    if (id !== from && peer.ws.readyState === 1) peer.ws.send(data)
-  }
+  for (const [id, peer] of rooms.get(room)?.members || []) if (id !== from && peer.ws.readyState === 1) peer.ws.send(data)
 }
 
 wss.on('connection', (ws) => {
-  let id = null
-  let room = null
-  let lastChat = 0
+  let id = null, room = null, lastChat = 0, admin = false
   ws.isAlive = true
   ws.on('pong', () => { ws.isAlive = true })
-
   ws.on('message', (raw) => {
     let msg
     try { msg = JSON.parse(raw) } catch { return }
     if (!id) {
       if (msg.t !== 'join') return
       room = clean(msg.room, 32) || 'lobby'
-      if (!rooms.has(room)) rooms.set(room, new Map())
-      const members = rooms.get(room)
-      if (members.size >= MAX_PER_ROOM) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return }
+      if (!rooms.has(room)) rooms.set(room, { members: new Map(), env: null })
+      const r = rooms.get(room)
+      if (r.members.size >= MAX_PER_ROOM) { ws.send(JSON.stringify({ t: 'full' })); ws.close(); return }
       id = rid()
+      admin = rentals.isAdminToken(msg.adminToken)
       const info = cleanInfo(msg.info)
-      ws.send(JSON.stringify({ t: 'welcome', id, peers: [...members].map(([pid, p]) => ({ id: pid, info: p.info })) }))
-      members.set(id, { ws, info })
+      ws.send(JSON.stringify({ t: 'welcome', id, admin, env: r.env, peers: [...r.members].map(([pid, p]) => ({ id: pid, info: p.info })) }))
+      r.members.set(id, { ws, info, admin })
       broadcast(room, id, { t: 'join', id, info })
       return
     }
     switch (msg.t) {
       case 'state':
         if (!Array.isArray(msg.p) || msg.p.length !== 3 || !msg.p.every(Number.isFinite)) return
-        broadcast(room, id, { t: 'state', id, p: msg.p, y: +msg.y || 0, s: +msg.s || 0, g: msg.g ? 1 : 0 })
+        broadcast(room, id, { t: 'state', id, p: msg.p, y: +msg.y || 0, s: +msg.s || 0, g: msg.g ? 1 : 0, st: msg.st ? 1 : 0, sh: Math.min(1.2, Math.max(0, +msg.sh || 0)) })
         break
       case 'emote':
         broadcast(room, id, { t: 'emote', id, e: clean(msg.e, 16) })
@@ -77,19 +100,25 @@ wss.on('connection', (ws) => {
         if (text) broadcast(room, id, { t: 'chat', id, text })
         break
       }
+      case 'env': {
+        // only the owner may change time of day / weather for everyone
+        if (!admin) return
+        const env = { time: Math.min(24, Math.max(0, +msg.time || 0)), weather: WEATHERS.has(msg.weather) ? msg.weather : 'clear', running: !!msg.running, speed: Math.min(60, Math.max(0, +msg.speed || 0)), at: Date.now() }
+        rooms.get(room).env = env
+        broadcast(room, id, { t: 'env', id, ...env })
+        break
+      }
     }
   })
-
   ws.on('close', () => {
     if (!id || !room) return
-    const members = rooms.get(room)
-    members?.delete(id)
+    const r = rooms.get(room)
+    r?.members.delete(id)
     broadcast(room, id, { t: 'leave', id })
-    if (members && members.size === 0) rooms.delete(room)
+    if (r && r.members.size === 0) rooms.delete(room)
   })
 })
 
-// drop dead connections
 setInterval(() => {
   for (const ws of wss.clients) {
     if (!ws.isAlive) { ws.terminate(); continue }
@@ -98,4 +127,4 @@ setInterval(() => {
   }
 }, 15000)
 
-server.listen(PORT, () => console.log(`Vision Storms World relay listening on :${PORT}`))
+server.listen(PORT, () => console.log(`Vision Storms World server on :${PORT} (payments: ${rentals.paymentMode})`))

@@ -23,6 +23,18 @@ const DEMO_TRACKS = [
   { id: 't-purple-static', title: 'Purple Static', gen: { style: 'house', bpm: 118, bars: 24, root: 48, seed: 9 }, colors: [NEON.purple, NEON.teal, NEON.yellow], shape: 'rings' },
   { id: 't-thunder-avenue', title: 'Thunder Avenue', gen: { style: 'ambient', bpm: 64, bars: 12, root: 50, seed: 4 }, colors: [NEON.teal, NEON.purple, '#9fb4ff'], shape: 'waves' },
   { id: 't-wet-asphalt', title: 'Wet Asphalt', gen: { style: 'ambient', bpm: 58, bars: 12, root: 46, seed: 17 }, colors: ['#9fb4ff', NEON.teal, NEON.pink], shape: 'rings' },
+  // Vision Storms Plaza
+  { id: 't-welcome-desk', title: 'Welcome Desk', gen: { style: 'lofi', bpm: 80, bars: 16, root: 55, seed: 41 }, colors: ['#c9a96a', '#7a8796', '#e8e1d4'], shape: 'waves' },
+  { id: 't-corner-booth', title: 'Corner Booth', gen: { style: 'lofi', bpm: 86, bars: 16, root: 52, seed: 52 }, colors: ['#d98c5f', '#7a3b33', '#f2e3c9'], shape: 'rings' },
+  { id: 't-late-brunch', title: 'Late Brunch', gen: { style: 'lofi', bpm: 74, bars: 14, root: 57, seed: 63 }, colors: ['#f0c66a', '#8a6f55', '#e8e1d4'], shape: 'waves' },
+  { id: 't-runway-glow', title: 'Runway Glow', gen: { style: 'house', bpm: 124, bars: 24, root: 47, seed: 74 }, colors: ['#e9e4d8', '#1f2a44', '#b23a3a'], shape: 'bars' },
+  { id: 't-fitting-room', title: 'Fitting Room', gen: { style: 'house', bpm: 120, bars: 24, root: 44, seed: 85 }, colors: ['#3d5a40', '#c9a24a', '#e9e4d8'], shape: 'rings' },
+  { id: 't-feature-presentation', title: 'Feature Presentation', gen: { style: 'synthwave', bpm: 96, bars: 20, root: 48, seed: 96 }, colors: ['#6a1f26', '#c9a96a', '#11131a'], shape: 'waves' },
+  { id: 't-booth-session', title: 'Booth Session', gen: { style: 'trap', bpm: 136, bars: 24, root: 46, seed: 107 }, colors: ['#3b6cff', '#22252b', '#c9c1dc'], shape: 'bars' },
+  { id: 't-mixdown', title: 'Mixdown', gen: { style: 'synthwave', bpm: 100, bars: 20, root: 53, seed: 118 }, colors: ['#5a4a3c', '#3c4652', '#f0c66a'], shape: 'rings' },
+  { id: 't-boardroom-calm', title: 'Boardroom Calm', gen: { style: 'ambient', bpm: 62, bars: 12, root: 52, seed: 129 }, colors: ['#596069', '#c9d1d9', '#c9a96a'], shape: 'waves' },
+  { id: 't-skyline-suite', title: 'Skyline Suite', gen: { style: 'lofi', bpm: 70, bars: 14, root: 50, seed: 131 }, colors: ['#3c4a5a', '#d3c7b6', '#a58a6c'], shape: 'rings' },
+  { id: 't-private-hours', title: 'Private Hours', gen: { style: 'ambient', bpm: 58, bars: 12, root: 55, seed: 142 }, colors: ['#7d6a58', '#3c4a5a', '#e9e4d8'], shape: 'waves' },
 ].map((t) => ({ ...t, artist: DEMO_ARTIST, source: 'generated', demo: true }))
 
 const DEMO_PLAYLISTS = [
@@ -30,6 +42,13 @@ const DEMO_PLAYLISTS = [
   { id: 'pl-records', name: 'Storms Records Rotation', kind: 'tracks', trackIds: ['t-crate-digger', 't-needle-drop'], shuffle: true, demo: true },
   { id: 'pl-lounge', name: 'Neon Lounge Live', kind: 'tracks', trackIds: ['t-after-hours', 't-purple-static'], shuffle: true, demo: true },
   { id: 'pl-streets', name: 'City Storm', kind: 'tracks', trackIds: ['t-thunder-avenue', 't-wet-asphalt'], shuffle: false, demo: true },
+  { id: 'pl-lobby', name: 'Plaza Lobby', kind: 'tracks', trackIds: ['t-welcome-desk', 't-velvet-hour'], shuffle: false, demo: true },
+  { id: 'pl-bistro', name: 'Bistro Sessions', kind: 'tracks', trackIds: ['t-corner-booth', 't-late-brunch', 't-marble-rain'], shuffle: true, demo: true },
+  { id: 'pl-threads', name: 'Threads Runway', kind: 'tracks', trackIds: ['t-runway-glow', 't-fitting-room'], shuffle: true, demo: true },
+  { id: 'pl-screening', name: 'Screening Room', kind: 'tracks', trackIds: ['t-feature-presentation', 't-thunder-avenue'], shuffle: false, demo: true },
+  { id: 'pl-studio', name: 'Studio 202 Reel', kind: 'tracks', trackIds: ['t-booth-session', 't-mixdown'], shuffle: true, demo: true },
+  { id: 'pl-conference', name: 'Boardroom Calm', kind: 'tracks', trackIds: ['t-boardroom-calm'], shuffle: false, demo: true },
+  { id: 'pl-suite', name: 'Skyline Suite', kind: 'tracks', trackIds: ['t-skyline-suite', 't-private-hours'], shuffle: true, demo: true },
 ]
 
 const defaultAssignments = () => Object.fromEntries(ZONES.map((z) => [z.id, z.playlist || null]))

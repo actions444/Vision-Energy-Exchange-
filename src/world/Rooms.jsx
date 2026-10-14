@@ -3,7 +3,10 @@ import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { getMaterials } from './materials.js'
-import { neonSignTexture, canvasTexture } from './canvasText.js'
+import { canvasTexture } from './canvasText.js'
+import { BrandSign } from './signs.jsx'
+import { LightAnchor } from './props.jsx'
+import { surface } from './materials.js'
 import { NEON } from '../config/theme.js'
 import { getLevels } from '../audio/core.js'
 import { useMusicLibrary, demoArt } from '../music/library.js'
@@ -16,15 +19,8 @@ const PALETTE = [NEON.pink, NEON.purple, NEON.teal, NEON.yellow]
 export function RecordsInterior({ x0, x1, z0, z1 }) {
   const mats = getMaterials()
   const cz = (z0 + z1) / 2
-  const sign = useMemo(() => neonSignTexture('STORMS RECORDS', NEON.teal, { size: 150 }), [])
-  const crateMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1b1626', roughness: 0.5, metalness: 0.4 }), [])
+  const crateMat = surface('wood', 1, 0.4, { color: '#9a7a5c' })
   const islands = [[17, z0 + 7], [23.5, z0 + 7], [17, z1 - 6], [23.5, z1 - 6]]
-  const light1 = useRef()
-
-  useFrame(({ clock }) => {
-    const lv = getLevels(4)
-    if (light1.current) light1.current.intensity = 18 + (lv ? lv[0] * 30 : Math.sin(clock.elapsedTime) * 3)
-  })
 
   return (
     <group>
@@ -37,7 +33,7 @@ export function RecordsInterior({ x0, x1, z0, z1 }) {
       {islands.map(([x, z], i) => (
         <group key={i} position={[x, FLOOR, z]}>
           <mesh position={[0, 0.5, 0]} material={crateMat} castShadow receiveShadow><boxGeometry args={[3.8, 1, 1.4]} /></mesh>
-          <mesh position={[0, 1.005, 0]} material={mats.neon(PALETTE[i], 2.5)}><boxGeometry args={[3.82, 0.02, 1.42]} /></mesh>
+          <mesh position={[0, 1.005, 0]} material={mats.blackSteel}><boxGeometry args={[3.82, 0.02, 1.42]} /></mesh>
           <Sleeves seed={i} />
         </group>
       ))}
@@ -45,26 +41,24 @@ export function RecordsInterior({ x0, x1, z0, z1 }) {
       {/* counter with spinning turntable */}
       <group position={[x1 - 3.2, FLOOR, cz]}>
         <mesh position={[0, 0.55, 0]} material={mats.marbleWall(1, 1)} castShadow receiveShadow><boxGeometry args={[1.1, 1.1, 4.8]} /></mesh>
-        <mesh position={[-0.56, 0.9, 0]} material={mats.neon(NEON.pink, 2.5)}><boxGeometry args={[0.02, 0.04, 4.8]} /></mesh>
+
         <Turntable position={[0, 1.12, -1.2]} color={NEON.teal} />
         <mesh position={[0, 1.25, 1.4]} material={mats.darkMetal}><boxGeometry args={[0.5, 0.3, 0.4]} /></mesh>
       </group>
 
       {/* album wall on the back wall */}
       <AlbumWall position={[x1 - 0.42, FLOOR + 3, cz]} rotationY={-Math.PI / 2} width={14} height={3.6} />
-      <mesh position={[x1 - 0.41, FLOOR + 5.3, cz]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[9, 2.25]} />
-        <meshBasicMaterial map={sign} transparent toneMapped={false} depthWrite={false} />
-      </mesh>
+      <BrandSign text="STORMS RECORDS" position={[x1 - 0.41, FLOOR + 5.3, cz]} rotation={[0, -Math.PI / 2, 0]} width={9} color="#2a2a2c" glow="#ffffff" />
       {/* neon shelf lines on the side walls */}
       {[z0 + 0.45, z1 - 0.45].map((z, i) => (
         <group key={z}>
           {[1.2, 2.4, 3.6].map((y) => (
-            <mesh key={y} position={[(x0 + x1) / 2 + 1, FLOOR + y, z]} material={mats.neon(i ? NEON.pink : NEON.purple, 2.2)}><boxGeometry args={[(x1 - x0) - 6, 0.05, 0.08]} /></mesh>
+            <mesh key={y} position={[(x0 + x1) / 2 + 1, FLOOR + y, z]} material={surface('wood', 4, 0.1, { color: '#7d6048' })}><boxGeometry args={[(x1 - x0) - 6, 0.05, 0.3]} /></mesh>
           ))}
         </group>
       ))}
-      <pointLight ref={light1} position={[(x0 + x1) / 2, FLOOR + 5, cz]} color="#c9b2ff" intensity={18} distance={22} decay={1.3} />
+      <LightAnchor position={[(x0 + x1) / 2 - 3, FLOOR + 5, cz]} color="#ffe9cf" intensity={22} distance={16} />
+      <LightAnchor position={[(x0 + x1) / 2 + 5, FLOOR + 5, cz]} color="#ffe9cf" intensity={18} distance={14} />
     </group>
   )
 }
@@ -151,17 +145,7 @@ export function LoungeInterior({ x0, x1, z0, z1 }) {
   const mats = getMaterials()
   const cz = (z0 + z1) / 2
   const floorCx = (x0 + x1) / 2 - 0.5
-  const sign = useMemo(() => neonSignTexture('NEON LOUNGE', NEON.pink, { size: 160 }), [])
-  const sofa = useMemo(() => new THREE.MeshStandardMaterial({ color: '#2a1240', roughness: 0.8 }), [])
-  const l1 = useRef()
-  const l2 = useRef()
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime
-    const lv = getLevels(4)
-    const beat = lv ? lv[0] : 0.3 + Math.sin(t * 2) * 0.2
-    if (l1.current) { l1.current.intensity = 10 + beat * 40; l1.current.color.setHSL((t * 0.05) % 1, 0.9, 0.6) }
-    if (l2.current) l2.current.intensity = 8 + (lv ? lv[2] * 30 : 6)
-  })
+  const sofa = mats.fabric('#3b2f45')
 
   return (
     <group>
@@ -185,16 +169,13 @@ export function LoungeInterior({ x0, x1, z0, z1 }) {
         <Turntable position={[0, 1.13, 1]} color={NEON.yellow} />
         <mesh position={[0, 1.15, 0]} material={mats.darkMetal}><boxGeometry args={[0.5, 0.08, 0.6]} /></mesh>
       </group>
-      <mesh position={[x1 - 0.41, FLOOR + 4.4, cz]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[10, 2.5]} />
-        <meshBasicMaterial map={sign} transparent toneMapped={false} depthWrite={false} />
-      </mesh>
+      <BrandSign text="VISION STORMS LOUNGE" position={[x1 - 0.41, FLOOR + 4.4, cz]} rotation={[0, -Math.PI / 2, 0]} width={10} />
       <Speakers x={x1 - 2.2} z={[cz - 4, cz + 4]} />
 
       {/* bar */}
       <group position={[floorCx - 1, FLOOR, z1 - 1.4]}>
         <mesh position={[0, 0.55, 0]} material={mats.marbleWall(3, 0.3)} castShadow receiveShadow><boxGeometry args={[12, 1.1, 1]} /></mesh>
-        <mesh position={[0, 1.11, -0.5]} material={mats.neon(NEON.yellow, 3)}><boxGeometry args={[12, 0.03, 0.03]} /></mesh>
+        <mesh position={[0, 1.11, -0.5]} material={mats.chrome}><boxGeometry args={[12, 0.03, 0.03]} /></mesh>
         {Array.from({ length: 7 }, (_, i) => (
           <mesh key={i} position={[-5 + i * 1.65, 0.38, -1.05]} material={mats.chrome}><cylinderGeometry args={[0.2, 0.06, 0.76, 16]} /></mesh>
         ))}
@@ -203,13 +184,13 @@ export function LoungeInterior({ x0, x1, z0, z1 }) {
       <group position={[floorCx - 1, FLOOR, z0 + 1.1]}>
         <mesh position={[0, 0.25, 0]} material={sofa}><boxGeometry args={[8, 0.5, 1.2]} /></mesh>
         <mesh position={[0, 0.7, -0.45]} material={sofa}><boxGeometry args={[8, 0.6, 0.3]} /></mesh>
-        <mesh position={[0, 0.02, 0.62]} material={mats.neon(NEON.purple, 2.5)}><boxGeometry args={[8, 0.03, 0.03]} /></mesh>
+
       </group>
 
       <MirrorBall position={[floorCx, FLOOR + 5.2, cz]} />
       <Beams position={[floorCx, FLOOR + 5.7, cz]} />
-      <pointLight ref={l1} position={[floorCx, FLOOR + 4.5, cz]} intensity={20} distance={20} decay={1.3} />
-      <pointLight ref={l2} position={[x1 - 4, FLOOR + 3, cz]} color={NEON.teal} intensity={10} distance={12} decay={1.5} />
+      <LightAnchor position={[floorCx, FLOOR + 4.5, cz]} color="#e6c8ff" intensity={20} distance={18} />
+      <LightAnchor position={[x1 - 4, FLOOR + 3, cz]} color="#ffd9b0" intensity={12} distance={12} />
     </group>
   )
 }

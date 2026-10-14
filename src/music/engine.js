@@ -14,6 +14,7 @@ import { create } from 'zustand'
 import { audioCore, resumeAudio } from '../audio/core.js'
 import { useMusicLibrary, resolveTrackSource, resolveArt, getStoredBlob } from './library.js'
 import { zoneById } from '../config/rooms.js'
+import { rentalAccess, useRentals } from '../rentals/client.js'
 
 const PREFS = 'vsw-audio'
 const ZONE_FADE = 2.5
@@ -243,8 +244,15 @@ export const musicEngine = {
     this.zoneId = zoneId
     const z = zoneById(zoneId)
     useMusic.setState({ zoneId, zoneName: z?.name || '' })
-    const pid = useMusicLibrary.getState().assignments[zoneId] ?? null
-    this.switchPlaylist(pid, ZONE_FADE)
+    this.switchPlaylist(this.playlistFor(zoneId), ZONE_FADE)
+  },
+
+  /** The renter's chosen playlist wins over the owner's assignment while a booking is active. */
+  playlistFor(zoneId) {
+    const lib = useMusicLibrary.getState()
+    const override = rentalAccess.playlist(zoneId)
+    if (override && lib.playlists.some((p) => p.id === override)) return override
+    return lib.assignments[zoneId] ?? null
   },
 
   saveProgress() {
@@ -418,8 +426,8 @@ export const musicEngine = {
 useMusicLibrary.subscribe((s, prev) => {
   const e = musicEngine
   if (!e.zoneId) return
-  const pid = s.assignments[e.zoneId] ?? null
-  const prevPid = prev.assignments[e.zoneId] ?? null
+  const pid = e.playlistFor(e.zoneId)
+  const prevPid = rentalAccess.playlist(e.zoneId) || (prev.assignments[e.zoneId] ?? null)
   const pl = s.playlists.find((p) => p.id === pid)
   const prevPl = prev.playlists.find((p) => p.id === pid)
   if (pid !== prevPid) { e.switchPlaylist(pid, 1.5); return }
@@ -427,6 +435,14 @@ useMusicLibrary.subscribe((s, prev) => {
     e.currentPid = null
     e.switchPlaylist(pid, 1.5)
   }
+})
+
+// A renter changing their room's playlist takes effect for whoever is inside.
+useRentals.subscribe((s, prev) => {
+  const e = musicEngine
+  if (!e.zoneId || s.rooms === prev.rooms) return
+  const pid = e.playlistFor(e.zoneId)
+  if (pid !== e.currentPid) e.switchPlaylist(pid, 1.5)
 })
 
 // First tap/click/key anywhere also unlocks audio (mobile browsers require a gesture).
