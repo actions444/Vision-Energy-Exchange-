@@ -75,6 +75,8 @@ export default function City() {
       {/* ground, road and sidewalks */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[130, 0.5, 130]} position={[0, -0.5, 0]} />
+        {/* invisible world boundary: nobody drives or walks off the edge of the map */}
+        {[[129.5, 0, 0.5, 130], [-129.5, 0, 0.5, 130], [0, 129.5, 130, 0.5], [0, -129.5, 130, 0.5]].map(([x, z, hx, hz], i) => <CuboidCollider key={'edge' + i} args={[hx, 20, hz]} position={[x, 19.5, z]} />)}
         {blocks.map(([x0, x1, z0, z1], i) => (
           <CuboidCollider key={i} args={[(x1 - x0) / 2, CURB / 2, (z1 - z0) / 2]} position={[(x0 + x1) / 2, CURB / 2, (z0 + z1) / 2]} />
         ))}

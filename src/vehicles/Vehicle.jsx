@@ -8,7 +8,7 @@ import { registerLightAnchor, nightLit, env } from '../state/environment.js'
 import { useStore } from '../state/store.js'
 import { getMaterials } from '../world/materials.js'
 import Avatar from '../player/Avatar.jsx'
-import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies } from './vehicles.js'
+import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies, vehicleActions, ROAD_LINES } from './vehicles.js'
 
 // Drivable vehicles: a dynamic Rapier rigid body (the chassis) with a ray-cast vehicle
 // controller — four wheels with suspension, tyre friction, engine force, brakes and steering.
@@ -16,6 +16,24 @@ import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies } from './vehi
 
 export default function Vehicles() {
   return VEHICLE_SPAWNS.map((s) => <Vehicle key={s.id} spawn={s} />)
+}
+
+/** How upright a body is: 1 = wheels down, 0 = on its side, -1 = on its roof. */
+function upDot(rb) { const r = rb.rotation(); return 1 - 2 * (r.x * r.x + r.z * r.z) }
+const quatY = (h) => ({ x: 0, y: Math.sin(h / 2), z: 0, w: Math.cos(h / 2) })
+
+/**
+ * Stability assist: a torque that rights the body when it rolls or pitches (like real
+ * stability control plus a low centre of gravity), so curbs, planters and crashes don't tip
+ * the car over. Yaw is untouched, so steering feels the same.
+ */
+function stabilise(rb, dt) {
+  if (!rb) return
+  const r = rb.rotation()
+  const ux = 2 * (r.x * r.y - r.w * r.z), uz = 2 * (r.y * r.z + r.w * r.x)
+  const av = rb.angvel()
+  const k = 9000, c = 2500
+  rb.applyTorqueImpulse({ x: (-uz * k - av.x * c) * dt, y: 0, z: (ux * k - av.z * c) * dt }, true)
 }
 
 const tmpV = new THREE.Vector3()
@@ -59,6 +77,8 @@ function Vehicle({ spawn }) {
         vc.setWheelFrictionSlip(i, T.friction)
         vc.setWheelSideFrictionStiffness(i, 1)
       })
+      // mass set directly with a low centre of mass (colliders carry no mass): stable in turns
+      rb.setAdditionalMassProperties(T.mass, { x: 0, y: T.com, z: 0 }, { x: 900, y: 5000, z: 4700 }, { w: 1, x: 0, y: 0, z: 0 }, true)
       ctl.current = vc
       vehicleBodies.set(spawn.id, { body: rb, controller: vc, door: () => toWorld([0.2, 0, -(W + 0.6)]) })
       for (let i = 0; i < rb.numColliders(); i++) colHandles.current.add(rb.collider(i).handle)
@@ -166,7 +186,84 @@ function Vehicle({ spawn }) {
       vc.setWheelSteering(i, i < 2 ? steer.current : 0)
     }
     vc.updateVehicle(1 / 60, undefined, undefined, (c) => c.handle !== playerState.colliderHandle && !c.isSensor())
+    stabilise(body.current, 1 / 60)
+    watchdog(1 / 60)
   })
+
+  // ---- staying upright, recovery ----
+  const overSince = useRef(0)
+  function watchdog(dt) {
+    const rb = body.current
+    if (!rb) return
+    const t = rb.translation()
+    // fell out of the world, or left the map: put it back on the nearest road
+    if (t.y < -6 || Math.abs(t.x) > 127 || Math.abs(t.z) > 127) { reset(); return }
+    const up = upDot(rb)
+    if (up < 0.35 && Math.hypot(rb.linvel().x, rb.linvel().z) < 2) {
+      overSince.current += dt
+      if (overSince.current > 3) { overSince.current = 0; flip(true) } // automatic recovery after 3 s on its side/roof
+    } else overSince.current = 0
+  }
+  const carShape = new rapier.Cuboid(T.length / 2, 0.8, T.width / 2)
+  const clearAt = (x, y, z, h) => !world.intersectionWithShape({ x, y: y + 0.95, z }, quatY(h), carShape, undefined, undefined, undefined, undefined, (c) => !colHandles.current.has(c.handle) && c.handle !== playerState.colliderHandle && !c.isSensor())
+  /** Upright the car where it is (or the nearest clear spot around it), facing the way it was facing. */
+  function flip(auto = false) {
+    const rb = body.current
+    if (!rb) return false
+    const t = rb.translation()
+    const h = heading()
+    const ground = groundY(t.x, t.z, t.y + 2)
+    for (const r of [0, 2.5, 4, 6, 9]) {
+      for (let k = 0; k < (r ? 8 : 1); k++) {
+        const a = (k / 8) * Math.PI * 2
+        const x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r
+        const gy = r ? groundY(x, z, t.y + 2) : ground
+        if (gy === null || !clearAt(x, gy, z, h)) continue
+        place(x, gy, z, h)
+        useStore.getState().showToast(auto ? `${T.name} was on its side, so it was turned upright.` : `${T.name} is upright again.`)
+        return true
+      }
+    }
+    return reset()
+  }
+  /** Put the car on the nearest clear spot on a road. */
+  function reset() {
+    const rb = body.current
+    if (!rb) return false
+    const t = rb.translation()
+    const cands = []
+    for (const [x0, z0, x1, z1, hd] of ROAD_LINES) {
+      const len = Math.hypot(x1 - x0, z1 - z0)
+      for (let d = 0; d <= len; d += 4) cands.push([x0 + ((x1 - x0) * d) / len, z0 + ((z1 - z0) * d) / len, hd])
+    }
+    cands.sort((a, b) => Math.hypot(a[0] - t.x, a[1] - t.z) - Math.hypot(b[0] - t.x, b[1] - t.z))
+    for (const [x, z, hd] of cands.slice(0, 60)) {
+      const gy = groundY(x, z, 5)
+      if (gy === null || !clearAt(x, gy, z, hd)) continue
+      place(x, gy, z, hd)
+      useStore.getState().showToast(`${T.name} was moved to the nearest clear spot on the road.`)
+      return true
+    }
+    const s = spawn.position
+    place(s[0], 0.15, s[2], spawn.heading)
+    return true
+  }
+  function place(x, y, z, h) {
+    const rb = body.current
+    rb.setTranslation({ x, y: y + 0.6, z }, true)
+    rb.setRotation(quatY(h), true)
+    rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
+    rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
+    steer.current = 0
+  }
+  function groundY(x, z, fromY) {
+    const hit = world.castRay(new rapier.Ray({ x, y: fromY, z }, { x: 0, y: -1, z: 0 }), 40, true, undefined, undefined, undefined, undefined, (c) => !colHandles.current.has(c.handle) && c.handle !== playerState.colliderHandle && !c.isSensor())
+    return hit ? fromY - hit.timeOfImpact : null
+  }
+  useEffect(() => {
+    vehicleActions.set(spawn.id, { flip: () => flip(false), reset })
+    return () => vehicleActions.delete(spawn.id)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- visuals, driver, camera ----
   useFrame((_, dt) => {
@@ -209,9 +306,8 @@ function Vehicle({ spawn }) {
   return (
     <RigidBody ref={body} type="dynamic" colliders={false} position={spawn.position} rotation={[0, spawn.heading, 0]} linearDamping={0.05} angularDamping={0.8} ccd canSleep={false} userData={{ vehicle: spawn.id }}>
       {/* heavy floor pan keeps the centre of mass low so the SUV doesn't roll in turns */}
-      <CuboidCollider args={[1.9, 0.08, 0.8]} position={[0, 0.42, 0]} density={1400} friction={0.4} />
-      <CuboidCollider args={[T.length / 2, 0.42, T.width / 2 - 0.04]} position={[0, 0.92, 0]} density={70} friction={0.4} />
-      <CuboidCollider args={[1.5, 0.36, T.width / 2 - 0.12]} position={[-0.35, 1.65, 0]} density={40} friction={0.4} />
+      <CuboidCollider args={[T.length / 2, 0.42, T.width / 2 - 0.04]} position={[0, 0.92, 0]} density={0} friction={0.3} />
+      <CuboidCollider args={[1.5, 0.36, T.width / 2 - 0.12]} position={[-0.35, 1.65, 0]} density={0} friction={0.3} />
       <SuvBody T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} />
       {wheelPos.map(([x, z], i) => (
         <group key={i} ref={(g) => (wheelRefs.current[i] = g)} position={[x, CY - T.suspension.rest, z]}>

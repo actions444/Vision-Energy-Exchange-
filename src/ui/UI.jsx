@@ -27,7 +27,7 @@ import { spaceAt } from '../decor/spaces.js'
 import { usePreview, endTour } from '../rentals/preview.js'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
-import { useDriving } from '../vehicles/vehicles.js'
+import { useDriving, vehicleActions } from '../vehicles/vehicles.js'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access'])
 
@@ -209,6 +209,7 @@ function HUD() {
     ['assets', 'My avatar', () => openPanel({ type: 'assets' }), 'Import your own 3D avatar (stays on this device)'],
     ['settings', 'Settings', () => openPanel({ type: 'settings' })],
     ['help', 'Help', () => openPanel({ type: 'help' })],
+    ['unstuck', 'Unstuck', () => { playerState.unstuck = true }, 'Stuck in something? Moves you to the nearest clear spot'],
     ['respawn', 'Respawn', () => { playerState.respawn = true; cameraState.yaw = 0 }, 'Return to the start of the avenue'],
     ['exit', 'Exit', exit],
   ].filter(Boolean)
@@ -295,11 +296,14 @@ function DriveHud() {
   const speed = useDriving((s) => s.speed)
   const gear = useDriving((s) => s.gear)
   if (!driving) return null
+  const act = (k) => { const a = vehicleActions.get(useDriving.getState().vehicleId); a?.[k]() }
   return (
     <div className="drive-hud" aria-live="off">
       <b>{Math.round(speed * 2.237)}</b><small>mph</small>
       <span className="gear">{gear}</span>
       <em>{driving}</em>
+      <button className="btn small" id="veh-flip" onClick={() => act('flip')} title="Turn the vehicle upright (F)">Flip vehicle</button>
+      <button className="btn ghost small" id="veh-reset" onClick={() => act('reset')} title="Move the vehicle to the nearest road (R)">Reset vehicle</button>
     </div>
   )
 }
@@ -354,6 +358,8 @@ function TouchControls() {
       {driving ? (
         <div className="touch-buttons">
           <button className="tb" {...hold('brake')}>Brake</button>
+          <button className="tb" onPointerDown={(e) => { e.stopPropagation(); vehicleActions.get(useDriving.getState().vehicleId)?.flip() }}>Flip</button>
+          <button className="tb" onPointerDown={(e) => { e.stopPropagation(); vehicleActions.get(useDriving.getState().vehicleId)?.reset() }}>Reset</button>
         </div>
       ) : (
       <div className="touch-buttons">

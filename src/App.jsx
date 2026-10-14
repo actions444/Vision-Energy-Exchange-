@@ -20,7 +20,7 @@ import DecorLayer from './decor/DecorLayer.jsx'
 import PhotoBooth from './rentals/PhotoBooth.jsx'
 import { usePreview, useRentDraft, startTour } from './rentals/preview.js'
 import { startDecor, useDecor } from './decor/decor.js'
-import { useDriving, vehicleBodies } from './vehicles/vehicles.js'
+import { useDriving, vehicleBodies, vehicleActions } from './vehicles/vehicles.js'
 import { elevator, useElevatorUI } from './world/elevator.js'
 import MusicZones from './music/MusicZones.jsx'
 import { useMusicLibrary, resolveTrackSource } from './music/library.js'
@@ -55,6 +55,8 @@ export default function App() {
         const st = useStore.getState()
         if (e.code === 'Escape' && st.panel) st.closePanel()
         if (st.phase !== 'playing') return
+        const drivingId = useDriving.getState().vehicleId
+        if (drivingId && !e.repeat && (e.code === 'KeyF' || e.code === 'KeyR')) { const a = vehicleActions.get(drivingId); if (a) (e.code === 'KeyF' ? a.flip : a.reset)(); return }
         if (e.code === 'KeyB') st.panel?.type === 'assets' ? st.closePanel() : st.openPanel({ type: 'assets' })
         if (e.code === 'KeyT' || e.code === 'Enter') {
           const el = document.getElementById('chat-input')
@@ -111,4 +113,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor, usePreview, useRentDraft, startTour }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, vehicleActions, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor, usePreview, useRentDraft, startTour }

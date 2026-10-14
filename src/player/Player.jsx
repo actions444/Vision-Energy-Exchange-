@@ -10,6 +10,7 @@ import Avatar from './Avatar.jsx'
 import { ImportedAvatar } from '../assets/PlacedAssets.jsx'
 import { net, peerData } from '../net/netManager.js'
 import { elevator } from '../world/elevator.js'
+import { ZONES } from '../config/rooms.js'
 
 const WALK = 2.6
 const RUN = 6.2
@@ -49,6 +50,37 @@ function safeStandSpot(seat, world, rapier, col) {
   return { x: seat.position[0] + fx * 0.75, y: seat.floorY + 0.05, z: seat.position[2] + fz * 0.75 }
 }
 
+/** Building entrances and room spawns double as recovery checkpoints. */
+function nearestCheckpoint(p) {
+  let best = [SPAWN.x, SPAWN.y, SPAWN.z], bd = Infinity
+  for (const z of ZONES) {
+    const d = Math.hypot(z.spawn[0] - p.x, z.spawn[1] - p.y, z.spawn[2] - p.z)
+    if (d < bd) { bd = d; best = z.spawn }
+  }
+  const d0 = Math.hypot(SPAWN.x - p.x, SPAWN.z - p.z)
+  return d0 < bd ? [SPAWN.x, SPAWN.y, SPAWN.z] : best
+}
+
+/** A spot near `p` where the avatar's capsule fits and there is floor underneath. */
+function freeSpotNear(p, world, rapier, col) {
+  const shape = new rapier.Capsule(CAPSULE_HALF, CAPSULE_R)
+  const rot = { x: 0, y: 0, z: 0, w: 1 }
+  const skip = (c) => c.handle !== col.handle && !c.isSensor()
+  for (const r of [0, 0.6, 1.2, 2, 3, 4.5]) {
+    for (let k = 0; k < (r ? 12 : 1); k++) {
+      const a = (k / 12) * Math.PI * 2
+      const x = p.x + Math.cos(a) * r, z = p.z + Math.sin(a) * r
+      const hit = world.castRay(new rapier.Ray({ x, y: p.y + 1.5, z }, { x: 0, y: -1, z: 0 }), 4, true, undefined, undefined, undefined, undefined, skip)
+      if (!hit) continue
+      const y = p.y + 1.5 - hit.timeOfImpact
+      if (y - p.y > 0.3 || p.y - y > 1.6) continue // not on top of furniture, not down a stairwell
+      const center = { x, y: y + CAPSULE_HALF + CAPSULE_R + 0.05, z }
+      if (!world.intersectionWithShape(center, rot, shape, undefined, undefined, undefined, undefined, skip)) return [x, y, z]
+    }
+  }
+  return null
+}
+
 export default function Player() {
   const body = useRef()
   const collider = useRef()
@@ -56,6 +88,7 @@ export default function Player() {
   const controller = useRef()
   const { world, rapier } = useRapier()
   const sitAnim = useRef(null)
+  const lastSafe = useRef(SPAWN.clone())
   const profile = useStore((s) => s.profile)
   const phase = useStore((s) => s.phase)
   const avatarCfg = useAssets((s) => s.avatar)
@@ -202,10 +235,24 @@ export default function Player() {
     if (playerState.vy > 0 && m.y < desired.y * 0.5) playerState.vy = 0
     playerState.grounded = grounded && playerState.vy <= 0.01
 
-    // fell out of the world
-    if (next.y < -25 || playerState.respawn) {
+    // remember the last safe place we stood (recovery checkpoint)
+    if (grounded && next.y > -1 && Math.abs(next.x) < 126 && Math.abs(next.z) < 126) lastSafe.current.set(next.x, next.y, next.z)
+    // fell out of the world: back to the nearest checkpoint (a building entrance or the last safe spot)
+    if (next.y < -12) {
+      const s = nearestCheckpoint(lastSafe.current)
+      next.x = s[0]; next.y = s[1] + 0.3; next.z = s[2]; v.current.set(0, 0, 0)
+      useStore.getState().showToast('You fell out of the world and were brought back to safety.')
+    }
+    if (playerState.respawn) {
       playerState.respawn = false
       next.x = SPAWN.x; next.y = SPAWN.y + 1; next.z = SPAWN.z; v.current.set(0, 0, 0)
+    }
+    // "Unstuck": the nearest free spot around you, else the nearest checkpoint
+    if (playerState.unstuck) {
+      playerState.unstuck = false
+      const s = freeSpotNear(next, world, rapier, col) || nearestCheckpoint(next)
+      next.x = s[0]; next.y = s[1] + 0.1; next.z = s[2]; v.current.set(0, 0, 0)
+      useStore.getState().showToast('Moved you to a clear spot nearby.')
     }
     if (playerState.teleport) {
       ;[next.x, next.y, next.z] = playerState.teleport
