@@ -184,6 +184,11 @@ export const rentalAccess = {
     const base = `${room.name} · ${room.now.visibility === 'invite' ? 'invitation only' : 'private booking'}`
     return useBackend.getState().admin ? base + ' · owner access (logged)' : base
   },
+  /** Is this visitor the renter of the room right now (checked by the rental backend)? */
+  async isRenter(roomId) {
+    const r = await getBackend().access(useRentals.getState().customer?.token, roomId)
+    return !!(r.ok && r.state === 'renter')
+  },
   /** Playlist the current renter picked for this room, if any. */
   playlist(roomId) {
     return useRentals.getState().rooms.find((r) => r.id === roomId)?.customization?.playlist || null

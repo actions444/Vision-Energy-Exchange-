@@ -16,6 +16,8 @@ import { installKeyboard, attachLook, input } from './input/input.js'
 import { playerState, cameraState } from './state/runtime.js'
 import UI from './ui/UI.jsx'
 import Vehicles from './vehicles/Vehicle.jsx'
+import DecorLayer from './decor/DecorLayer.jsx'
+import { startDecor, useDecor } from './decor/decor.js'
 import { useDriving, vehicleBodies } from './vehicles/vehicles.js'
 import { elevator, useElevatorUI } from './world/elevator.js'
 import MusicZones from './music/MusicZones.jsx'
@@ -43,6 +45,7 @@ export default function App() {
       startMedia()
       useMusicLibrary.getState().init()
       startCinema()
+      startDecor()
       runCinema()
     })
     return installKeyboard({
@@ -85,6 +88,7 @@ export default function App() {
             <Player />
             <RemotePlayers />
             <Vehicles />
+            <DecorLayer />
             <CameraRig />
           </Physics>
           <Atmosphere />
@@ -104,4 +108,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, useElevatorUI, elevatorCall: (f) => elevator.call(f) }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor }

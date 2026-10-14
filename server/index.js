@@ -9,6 +9,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRentalsApi } from './rentalsApi.js'
 import { createStoreApi } from './storeApi.js'
+import { spaceById } from '../src/decor/spaces.js'
 
 const PORT = Number(process.env.PORT || 8787)
 const MAX_PER_ROOM = Number(process.env.MAX_PER_ROOM || 50)
@@ -17,7 +18,13 @@ const DIST = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'd
 const rentals = createRentalsApi()
 const DATA_DIR = process.env.DATA_DIR || path.join(path.dirname(new URL(import.meta.url).pathname), 'data')
 const bearer = (req) => (/^Bearer (.+)$/.exec(req.headers.authorization || '') || [])[1]
-const store = createStoreApi({ dataDir: DATA_DIR, isAdmin: (req) => rentals.isAdminToken(bearer(req)) })
+const store = createStoreApi({
+  dataDir: DATA_DIR,
+  isAdmin: (req) => rentals.isAdminToken(bearer(req)),
+  // renters may save the design of the room they are renting right now (checked against bookings)
+  canWriteDoc: (req, col, id) => col === 'decor' && req.method === 'PUT' && rentals.isRenter(req, id),
+  validateDoc: (col, id, d) => (col === 'decor' ? validateDecor(id, d) : null),
+})
 
 const rooms = new Map() // room -> { members: Map(id -> { ws, info, admin }), env }
 const rid = () => Math.random().toString(36).slice(2, 10)
@@ -27,6 +34,20 @@ const cleanInfo = (info = {}) => ({
   accent: /^#[0-9a-f]{6}$/i.test(info.accent) ? info.accent : '#a33cff',
   skin: /^#[0-9a-f]{6}$/i.test(info.skin) ? info.skin : '#d9a37a',
 })
+/** Server-side check of a room design: known space, sane fields, every item inside the room. */
+function validateDecor(id, d) {
+  const space = spaceById(id)
+  if (!space) return 'Unknown space.'
+  if (!Array.isArray(d.items) || d.items.length > 300) return 'Too many items.'
+  const [x0, x1, z0, z1] = space.rect
+  for (const it of d.items) {
+    if (typeof it.itemId !== 'string' || it.itemId.length > 60 || ![it.x, it.z, it.yaw].every(Number.isFinite)) return 'Invalid item.'
+    if (it.x < x0 || it.x > x1 || it.z < z0 || it.z > z1) return 'An item is outside this space.'
+  }
+  for (const k of ['floor', 'light', 'door']) if (d[k] != null && (typeof d[k] !== 'string' || d[k].length > 60)) return 'Invalid ' + k + '.'
+  if (d.wall != null && (typeof d.wall !== 'object' || !['paint', 'paper'].includes(d.wall.kind))) return 'Invalid wall finish.'
+  return null
+}
 const WEATHERS = new Set(['clear', 'cloudy', 'rain', 'storm'])
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.glb': 'model/gltf-binary', '.mp3': 'audio/mpeg', '.wasm': 'application/wasm' }

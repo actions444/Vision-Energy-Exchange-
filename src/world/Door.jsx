@@ -9,7 +9,11 @@ import { getMaterials, surface } from './materials.js'
 // A hinged door leaf with a real physics collider that swings with it.
 // `hinge` is the hinge position, the leaf extends along its local +x by `width`.
 // `baseYaw` orients the closed leaf, `openAngle` is the swing (sign chooses direction).
-export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, open, accent, thickness = 0.12, wood = false }) {
+export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, open, accent, thickness = 0.12, wood = false, style }) {
+  // style (decorating): 'wood' | 'glass' | 'black'
+  if (style === 'glass') wood = false
+  if (style === 'wood') wood = true
+  const black = style === 'black'
   const body = useRef()
   const angle = useRef(0)
   const q = useMemo(() => new THREE.Quaternion(), [])
@@ -30,10 +34,10 @@ export function DoorLeaf({ hinge, width, height, baseYaw = 0, openAngle = 1.55, 
       <CuboidCollider args={[width / 2, height / 2, thickness / 2]} position={[width / 2, height / 2, 0]} />
       <group userData={{ noBatch: true }}>
       {/* aluminium frame + glass panel + brass pull bar */}
-      <mesh position={[width / 2, height / 2, 0]} material={wood ? surface('wood', 0.6, 1.2, { color: '#a07c5c' }) : mats.aluminum} castShadow>
+      <mesh position={[width / 2, height / 2, 0]} material={black ? mats.shared('doorBlack', () => new THREE.MeshPhysicalMaterial({ color: '#0e0e10', roughness: 0.18, clearcoat: 1 })) : wood ? surface('wood', 0.6, 1.2, { color: '#a07c5c' }) : mats.aluminum} castShadow>
         <boxGeometry args={[width, height, thickness]} />
       </mesh>
-      {!wood && (
+      {!wood && !black && (
         <mesh position={[width / 2, height / 2 + 0.1, 0]} material={mats.glass}>
           <boxGeometry args={[width - 0.3, height - 0.6, thickness + 0.02]} />
         </mesh>
@@ -82,7 +86,7 @@ export function DoubleDoor({ id, center, halfWidth, height, facing = 0, accent =
  * local +x (rotated by baseYaw) for `width`; openAngle's sign picks the swing direction.
  * `check` (optional, async) can refuse opening, e.g. a rented private room: () => ({ ok, reason }).
  */
-export function SingleDoor({ id, hinge, width = 1.1, height = 2.3, baseYaw = 0, openAngle = 1.5, label = 'door', check, lockedLabel }) {
+export function SingleDoor({ id, hinge, width = 1.1, height = 2.3, baseYaw = 0, openAngle = 1.5, label = 'door', check, lockedLabel, style }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const st = useRef({ open, busy, locked: false })
@@ -113,5 +117,5 @@ export function SingleDoor({ id, hinge, width = 1.1, height = 2.3, baseYaw = 0, 
     },
   }), [id, label]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <DoorLeaf hinge={hinge} width={width} height={height} baseYaw={baseYaw} openAngle={openAngle} open={open} accent="#c9a96a" thickness={0.06} wood />
+  return <DoorLeaf hinge={hinge} width={width} height={height} baseYaw={baseYaw} openAngle={openAngle} open={open} accent="#c9a96a" thickness={0.06} wood style={style} />
 }

@@ -106,7 +106,7 @@ export function serverApi(base, token) {
       return () => { stop(); kick.delete(run) }
     },
     async getDoc(path) { return (await req('GET', `/api/store/${path}`)).doc },
-    async set(path, data) { await req('PUT', `/api/store/${path}`, data); kick.forEach((f) => f()) },
+    async set(path, data, headers) { await req('PUT', `/api/store/${path}`, data, headers); kick.forEach((f) => f()) },
     async del(path) { await req('DELETE', `/api/store/${path}`); kick.forEach((f) => f()) },
     async upload(blob, contentType) {
       const r = await req('POST', '/api/admin/files', blob, { 'content-type': contentType })

@@ -273,6 +273,38 @@ export function surface(kind, rx = 1, ry = 1, opts = {}) {
   return m
 }
 
+/**
+ * Polished black marble with fine veins that glow faintly in a brand accent colour
+ * (purple, pink, teal or gold). The veins are an emissive map, so they read as subtly
+ * illuminated in low light without lighting the room.
+ */
+const blackMarbleCache = new Map()
+export function blackMarble(accent = '#c9a96a', rx = 2, ry = 2) {
+  const key = accent + '|' + rx + '|' + ry
+  if (blackMarbleCache.has(key)) return blackMarbleCache.get(key)
+  const size = 512
+  const base = makeMarble(size, { base: '#0b0b0e', vein: '#3a3842', gold: accent, scale: 3, veinSharp: 26 })
+  // emissive: only the brightest accent veins
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const src = base.image.getContext('2d').getImageData(0, 0, size, size)
+  const out = c.getContext('2d').createImageData(size, size)
+  const A = hexToRgb(accent)
+  for (let i = 0; i < src.data.length; i += 4) {
+    const l = (src.data[i] + src.data[i + 1] + src.data[i + 2]) / 3
+    const k = Math.max(0, Math.min(1, (l - 34) / 50)) ** 1.5
+    out.data[i] = A[0] * k; out.data[i + 1] = A[1] * k; out.data[i + 2] = A[2] * k; out.data[i + 3] = 255
+  }
+  c.getContext('2d').putImageData(out, 0, 0)
+  const em = new THREE.CanvasTexture(c)
+  em.colorSpace = THREE.SRGBColorSpace
+  em.wrapS = em.wrapT = THREE.RepeatWrapping
+  for (const t of [base, em]) t.repeat.set(rx, ry)
+  const m = new THREE.MeshPhysicalMaterial({ map: base, emissive: '#ffffff', emissiveMap: em, emissiveIntensity: 0.55, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1 })
+  blackMarbleCache.set(key, m)
+  return m
+}
+
 let cache
 export function getMaterials() {
   if (cache) return cache

@@ -16,6 +16,7 @@ import PlazaRooms from './PlazaRooms.jsx'
 import { CarLights, HallLights } from './ElevatorLights.jsx'
 import { StaticBatch } from './batch.jsx'
 import { rentalAccess } from '../rentals/client.js'
+import { useDecor, designFor } from '../decor/decor.js'
 
 export { PLAZA }
 
@@ -258,6 +259,7 @@ export default function PlazaBuilding() {
 // ---------------- room doors ----------------
 function RoomDoor({ room }) {
   const y = P.Y(room.floor)
+  const doorStyle = useDecor((st) => designFor(room.id, st)?.door || null)
   useEffect(() => {
     if (!room.rentable) return
     const south = room.side === 'south'
@@ -284,6 +286,8 @@ function RoomDoor({ room }) {
         label={`${room.name} door`}
         check={() => rentalAccess.check(room.id)}
         lockedLabel={() => rentalAccess.label(room.id)}
+        style={doorStyle || undefined}
+        key={'door-' + (doorStyle || 'wood')}
       />
       <Plaque lines={[room.id, room.name]} position={[P.X(DOOR_U + 1.25), y + 1.55, P.Z(plaqueV)]} rotation={[0, south ? 0 : Math.PI, 0]} width={0.9} />
     </>

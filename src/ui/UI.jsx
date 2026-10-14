@@ -21,6 +21,9 @@ import MediaAdmin from './MediaAdmin.jsx'
 import RecordsPanel from './RecordsPanel.jsx'
 import CinemaPanel from './CinemaPanel.jsx'
 import AdminAccess from './AdminAccess.jsx'
+import DecorPanel from './DecorPanel.jsx'
+import { useDecor, openDecorator } from '../decor/decor.js'
+import { spaceAt } from '../decor/spaces.js'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
 import { useDriving } from '../vehicles/vehicles.js'
@@ -41,6 +44,7 @@ export default function UI() {
       {phase === 'playing' && <HUD />}
       {phase === 'playing' && <TouchControls />}
       {phase === 'playing' && <MusicPlayer />}
+      {phase === 'playing' && <DecorPanel />}
       {ok && panel?.type === 'music' && <MusicAdmin />}
       {ok && panel?.type === 'admin' && <AdminHub />}
       {ok && panel?.type === 'world' && <WorldAdmin />}
@@ -184,6 +188,9 @@ function HUD() {
   const admin = useBackend((s) => s.admin)
   const zoneId = useMusic((s) => s.zoneId)
   const [menu, setMenu] = useState(false)
+  const [spaceId, setSpaceId] = useState(null)
+  const decorOpen = useDecor((s) => s.open)
+  useEffect(() => { const t = setInterval(() => setSpaceId(spaceAt(playerState.position)?.id || null), 500); return () => clearInterval(t) }, [])
 
   const exit = () => {
     net.disconnect()
@@ -193,6 +200,7 @@ function HUD() {
   }
   const buttons = [
     admin && ['owner', 'Owner tools', () => openPanel({ type: 'admin' }), 'Media library, music, rentals, time & weather'],
+    spaceId && !decorOpen && ['decorate', 'Decorate', () => openDecorator(spaceId), 'Furniture, lighting, flooring, walls and doors for this room'],
     zoneId === 'records' && ['albums', 'Browse albums', () => openPanel({ type: 'records' })],
     screenForZone(zoneId) && ['screen', 'Screen & sound', () => { unlockCinema(); openPanel({ type: 'cinema', screenId: screenForZone(zoneId).id }) }],
     ['rent', 'Rent a space', () => openPanel({ type: 'rent' })],

@@ -196,6 +196,8 @@ export function createRentalsApi(env = process.env) {
       return send(500, { error: 'Server error.' })
     }
   }
+  /** Is the caller (customer token header) the renter of `roomId` right now? */
+  api.isRenter = (req, roomId) => R.accessCheck(state, roomId, customerOf(req)).state === 'renter'
   api.isAdminToken = (t) => !!t && typeof t === 'string' && safeEq(sha(t), sha(ADMIN_TOKEN))
   api.paymentMode = paymentMode
   return api

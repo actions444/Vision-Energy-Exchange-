@@ -16,7 +16,7 @@ const TYPES = new Set([
   'model/gltf-binary', 'application/octet-stream', 'application/json',
 ])
 
-export function createStoreApi({ dataDir, isAdmin, maxUpload = Number(process.env.MAX_UPLOAD_BYTES || 2 * 1024 ** 3), maxStorage = Number(process.env.MAX_STORAGE_BYTES || 50 * 1024 ** 3) }) {
+export function createStoreApi({ dataDir, isAdmin, canWriteDoc = () => false, validateDoc = () => null, maxUpload = Number(process.env.MAX_UPLOAD_BYTES || 2 * 1024 ** 3), maxStorage = Number(process.env.MAX_STORAGE_BYTES || 50 * 1024 ** 3) }) {
   const FILE = path.join(dataDir, 'store.json')
   const FILES = path.join(dataDir, 'files')
   fs.mkdirSync(FILES, { recursive: true })
@@ -126,12 +126,15 @@ export function createStoreApi({ dataDir, isAdmin, maxUpload = Number(process.en
         return json(res, 200, { doc: docs[col]?.[id] ?? null }), true
       }
       if (!id) return json(res, 405, { error: 'Write a single document.' }), true
-      if (!admin) return json(res, 401, { error: 'Owner sign-in required.' }), true
+      // the owner may write anything; others only documents a rule grants them (e.g. a renter's room design)
+      if (!admin && !canWriteDoc(req, col, id)) return json(res, 403, { error: 'You are not allowed to change this.' }), true
       if (req.method === 'PUT') {
         const raw = await readBody(req, 256 * 1024)
         let data
         try { data = JSON.parse(raw) } catch { return json(res, 400, { error: 'Send JSON.' }), true }
         if (!data || typeof data !== 'object' || Array.isArray(data)) return json(res, 400, { error: 'A document is a JSON object.' }), true
+        const bad = validateDoc(col, id, data)
+        if (bad) return json(res, 400, { error: bad }), true
         ;(docs[col] ||= {})[id] = data
         save()
         return json(res, 200, { ok: true }), true
