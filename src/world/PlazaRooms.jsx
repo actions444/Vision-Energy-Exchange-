@@ -150,7 +150,7 @@ function Screening() {
         screenId="VSP-201"
         title="Screening Room"
         x0={P.X(0.3)} x1={P.X(15.6)} z0={P.Z(S0)} z1={P.Z(S1)} entry="z1"
-        floorY={P.Y(f)} height={CEIL} rows={4} rowDepth={1.6} tier={0.13} firstRow={5.2} corridor={1.3} aisle={1.0}
+        floorY={P.Y(f)} height={CEIL} rows={4} rowDepth={1.75} tier={0.13} firstRow={5.0} corridor={1.3} aisle={1.0}
         screenH={2.35} backExit={false} seatColor="#4a1a22"
       />
       <ExitSign position={at(DOOR_U, f, S1 - 0.06, 2.65)} yaw={Math.PI} />

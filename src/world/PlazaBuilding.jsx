@@ -14,8 +14,10 @@ import { useStore } from '../state/store.js'
 import { elevator } from './elevator.js'
 import PlazaRooms from './PlazaRooms.jsx'
 import { CarLights, HallLights } from './ElevatorLights.jsx'
+import CorridorFinish from './CorridorFinish.jsx'
 import { StaticBatch } from './batch.jsx'
-import { rentalAccess } from '../rentals/client.js'
+import { rentalAccess, useRentals } from '../rentals/client.js'
+import { money } from '../../shared/rentals.js'
 import { useDecor, designFor } from '../decor/decor.js'
 
 export { PLAZA }
@@ -161,7 +163,7 @@ export default function PlazaBuilding() {
   useEffect(() => {
     const offs = []
     for (let f = 0; f < PLAZA.floors; f++) for (const u of [6, 14, 22]) {
-      offs.push(registerLightAnchor({ position: new THREE.Vector3(P.X(u), P.Y(f) + CEIL - 0.8, P.Z(14)), color: '#fff0dc', intensity: 8, distance: 10, range: 35 }))
+      offs.push(registerLightAnchor({ position: new THREE.Vector3(P.X(u), P.Y(f) + CEIL - 0.8, P.Z(14)), color: '#ffdcb0', intensity: 9, distance: 11, range: 35 }))
     }
     return () => offs.forEach((o) => o())
   }, [])
@@ -246,6 +248,7 @@ export default function PlazaBuilding() {
 
       {/* ---- rooms and upper corridors: culled when the camera is outside ---- */}
       <group ref={inner} userData={{ noBatch: true }}>
+        <CorridorFinish />
         <UpperCorridors />
         <PlazaRooms />
       </group>
@@ -266,7 +269,10 @@ function RoomDoor({ room }) {
     return registerInteractable('rent-' + room.id, {
       position: new THREE.Vector3(P.X(DOOR_U + 1.6), y, P.Z(south ? CORRIDOR.v0 + 0.8 : CORRIDOR.v1 - 0.8)),
       radius: 0.9,
-      label: `Rent ${room.name} (${room.id})`,
+      label: () => {
+        const r = useRentals.getState().rooms.find((x) => x.id === room.id)
+        return r?.prices?.month ? `Rent ${room.name} · ${money(r.prices.month, r.currency)}/month` : `Rent ${room.name} (${room.id})`
+      },
       onInteract: () => useStore.getState().openPanel({ type: 'rent', roomId: room.id }),
     })
   }, [room, y])
@@ -470,7 +476,6 @@ function Lobby() {
       <Plant position={[P.X(12), y, P.Z(17.3)]} />
       <BrandSign text="VISION STORMS" sub="PLAZA DIRECTORY" position={[P.X(14), y + 2.9, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={4.4} color="#2a2a2c" glow="#ffffff" />
       <Plaque lines={['DIRECTORY', '1 Bistro · Threads   2 Screening · Studio   3 Boardroom · Suite']} position={[P.X(14), y + 1.6, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={3.2} />
-      {[6, 14, 22].map((u) => <CeilingLight key={u} position={[P.X(u), y + CEIL - 0.01, P.Z(14)]} size={[2.4, 0.5]} intensity={0} />)}
     </group>
   )
 }
@@ -483,7 +488,6 @@ function UpperCorridors() {
         <Sofa position={[P.X(24), y, P.Z(10.8)]} yaw={0} length={2.2} color={f === 1 ? '#5f6b62' : '#6a5d6f'} />
         <Plant position={[P.X(27), y, P.Z(17.3)]} />
         <Plant position={[P.X(13), y, P.Z(17.3)]} />
-        {[6, 14, 22].map((u) => <CeilingLight key={u} position={[P.X(u), y + CEIL - 0.01, P.Z(14)]} size={[2.4, 0.5]} intensity={0} />)}
       </group>
     )
   })

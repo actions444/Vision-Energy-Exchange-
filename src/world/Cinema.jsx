@@ -160,8 +160,27 @@ function Recliners({ seats, color = '#5a1d24' }) {
     for (const r of [base, back, arm, foot]) { r.current.instanceMatrix.needsUpdate = true; r.current.computeBoundingSphere() }
   }, [seats, arms])
   useSeats(seats.map(({ position, yaw, height, label }) => ({ position, yaw, height, label })), [seats])
+  // solid colliders that fit the recliners: one seat block and one backrest block per row,
+  // leaving the leg room in front of each row free to walk along
+  const rows = useMemo(() => {
+    const m = new Map()
+    for (const s of seats) {
+      const r = m.get(s.row) || { x: s.position[0], y: s.floorY, z0: Infinity, z1: -Infinity, sp: s.spacing }
+      r.z0 = Math.min(r.z0, s.position[2] - s.spacing / 2); r.z1 = Math.max(r.z1, s.position[2] + s.spacing / 2)
+      m.set(s.row, r)
+    }
+    return [...m.values()]
+  }, [seats])
   return (
     <group userData={{ noBatch: true }}>
+      <RigidBody type="fixed" colliders={false}>
+        {rows.map((r, i) => (
+          <group key={i}>
+            <CuboidCollider args={[0.33, 0.25, (r.z1 - r.z0) / 2]} position={[r.x - 0.03, r.y + 0.25, (r.z0 + r.z1) / 2]} />
+            <CuboidCollider args={[0.11, 0.58, (r.z1 - r.z0) / 2]} position={[r.x + 0.41, r.y + 0.58, (r.z0 + r.z1) / 2]} />
+          </group>
+        ))}
+      </RigidBody>
       <instancedMesh ref={base} args={[null, leather, seats.length]} castShadow receiveShadow><boxGeometry /></instancedMesh>
       <instancedMesh ref={back} args={[null, leather, seats.length]} castShadow><boxGeometry /></instancedMesh>
       <instancedMesh ref={foot} args={[null, dark, seats.length]}><boxGeometry /></instancedMesh>
@@ -193,7 +212,7 @@ function ControlPanel({ position, yaw, screenId }) {
  * Screen on the x0 wall (facing +x), rows rise toward x1. A floor-level corridor runs along the
  * entry side to the door in the x1 wall; a stepped aisle on the far side reaches every row.
  */
-export function Auditorium({ screenId, x0, x1, z0, z1, entry, floorY, height, rows = 6, rowDepth = 1.6, tier = 0.35, spacing = 1.1, firstRow = 6.4, corridor = 1.5, aisle = 1.2, screenH, seatColor, title, backExit = true }) {
+export function Auditorium({ screenId, x0, x1, z0, z1, entry, floorY, height, rows = 6, rowDepth = 1.75, tier = 0.35, spacing = 1.1, firstRow = 6.4, corridor = 1.5, aisle = 1.2, screenH, seatColor, title, backExit = true }) {
   const m = getMaterials()
   const carpet = surface('carpet', (x1 - x0) / 2, (z1 - z0) / 2, { color: '#2c2230' })
   const riser = surface('carpet', 4, 0.4, { color: '#241c27' })

@@ -3,6 +3,12 @@
 import { useEffect } from 'react'
 import * as THREE from 'three'
 import { registerInteractable, playerState } from './runtime.js'
+import { peerData } from '../net/netManager.js'
+
+function takenByPeer(seat) {
+  for (const pd of peerData.values()) if (pd.sit && pd.to && Math.hypot(pd.to[0] - seat.position[0], pd.to[2] - seat.position[2]) < 0.35 && Math.abs(pd.to[1] - seat.floorY) < 0.6) return true
+  return false
+}
 
 export const seats = new Map() // id -> seat
 let counter = 0
@@ -13,7 +19,10 @@ let counter = 0
  *   yaw: number          direction the sitter faces (radians, avatar forward = +z rotated by yaw)
  *   height: number       seat surface height above the floor it stands on (default 0.45)
  *   label?: string       e.g. 'Sit on bench'
+ *   stand?: [x, y, z]    optional safe standing spot (otherwise the player finds a free one)
  * }
+ * Occupancy: `occupiedBy` is set while this visitor sits; seats a remote visitor is sitting on
+ * are detected from multiplayer positions and refused too.
  */
 export function registerSeat(def) {
   const id = def.id || 'seat-' + ++counter
@@ -23,8 +32,8 @@ export function registerSeat(def) {
   const off = registerInteractable(id, {
     position: new THREE.Vector3(seat.position[0], seat.floorY, seat.position[2]),
     radius: 1.3,
-    label: () => (seat.occupiedBy ? 'Seat taken' : seat.label),
-    onInteract: () => { if (!seat.occupiedBy) playerState.sitRequest = seat },
+    label: () => (seat.occupiedBy || takenByPeer(seat) ? 'Seat taken' : seat.label),
+    onInteract: () => { if (!seat.occupiedBy && !takenByPeer(seat)) playerState.sitRequest = seat },
   })
   return () => { off(); seats.delete(id) }
 }

@@ -181,12 +181,13 @@ function Editor({ inst }) {
       <div className="pad">
         <span className="lbl">Collision</span>
         <div className="seg small">
-          {[['trimesh', 'Exact'], ['box', 'Box'], ['none', 'None']].map(([k, l]) => (
+          {[['trimesh', 'Exact'], ['box', 'Box'], ['seat', 'Seating'], ['none', 'None']].map(([k, l]) => (
             <button key={k} className={inst.collider === k ? 'on' : ''} onClick={() => a.updatePlaced(inst.iid, { collider: k })}>{l}</button>
           ))}
         </div>
-        <small className="hint">Exact lets you walk inside buildings and up stairs.</small>
+        <small className="hint">Exact lets you walk inside buildings and up stairs. Seating fits sofas and chairs: solid up to the seat, plus the backrest.</small>
       </div>
+      <SeatEditor inst={inst} update={(patch) => a.updatePlaced(inst.iid, { seats: { count: 0, height: 0.45, depth: 0.1, flip: false, ...(inst.seats || {}), ...patch } })} />
       <div className="pad actions">
         <button className="btn" onClick={() => {
           const p = playerState.position, yaw = playerState.yaw
@@ -194,6 +195,26 @@ function Editor({ inst }) {
         }}>Bring in front of me</button>
         <button className="btn ghost" onClick={() => a.removePlaced(inst.iid)}>Delete</button>
       </div>
+    </div>
+  )
+}
+
+/** Seat points for imported furniture: how many, how high, how far forward, which way they face. */
+function SeatEditor({ inst, update }) {
+  const c = { count: 0, height: 0.45, depth: 0.1, flip: false, ...(inst.seats || {}) }
+  return (
+    <div className="pad">
+      <span className="lbl">Seats {c.count ? '(shown as teal dots)' : ''}</span>
+      <div className="seg small">
+        {[0, 1, 2, 3, 4].map((n) => <button key={n} className={c.count === n ? 'on' : ''} onClick={() => update({ count: n })}>{n === 0 ? 'None' : n}</button>)}
+      </div>
+      {c.count > 0 && (
+        <>
+          <label className="field"><span>Seat height {c.height.toFixed(2)} m</span><input type="range" min={0.2} max={1.1} step={0.01} value={c.height} onChange={(e) => update({ height: +e.target.value })} /></label>
+          <label className="field"><span>Seat position front/back</span><input type="range" min={-0.45} max={0.45} step={0.01} value={c.depth} onChange={(e) => update({ depth: +e.target.value })} /></label>
+          <button className="btn ghost small" onClick={() => update({ flip: !c.flip })}>Seats face {c.flip ? 'the back' : 'the front'} · flip</button>
+        </>
+      )}
     </div>
   )
 }

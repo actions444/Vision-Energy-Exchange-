@@ -152,6 +152,8 @@ export function LoungeInterior({ x0, x1, z0, z1 }) {
       <RigidBody type="fixed" colliders={false}>
         {/* DJ stage (a step up), booth, bar and sofas */}
         <CuboidCollider args={[1.6, 0.175, 5]} position={[x1 - 2.0, FLOOR + 0.175, cz]} />
+        {/* half-height step in front of the stage (the avatar steps up at most 0.3 m) */}
+        <CuboidCollider args={[0.2, 0.0875, 1.5]} position={[x1 - 3.8, FLOOR + 0.0875, cz + 3.2]} />
         <CuboidCollider args={[0.45, 0.55, 2]} position={[x1 - 2.2, FLOOR + 0.35 + 0.55, cz]} />
         <CuboidCollider args={[6, 0.55, 0.5]} position={[floorCx - 1, FLOOR + 0.55, z1 - 1.4]} />
         <CuboidCollider args={[4, 0.3, 0.6]} position={[floorCx - 1, FLOOR + 0.3, z0 + 1.1]} />
@@ -161,6 +163,7 @@ export function LoungeInterior({ x0, x1, z0, z1 }) {
 
       {/* stage + DJ booth */}
       <mesh position={[x1 - 2.0, FLOOR + 0.175, cz]} material={mats.marbleWall(1, 2)} receiveShadow><boxGeometry args={[3.2, 0.35, 10]} /></mesh>
+      <mesh position={[x1 - 3.8, FLOOR + 0.0875, cz + 3.2]} material={mats.marbleWall(0.3, 1)} receiveShadow><boxGeometry args={[0.4, 0.175, 3]} /></mesh>
       <mesh position={[x1 - 3.62, FLOOR + 0.36, cz]} material={mats.neon(NEON.teal, 3)}><boxGeometry args={[0.04, 0.03, 10]} /></mesh>
       <group position={[x1 - 2.2, FLOOR + 0.35, cz]}>
         <mesh position={[0, 0.55, 0]} material={mats.darkMetal} castShadow><boxGeometry args={[0.9, 1.1, 4]} /></mesh>

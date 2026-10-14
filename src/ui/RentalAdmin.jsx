@@ -22,13 +22,14 @@ export default function RentalAdmin() {
   return (
     <Panel title="Rentals admin" eyebrow={r.mode === 'server' ? `Server · payments: ${s?.paymentMode || '…'}` : 'Preview sandbox (this browser only)'} wide>
       <div className="seg tabs" role="tablist">
-        {[['requests', `Requests${pending.length ? ` (${pending.length})` : ''}`], ['rooms', 'Rooms'], ['bookings', 'Bookings'], ['assign', 'Assign'], ['revenue', 'Revenue'], ['connect', 'Server']].map(([k, l]) => (
+        {[['requests', `Requests${pending.length ? ` (${pending.length})` : ''}`], ['prices', 'Prices'], ['rooms', 'Rooms'], ['bookings', 'Bookings'], ['assign', 'Assign'], ['revenue', 'Revenue'], ['connect', 'Server']].map(([k, l]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
       {err && <p className="error">{err}</p>}
       {!s && tab !== 'connect' && <p className="hint">{r.mode === 'server' ? 'Enter your owner token in the Server tab.' : 'Loading…'}</p>}
       {s && tab === 'requests' && <Requests s={s} act={act} />}
+      {s && tab === 'prices' && <Prices s={s} act={act} />}
       {s && tab === 'rooms' && <Rooms s={s} act={act} />}
       {s && tab === 'bookings' && <Bookings s={s} act={act} />}
       {s && tab === 'assign' && <Assign s={s} act={act} />}
@@ -59,6 +60,42 @@ function Requests({ s, act }) {
   )
 }
 
+// Price categories: introductory monthly prices the owner can change at any time.
+function Prices({ s, act }) {
+  const [list, setList] = useState(() => (s.categories || []).map((c) => ({ ...c })))
+  useEffect(() => { setList((s.categories || []).map((c) => ({ ...c }))) }, [s.categories])
+  const [msg, setMsg] = useState(null)
+  const dirty = JSON.stringify(list) !== JSON.stringify(s.categories || [])
+  const roomsIn = (id) => s.rooms.filter((r) => r.category === id)
+  const save = async () => { await act('setCategories', list); setMsg('Saved. Existing bookings keep the price they were made at.') }
+  return (
+    <div className="admin-list">
+      <p className="hint">Monthly prices by property type. Change a price, save, then use “Apply to rooms” to give every room in that category the new monthly price. Bookings that already exist are never changed. Hourly event rates are set per room (Rooms tab).</p>
+      <div className="table-wrap">
+        <table className="data">
+          <thead><tr><th>Category</th><th>Per month ($)</th><th>Rooms</th><th></th></tr></thead>
+          <tbody>
+            {list.map((c, i) => (
+              <tr key={c.id}>
+                <td><input aria-label="Category name" value={c.name} onChange={(e) => setList(list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
+                <td><input aria-label={'Monthly price for ' + c.name} type="number" min={0} step="0.01" value={(c.month / 100).toFixed(2)} onChange={(e) => setList(list.map((x, j) => (j === i ? { ...x, month: Math.round(+e.target.value * 100) } : x)))} style={{ width: 90 }} /></td>
+                <td>{roomsIn(c.id).map((r) => r.id).join(', ') || '—'}</td>
+                <td><button className="btn ghost small" disabled={dirty || !roomsIn(c.id).length} onClick={() => act('applyCategory', c.id).then(() => setMsg(`${c.name}: rooms now ${money(c.month)}/month.`))}>Apply to rooms</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="row-actions">
+        <button className="btn ghost" onClick={() => setList([...list, { id: 'category-' + (list.length + 1), name: 'New category', month: 999 }])}>Add category</button>
+        <button className="btn primary" disabled={!dirty} onClick={save}>Save prices</button>
+      </div>
+      {msg && <p className="hint">{msg}</p>}
+      <p className="hint">Payments: no money is charged until a payment provider is configured on the server. Monthly rentals are single 30-day payments; automatic monthly billing is not switched on.</p>
+    </div>
+  )
+}
+
 function Rooms({ s, act }) {
   const [sel, setSel] = useState(s.rooms[0]?.id)
   const room = s.rooms.find((x) => x.id === sel)
@@ -68,7 +105,7 @@ function Rooms({ s, act }) {
   const unrented = PLAZA_ROOMS.filter((p) => !s.rooms.some((r) => r.id === p.id))
   const create = () => {
     const base = PLAZA_ROOMS.find((p) => p.id === nu.space)
-    act('createRoom', { id: nu.id || base?.id, name: base?.name || nu.id, kind: base?.kind || 'Rental space', floor: (base?.floor ?? 0) + 1, occupancy: base?.occupancy || 10, prices: { hour: 2000, day: 12000, week: 60000, month: 200000 }, features: ['welcome'] })
+    act('createRoom', { id: nu.id || base?.id, name: base?.name || nu.id, kind: base?.kind || 'Rental space', floor: (base?.floor ?? 0) + 1, occupancy: base?.occupancy || 10, category: 'standard-room', prices: { hour: 0, day: 0, week: 0, month: (s.categories || []).find((c) => c.id === 'standard-room')?.month || 999 }, features: ['welcome'] })
     setNu({ id: '', space: '' })
   }
   const dollars = (c) => (c / 100).toFixed(2)
@@ -93,9 +130,18 @@ function Rooms({ s, act }) {
             <label className="field"><span>Name</span><input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
             <label className="field"><span>Max occupancy</span><input type="number" min={1} value={draft.occupancy} onChange={(e) => setDraft({ ...draft, occupancy: +e.target.value })} /></label>
           </div>
+          <div className="fields two">
+            <label className="field"><span>Price category</span>
+              <select value={draft.category || ''} onChange={(e) => { const c = (s.categories || []).find((x) => x.id === e.target.value); setDraft({ ...draft, category: e.target.value || null, prices: c ? { ...draft.prices, month: c.month } : draft.prices }) }}>
+                <option value="">No category (custom prices)</option>
+                {(s.categories || []).map((c) => <option key={c.id} value={c.id}>{c.name} · {money(c.month)}/month</option>)}
+              </select>
+            </label>
+            <label className="row toggle compact"><span><b>Event venue</b><small>Can also be booked by the hour.</small></span><input type="checkbox" checked={!!draft.eventVenue} onChange={(e) => setDraft({ ...draft, eventVenue: e.target.checked, prices: { ...draft.prices, hour: e.target.checked ? draft.prices.hour || 499 : 0 } })} /></label>
+          </div>
           <div className="fields four">
-            {['hour', 'day', 'week', 'month'].map((k) => (
-              <label key={k} className="field"><span>Per {k} ($)</span><input type="number" min={0} step="0.01" value={dollars(draft.prices[k])} onChange={(e) => setDraft({ ...draft, prices: { ...draft.prices, [k]: Math.round(+e.target.value * 100) } })} /></label>
+            {['month', 'week', 'day', 'hour'].map((k) => (
+              <label key={k} className="field"><span>Per {k} ($){k === 'hour' ? ' · events' : ''}{k !== 'month' ? ' · 0 = not offered' : ''}</span><input type="number" min={0} step="0.01" value={dollars(draft.prices[k])} onChange={(e) => setDraft({ ...draft, prices: { ...draft.prices, [k]: Math.round(+e.target.value * 100) } })} /></label>
             ))}
           </div>
           <label className="row toggle"><span><b>Available for rent</b><small>Turn off to hide it from customers.</small></span><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /></label>

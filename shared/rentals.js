@@ -18,6 +18,29 @@ export const FEATURES = {
   playlist: { label: 'Room playlist', validate: (v) => typeof v === 'string' && v.length <= 64 },
 }
 
+/**
+ * Introductory monthly price categories (cents). The owner can change every price and add
+ * categories; these are only the starting values. Changing a category never touches bookings
+ * that already exist: each booking keeps the price it was made at.
+ */
+export const DEFAULT_CATEGORIES = [
+  { id: 'small-room', name: 'Small personal room', month: 499 },
+  { id: 'standard-room', name: 'Standard furnished room', month: 999 },
+  { id: 'luxury-room', name: 'Luxury furnished room', month: 1499 },
+  { id: 'vip-suite', name: 'VIP luxury suite', month: 2499 },
+  { id: 'studio-apt', name: 'Studio apartment', month: 1999 },
+  { id: 'apt-1br', name: 'One-bedroom apartment', month: 2999 },
+  { id: 'apt-2br', name: 'Two-bedroom apartment', month: 3999 },
+  { id: 'apt-3br', name: 'Three-bedroom apartment', month: 4999 },
+  { id: 'luxury-house', name: 'Luxury virtual house', month: 5999 },
+  { id: 'waterfront-house', name: 'Waterfront luxury house', month: 7999 },
+  { id: 'storefront-small', name: 'Small commercial storefront', month: 1999 },
+  { id: 'storefront-large', name: 'Large commercial storefront', month: 4999 },
+  { id: 'commercial-premium', name: 'Premium commercial building', month: 9999 },
+]
+/** Default hourly rate for rooms marked as event venues (owner-configurable per room). */
+export const DEFAULT_EVENT_HOURLY = 499
+
 export const VISIBILITY = { public: 'Public (anyone can enter)', private: 'Private (only me)', invite: 'Invitation only' }
 
 // Bookings in these states hold the room's calendar
@@ -25,7 +48,7 @@ const HOLDS = new Set(['pending_payment', 'pending_approval', 'approved'])
 const PENDING_PAYMENT_TTL = 30 * 60e3 // unpaid holds lapse after 30 minutes
 
 export function emptyState() {
-  return { rooms: [], bookings: [], customers: [], log: [], seq: 1000 }
+  return { rooms: [], bookings: [], customers: [], log: [], seq: 1000, categories: DEFAULT_CATEGORIES.map((c) => ({ ...c })), pricingVersion: 2 }
 }
 
 export class RentalError extends Error {
@@ -61,6 +84,8 @@ function normaliseRoom(r) {
     floor: Number.isFinite(+r.floor) ? +r.floor : 0,
     occupancy: Math.max(1, Math.min(500, Math.round(+r.occupancy || 1))),
     prices: { hour: cents(r.prices?.hour), day: cents(r.prices?.day), week: cents(r.prices?.week), month: cents(r.prices?.month) },
+    category: r.category ? String(r.category).slice(0, 40) : null,
+    eventVenue: !!r.eventVenue, // eligible for hourly event rentals
     currency: r.currency || 'usd',
     active: r.active !== false,
     autoApprove: !!r.autoApprove,
@@ -330,6 +355,7 @@ export function publicRoom(state, room, now) {
   return {
     id: room.id, name: room.name, kind: room.kind, building: room.building, floor: room.floor,
     occupancy: room.occupancy, prices: room.prices, currency: room.currency, active: room.active,
+    category: room.category, categoryName: categoryOf(state, room.category)?.name || null, eventVenue: room.eventVenue,
     features: room.features, openWhenVacant: room.openWhenVacant,
     busy: busyRanges(state, room.id, now),
     now: b ? { visibility: b.visibility, until: b.end, customization: b.customization } : null,
@@ -338,19 +364,90 @@ export function publicRoom(state, room, now) {
 
 export const money = (cents, currency = 'usd') => new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format((cents || 0) / 100)
 
-/** Default rentable rooms for Vision Storms Plaza (example prices). */
-export function seedRooms(state, rooms, now) {
-  const defaults = {
-    'VSP-201': { hour: 4000, day: 25000, week: 120000, month: 380000 },
-    'VSP-202': { hour: 2500, day: 15000, week: 80000, month: 260000 },
-    'VSP-301': { hour: 3000, day: 18000, week: 90000, month: 300000 },
-    'VSP-302': { hour: 2000, day: 12000, week: 65000, month: 220000 },
+// ---------------- price categories ----------------
+// Which category each Plaza room starts in, and whether it can be booked by the hour for events.
+const PLAZA_DEFAULTS = {
+  'VSP-201': { category: 'luxury-room', eventVenue: true }, // screening room
+  'VSP-202': { category: 'standard-room', eventVenue: true }, // studio sessions
+  'VSP-301': { category: 'standard-room', eventVenue: true }, // meetings
+  'VSP-302': { category: 'vip-suite', eventVenue: false },
+}
+// the old seed prices (cents) – rooms still on exactly these get the new introductory prices
+const OLD_SEED = {
+  'VSP-201': { hour: 4000, day: 25000, week: 120000, month: 380000 },
+  'VSP-202': { hour: 2500, day: 15000, week: 80000, month: 260000 },
+  'VSP-301': { hour: 3000, day: 18000, week: 90000, month: 300000 },
+  'VSP-302': { hour: 2000, day: 12000, week: 65000, month: 220000 },
+  _generic: { hour: 2000, day: 12000, week: 60000, month: 200000 },
+}
+const samePrices = (a, b) => a && b && ['hour', 'day', 'week', 'month'].every((k) => (a[k] || 0) === (b[k] || 0))
+
+export const categoryOf = (state, id) => (state.categories || DEFAULT_CATEGORIES).find((c) => c.id === id) || null
+
+/** Prices a room gets from its category: monthly, plus hourly when it is an event venue. */
+export function pricesFor(state, room, hourly) {
+  const c = categoryOf(state, room.category)
+  return { hour: room.eventVenue ? (hourly ?? (room.prices?.hour || DEFAULT_EVENT_HOURLY)) : 0, day: 0, week: 0, month: c ? c.month : room.prices?.month || 0 }
+}
+
+/**
+ * One-time move from the original (far too high) example prices to the introductory categories.
+ * Only rooms still on the untouched old example prices are re-priced; anything the owner set by
+ * hand is kept. Existing bookings are never changed (they store their own price).
+ */
+export function migratePricing(state, now) {
+  if ((state.pricingVersion || 0) >= 2 && state.categories) return false
+  state.categories ||= DEFAULT_CATEGORIES.map((c) => ({ ...c }))
+  for (const room of state.rooms) {
+    const d = PLAZA_DEFAULTS[room.id]
+    if (!room.category && d) { room.category = d.category; room.eventVenue = d.eventVenue }
+    if (samePrices(room.prices, OLD_SEED[room.id]) || samePrices(room.prices, OLD_SEED._generic)) {
+      if (!room.category) room.category = 'standard-room'
+      room.prices = pricesFor(state, room, DEFAULT_EVENT_HOURLY)
+      log(state, 'room.repriced', { roomId: room.id, reason: 'introductory pricing' }, now)
+    }
   }
+  state.pricingVersion = 2
+  return true
+}
+
+/** Owner: replace the category list (validated). */
+export function setCategories(state, list, now) {
+  if (!Array.isArray(list) || !list.length || list.length > 60) fail('Send between 1 and 60 categories.')
+  const seen = new Set()
+  state.categories = list.map((c) => {
+    const id = String(c.id || '').trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').slice(0, 40)
+    if (!id || seen.has(id)) fail('Each category needs its own ID.')
+    seen.add(id)
+    const month = Math.round(Number(c.month))
+    if (!Number.isFinite(month) || month < 0 || month > 10_000_000) fail(`Check the monthly price for ${c.name || id}.`)
+    return { id, name: String(c.name || id).slice(0, 60), month }
+  })
+  log(state, 'categories.updated', { count: state.categories.length }, now)
+  return state.categories
+}
+
+/** Owner: give every room in a category its current monthly price. Bookings keep theirs. */
+export function applyCategory(state, categoryId, now) {
+  const c = categoryOf(state, categoryId)
+  if (!c) fail('Category not found.', 404)
+  const changed = []
+  for (const room of state.rooms) if (room.category === c.id) { room.prices = { ...room.prices, month: c.month }; changed.push(room.id) }
+  log(state, 'category.applied', { categoryId, rooms: changed }, now)
+  return changed
+}
+
+/** Default rentable rooms for Vision Storms Plaza (introductory prices). */
+export function seedRooms(state, rooms, now) {
+  migratePricing(state, now)
   for (const r of rooms) {
     if (!r.rentable || state.rooms.some((x) => x.id === r.id)) continue
+    const d = PLAZA_DEFAULTS[r.id] || { category: 'standard-room', eventVenue: false }
+    const base = { category: d.category, eventVenue: d.eventVenue }
     createRoom(state, {
       id: r.id, name: r.name, kind: r.kind, floor: r.floor + 1, occupancy: r.occupancy,
-      prices: defaults[r.id] || { hour: 2000, day: 12000, week: 60000, month: 200000 },
+      ...base,
+      prices: pricesFor(state, base, DEFAULT_EVENT_HOURLY),
       features: r.id === 'VSP-302' ? ['signText', 'welcome', 'wallColor', 'playlist'] : ['welcome', 'playlist'],
       autoApprove: false,
     }, now)

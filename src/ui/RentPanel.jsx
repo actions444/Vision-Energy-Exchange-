@@ -54,10 +54,10 @@ function Browse({ onPick }) {
         <div className="admin-row" key={room.id}>
           <div className="grow">
             <b>{room.name} <span className="badge">{room.id}</span></b>
-            <small>{room.kind} · floor {room.floor} · up to {room.occupancy} people{room.now ? ' · in use now' : ''}</small>
+            <small>{room.categoryName ? room.categoryName + ' · ' : ''}{room.kind} · floor {room.floor} · up to {room.occupancy} people{room.now ? ' · in use now' : ''}</small>
           </div>
           <div className="prices">
-            {Object.entries(room.prices).filter(([, v]) => v > 0).map(([k, v]) => <span key={k}>{money(v, room.currency)}<small>/{k}</small></span>)}
+            {['month', 'week', 'day', 'hour'].filter((k) => room.prices[k] > 0).map((k) => <span key={k}>{money(room.prices[k], room.currency)}<small>/{k}{k === 'hour' ? ' (events)' : ''}</small></span>)}
           </div>
           <button className="btn primary" onClick={() => onPick(room.id)}>Choose</button>
         </div>
@@ -68,7 +68,7 @@ function Browse({ onPick }) {
 
 function Book({ room, onDone }) {
   const r = useRentals()
-  const plans = Object.keys(PLANS).filter((p) => room.prices[p] > 0)
+  const plans = ['month', 'week', 'day', 'hour'].filter((p) => room.prices[p] > 0)
   const [plan, setPlan] = useState(plans[0])
   const [qty, setQty] = useState(1)
   const [start, setStart] = useState(() => { const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0); return localInput(d) })
@@ -145,6 +145,8 @@ function Book({ room, onDone }) {
         <div className="seg small">
           {plans.map((p) => <button type="button" key={p} className={plan === p ? 'on' : ''} onClick={() => setPlan(p)}>{PLANS[p].label} · {money(room.prices[p], room.currency)}</button>)}
         </div>
+        {plan === 'month' && <small className="hint">A month is 30 days, paid once. It does not renew or charge you again automatically.</small>}
+        {plan === 'hour' && <small className="hint">Hourly booking is for events in this venue.</small>}
       </div>
       <div className="fields two">
         <label className="field"><span>How many {plan}s</span><input id="rent-qty" type="number" min={1} max={365} value={qty} onChange={(e) => setQty(e.target.value)} /></label>

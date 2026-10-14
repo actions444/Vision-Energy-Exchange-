@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useAssets, registry } from './assetStore.js'
 import { NEON } from '../config/theme.js'
+import { useSeats } from '../state/seats.js'
 
 // Renders every placed imported model with a physics collider so the avatar can walk on,
 // into and around it. 'trimesh' gives exact collision (walkable interiors, stairs, ramps);
@@ -64,6 +65,11 @@ function PlacedAsset({ inst, selected }) {
   useFrame(({ clock }) => { if (ring.current) ring.current.material.opacity = 0.55 + Math.sin(clock.elapsedTime * 4) * 0.3 })
 
   const footprint = Math.max(size[0], size[2]) * scale * 0.6 + 0.4
+  // furniture settings: seating points and a seat-shaped collider
+  const seatCfg = inst.seats || null
+  const W = size[0] * scale, H = size[1] * scale, D = size[2] * scale
+  const seatList = useMemo(() => furnitureSeats(inst, W, D), [position[0], position[1], position[2], rotationY, W, D, seatCfg?.count, seatCfg?.height, seatCfg?.depth, seatCfg?.flip]) // eslint-disable-line react-hooks/exhaustive-deps
+  useSeats(seatList, [seatList])
   return (
     <>
       <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
@@ -71,6 +77,12 @@ function PlacedAsset({ inst, selected }) {
           <primitive object={obj} />
         </group>
       </group>
+      {selected && seatList.map((st, i) => (
+        <mesh key={'seat' + i} position={[st.position[0], st.position[1] + 0.02, st.position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.16, 24]} />
+          <meshBasicMaterial color={NEON.teal} transparent opacity={0.8} toneMapped={false} depthTest={false} />
+        </mesh>
+      ))}
       {selected && (
         <mesh ref={ring} position={[position[0], position[1] + 0.05, position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[footprint, footprint + 0.12, 64]} />
@@ -81,6 +93,12 @@ function PlacedAsset({ inst, selected }) {
         <RigidBody key={bodyKey} type="fixed" colliders={false} position={position} rotation={[0, rotationY, 0]}>
           {collider === 'box' ? (
             <CuboidCollider args={[(size[0] * scale) / 2, (size[1] * scale) / 2, (size[2] * scale) / 2]} position={[0, (size[1] * scale) / 2, 0]} />
+          ) : collider === 'seat' ? (
+            // fitted to seating furniture: a block up to the seat, and the backrest along the back
+            <>
+              <CuboidCollider args={[W / 2, Math.max(0.05, (seatCfg?.height ?? 0.45) - 0.02) / 2, D / 2]} position={[0, Math.max(0.05, (seatCfg?.height ?? 0.45) - 0.02) / 2, 0]} />
+              <CuboidCollider args={[W / 2, H / 2, Math.min(0.15, D * 0.12)]} position={[0, H / 2, (seatCfg?.flip ? 1 : -1) * (D / 2 - Math.min(0.15, D * 0.12))]} />
+            </>
           ) : (
             <TrimeshCollider args={trimesh} />
           )}
@@ -88,6 +106,27 @@ function PlacedAsset({ inst, selected }) {
       )}
     </>
   )
+}
+
+/**
+ * Seats on an imported piece of furniture, spread evenly along its width.
+ * inst.seats = { count, height (m above the floor), depth (−0.5 back … 0.5 front, fraction of depth), flip }
+ */
+function furnitureSeats(inst, W, D) {
+  const c = inst.seats
+  if (!c || !c.count) return []
+  const yaw = inst.rotationY + (c.flip ? Math.PI : 0)
+  const cos = Math.cos(inst.rotationY), sin = Math.sin(inst.rotationY)
+  const out = []
+  for (let i = 0; i < c.count; i++) {
+    const lx = (i - (c.count - 1) / 2) * (W / c.count)
+    const lz = (c.depth ?? 0.1) * D * (c.flip ? -1 : 1)
+    out.push({
+      position: [inst.position[0] + lx * cos + lz * sin, inst.position[1] + (c.height ?? 0.45), inst.position[2] - lx * sin + lz * cos],
+      yaw, height: c.height ?? 0.45, label: c.count > 1 ? `Sit (seat ${i + 1} of ${c.count})` : 'Sit',
+    })
+  }
+  return out
 }
 
 // ---------- Imported character as the player's avatar ----------

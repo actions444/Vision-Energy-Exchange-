@@ -8,7 +8,7 @@ import { useStore } from '../state/store.js'
 import { useAssets, registry } from '../assets/assetStore.js'
 import Avatar from './Avatar.jsx'
 import { ImportedAvatar } from '../assets/PlacedAssets.jsx'
-import { net } from '../net/netManager.js'
+import { net, peerData } from '../net/netManager.js'
 import { elevator } from '../world/elevator.js'
 
 const WALK = 2.6
@@ -20,12 +20,42 @@ const CAPSULE_R = 0.35
 
 // Third-person character: Rapier kinematic character controller (slopes, steps/curbs,
 // snap-to-ground, sliding along walls) plus camera-relative movement.
+/** Is a remote visitor sitting on this seat? */
+function seatTakenByOther(seat) {
+  for (const pd of peerData.values()) {
+    if (!pd.sit || !pd.to) continue
+    if (Math.hypot(pd.to[0] - seat.position[0], pd.to[2] - seat.position[2]) < 0.35 && Math.abs(pd.to[1] - seat.floorY) < 0.6) return true
+  }
+  return false
+}
+
+/**
+ * Where to stand up: in front of the seat if that spot is free, otherwise further out, to the
+ * sides, or behind. Each candidate is tested with the avatar's own capsule so it never ends up
+ * inside a table, another chair or a wall.
+ */
+function safeStandSpot(seat, world, rapier, col) {
+  const fx = Math.sin(seat.yaw), fz = Math.cos(seat.yaw)
+  const rx = Math.cos(seat.yaw), rz = -Math.sin(seat.yaw)
+  const tries = [...(seat.stand ? [seat.stand] : []), [0.75, 0], [0.95, 0], [0.6, 0], [0.75, 0.8], [0.75, -0.8], [0, 0.9], [0, -0.9], [1.3, 0], [-0.9, 0]]
+  const shape = new rapier.Capsule(CAPSULE_HALF, CAPSULE_R)
+  const rot = { x: 0, y: 0, z: 0, w: 1 }
+  for (const t of tries) {
+    const p = Array.isArray(t) && t.length === 3 ? { x: t[0], y: t[1], z: t[2] } : { x: seat.position[0] + fx * t[0] + rx * t[1], y: seat.floorY + 0.05, z: seat.position[2] + fz * t[0] + rz * t[1] }
+    const center = { x: p.x, y: p.y + CAPSULE_HALF + CAPSULE_R + 0.03, z: p.z }
+    const hit = world.intersectionWithShape(center, rot, shape, undefined, undefined, undefined, undefined, (c) => c.handle !== col.handle && !c.isSensor())
+    if (!hit) return p
+  }
+  return { x: seat.position[0] + fx * 0.75, y: seat.floorY + 0.05, z: seat.position[2] + fz * 0.75 }
+}
+
 export default function Player() {
   const body = useRef()
   const collider = useRef()
   const visual = useRef()
   const controller = useRef()
-  const { world } = useRapier()
+  const { world, rapier } = useRapier()
+  const sitAnim = useRef(null)
   const profile = useStore((s) => s.profile)
   const phase = useStore((s) => s.phase)
   const avatarCfg = useAssets((s) => s.avatar)
@@ -34,7 +64,9 @@ export default function Player() {
 
   useEffect(() => {
     const c = world.createCharacterController(0.04)
-    c.enableAutostep(0.4, 0.25, true)
+    // 0.3 m: climbs curbs (0.15) and stair/aisle steps (≤0.18) but never onto sofa seats,
+    // chairs or coffee tables (all ≥0.44 m), so the avatar can't end up standing in furniture
+    c.enableAutostep(0.3, 0.25, false)
     c.enableSnapToGround(0.35)
     c.setMaxSlopeClimbAngle((50 * Math.PI) / 180)
     c.setMinSlopeSlideAngle((60 * Math.PI) / 180)
@@ -77,9 +109,11 @@ export default function Player() {
     if (playerState.sitRequest) {
       const seat = playerState.sitRequest
       playerState.sitRequest = null
-      if (!seat.occupiedBy && !playerState.seated) {
+      if (!seat.occupiedBy && !playerState.seated && !seatTakenByOther(seat)) {
         seat.occupiedBy = 'me'
         playerState.seated = seat
+        const p0 = b.translation()
+        sitAnim.current = { from: { x: p0.x, y: p0.y, z: p0.z }, t: 0 }
         playerState.sit = 1
         playerState.sitHeight = seat.height
         playerState.emote = null
@@ -96,13 +130,24 @@ export default function Player() {
         seat.occupiedBy = null
         playerState.seated = null
         playerState.sit = 0
-        const fx = Math.sin(seat.yaw), fz = Math.cos(seat.yaw)
-        const out = { x: seat.position[0] + fx * 0.75, y: seat.floorY + 0.05, z: seat.position[2] + fz * 0.75 }
+        const out = safeStandSpot(seat, world, rapier, col)
         if (!playerState.respawn && !playerState.teleport) { b.setNextKinematicTranslation(out); playerState.position.set(out.x, out.y, out.z) }
         useStore.getState().setPrompt(null)
         lastPrompt.current = null
+        v.current.set(0, 0, 0)
+        // the stand-up move takes effect on the next physics step: don't let this frame's normal
+        // movement (which still reads the seated position) overwrite it
+        if (!playerState.respawn && !playerState.teleport) return
       } else {
-        const at = { x: seat.position[0], y: seat.floorY, z: seat.position[2] }
+        // glide into the seat over ~0.35 s while the pose blends from standing to sitting
+        const target = { x: seat.position[0], y: seat.floorY, z: seat.position[2] }
+        let at = target
+        const sa = sitAnim.current
+        if (sa && sa.t < 1) {
+          sa.t = Math.min(1, sa.t + dt / 0.35)
+          const e = sa.t * sa.t * (3 - 2 * sa.t)
+          at = { x: sa.from.x + (target.x - sa.from.x) * e, y: sa.from.y + (target.y - sa.from.y) * e, z: sa.from.z + (target.z - sa.from.z) * e }
+        }
         b.setNextKinematicTranslation(at)
         playerState.position.set(at.x, at.y, at.z)
         playerState.speed = 0
