@@ -19,6 +19,7 @@ export function AdminHub() {
   const open = useStore((s) => s.openPanel)
   const items = [
     ['world', 'Time & weather', 'Set the time of day, run or pause the cycle, change the weather.'],
+    ['access', 'Rooms & access', 'Inspect any room or building, including private bookings (owner entries are logged).'],
     ['rentals', 'Rentals', 'Rentable rooms, prices, availability, requests, assignments and revenue.'],
     ['music', 'Music', 'Upload music, build playlists, choose what every room plays.'],
     ['media', 'Media library', 'Upload songs, album covers, music videos, movies, audiobooks and e-books. Publish what visitors see.'],
@@ -80,7 +81,7 @@ export function ElevatorPanel() {
     <Panel title="Elevator" eyebrow={ui.moving ? (ui.direction > 0 ? 'Going up' : 'Going down') : `Floor ${ui.floor + 1}`}>
       <div className="elevator-buttons">
         {Array.from({ length: PLAZA.floors }, (_, i) => PLAZA.floors - 1 - i).map((f) => (
-          <button key={f} className={'floor-btn' + (ui.floor === f ? ' on' : '')} onClick={() => { elevator.call(f); close() }}>
+          <button key={f} className={'floor-btn' + (ui.floor === f ? ' on' : '') + (ui.lit.includes(f) ? ' lit' : '')} onClick={() => { elevator.call(f); close() }}>
             <b>{f + 1}</b><small>{names[f]}</small>
           </button>
         ))}

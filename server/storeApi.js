@@ -9,7 +9,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 
 const SEG = /^[A-Za-z0-9_.:-]{1,80}$/
-const PRIVATE = new Set(['drafts'])
+const PRIVATE = new Set(['drafts', 'audit'])
 const TYPES = new Set([
   'audio/mpeg', 'audio/mp4', 'audio/aac', 'video/mp4', 'video/webm', 'video/quicktime',
   'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'text/plain', 'text/markdown',
@@ -70,7 +70,8 @@ export function createStoreApi({ dataDir, isAdmin, maxUpload = Number(process.en
       fs.createReadStream(file).pipe(res)
       return true
     }
-    if (!p.startsWith('/api/store') && !p.startsWith('/api/admin/')) return false
+    // only our own routes: the rentals API also lives under /api/admin/
+    if (!p.startsWith('/api/store') && !/^\/api\/admin\/(files|usage|whoami)(\/|$)/.test(p)) return false
     const admin = isAdmin(req)
 
     try {

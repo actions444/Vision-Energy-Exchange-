@@ -1,4 +1,4 @@
-import { PLAZA, P, PLAZA_ROOMS, roomBounds } from './plaza.js'
+import { PLAZA, P, PLAZA_ROOMS, ELEVATOR, roomBounds } from './plaza.js'
 
 // Music zones. Each entry is a 3D trigger volume (axis-aligned box, metres) with a default
 // playlist. When an avatar is inside several zones (e.g. a store inside a mall), the
@@ -61,6 +61,16 @@ ZONES.push({
   playlist: 'pl-lobby',
   spawn: [PLAZA.x1 - 3, 0.3, (PLAZA.z0 + PLAZA.z1) / 2],
   yaw: Math.PI / 2,
+})
+// the elevator car (all floors of the shaft): soft optional music while riding
+ZONES.push({
+  id: 'plaza-elevator',
+  name: 'Plaza elevator',
+  kind: 'Elevator',
+  bounds: [[P.X(ELEVATOR.u0), -1, P.Z(ELEVATOR.v0)], [P.X(ELEVATOR.u1), P.Y(PLAZA.floors), P.Z(ELEVATOR.v1)]],
+  playlist: 'pl-elevator',
+  spawn: [P.X(1.6), 0.3, P.Z(16.5)],
+  yaw: 0,
 })
 for (const r of PLAZA_ROOMS) {
   const b = roomBounds(r)

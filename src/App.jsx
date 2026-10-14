@@ -17,6 +17,7 @@ import { playerState, cameraState } from './state/runtime.js'
 import UI from './ui/UI.jsx'
 import Vehicles from './vehicles/Vehicle.jsx'
 import { useDriving, vehicleBodies } from './vehicles/vehicles.js'
+import { elevator, useElevatorUI } from './world/elevator.js'
 import MusicZones from './music/MusicZones.jsx'
 import { useMusicLibrary, resolveTrackSource } from './music/library.js'
 import { musicEngine, useMusic } from './music/engine.js'
@@ -103,4 +104,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, useElevatorUI, elevatorCall: (f) => elevator.call(f) }

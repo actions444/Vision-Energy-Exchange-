@@ -6,7 +6,11 @@ import { PLAZA, P, ELEVATOR } from '../config/plaza.js'
 const DOOR_TIME = 0.9
 const SPEED = 1.8
 
-export const useElevatorUI = create(() => ({ floor: 0, moving: false, direction: 0 }))
+// floor/moving/direction for the UI; `lit` = floors whose buttons are lit (queued or the target)
+export const useElevatorUI = create(() => ({ floor: 0, moving: false, direction: 0, lit: [], arrival: null }))
+const syncLit = (e) => useElevatorUI.setState({ lit: [...new Set([...(e.state === 'moving' || e.state === 'closing' ? [e.target] : []), ...e.queue])] })
+/** Things that react to an arrival (chime, hall lanterns). */
+export const arrivalListeners = new Set()
 
 export const elevator = {
   y: P.Y(0), // top of the car floor (world)
@@ -30,13 +34,15 @@ export const elevator = {
   call(f) {
     f = Math.max(0, Math.min(PLAZA.floors - 1, f))
     if (this.state === 'idle' && f === this.floor) { this.state = 'opening'; return }
-    if (!this.queue.includes(f) && f !== this.target) this.queue.push(f)
+    if (!this.queue.includes(f) && !(f === this.target && this.state !== 'idle')) this.queue.push(f)
     if (this.state === 'idle') this.next()
+    syncLit(this)
   },
   next() {
     if (!this.queue.length) return
     this.target = this.queue.shift()
     this.state = 'closing'
+    syncLit(this)
   },
   update(dt) {
     this.prevY = this.y
@@ -54,9 +60,16 @@ export const elevator = {
         useElevatorUI.setState({ moving: true, direction: Math.sign(d), floor: Math.round((this.y - PLAZA.base) / PLAZA.floorH) })
         if (Math.abs(ty - this.y) < 0.001) {
           this.y = ty
+          const dir = Math.sign(d) || this.lastDir || 0
           this.floor = this.target
           this.state = 'opening'
-          useElevatorUI.setState({ moving: false, direction: 0, floor: this.floor })
+          this.lastDir = dir
+          // the lantern shows where the car goes next (or the way it came if nothing is queued)
+          const nextDir = this.queue.length ? Math.sign(this.queue[0] - this.floor) : dir
+          const arrival = { floor: this.floor, dir: nextDir, at: performance.now() }
+          useElevatorUI.setState({ moving: false, direction: 0, floor: this.floor, arrival })
+          syncLit(this)
+          arrivalListeners.forEach((f) => f(arrival))
         }
         break
       }

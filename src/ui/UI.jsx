@@ -20,11 +20,12 @@ import { useBackend, ownerSignIn } from '../backend/backend.js'
 import MediaAdmin from './MediaAdmin.jsx'
 import RecordsPanel from './RecordsPanel.jsx'
 import CinemaPanel from './CinemaPanel.jsx'
+import AdminAccess from './AdminAccess.jsx'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
 import { useDriving } from '../vehicles/vehicles.js'
 
-const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media'])
+const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access'])
 
 export default function UI() {
   const phase = useStore((s) => s.phase)
@@ -44,6 +45,7 @@ export default function UI() {
       {ok && panel?.type === 'admin' && <AdminHub />}
       {ok && panel?.type === 'world' && <WorldAdmin />}
       {ok && panel?.type === 'media' && <MediaAdmin />}
+      {ok && panel?.type === 'access' && <AdminAccess />}
       {panel?.type === 'records' && <RecordsPanel />}
       {panel?.type === 'cinema' && <CinemaPanel screenId={panel.screenId} />}
       {panel?.type === 'elevator' && <ElevatorPanel />}

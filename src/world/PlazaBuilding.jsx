@@ -13,6 +13,7 @@ import { registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { elevator } from './elevator.js'
 import PlazaRooms from './PlazaRooms.jsx'
+import { CarLights, HallLights } from './ElevatorLights.jsx'
 import { StaticBatch } from './batch.jsx'
 import { rentalAccess } from '../rentals/client.js'
 
@@ -426,8 +427,9 @@ function Elevator() {
         <mesh position={[cw / 2 - 0.03, 1.27, 0]} material={wood}><boxGeometry args={[0.04, 2.55, cd]} /></mesh>
         <mesh position={[0, 1.27, cd / 2 - 0.03]} material={brushed}><boxGeometry args={[cw, 2.55, 0.04]} /></mesh>
         <mesh position={[0, 0.95, cd / 2 - 0.06]} material={m.chrome}><boxGeometry args={[cw - 0.3, 0.04, 0.04]} /></mesh>
-        <mesh position={[cw / 2 - 0.06, 1.3, -cd / 2 + 0.5]} rotation={[0, -Math.PI / 2, 0]} material={panelMat}><planeGeometry args={[0.25, 0.5]} /></mesh>
+        <CarLights cw={cw} cd={cd} />
       </RigidBody>
+      <HallLights />
       {/* shaft doors on every floor */}
       {Array.from({ length: PLAZA.floors * 2 }, (_, i) => {
         const f = Math.floor(i / 2), k = i % 2
@@ -443,7 +445,7 @@ function Elevator() {
         <group key={'fr' + f}>
           <mesh position={[P.X((ELEVATOR.doorU0 + ELEVATOR.doorU1) / 2), P.Y(f) + ELEVATOR.doorH + 0.06, P.Z(ELEVATOR.v0 - 0.17)]} material={m.chrome}><boxGeometry args={[ELEVATOR.doorU1 - ELEVATOR.doorU0 + 0.2, 0.12, 0.04]} /></mesh>
           <mesh position={[P.X(ELEVATOR.doorU1 + 0.25), P.Y(f) + 1.15, P.Z(ELEVATOR.v0 - 0.17)]} material={panelMat}><boxGeometry args={[0.12, 0.25, 0.02]} /></mesh>
-          <Plaque lines={[`FLOOR ${f + 1}`, ['Lobby · Bistro · Threads', 'Screening · Studio', 'Boardroom · Suite'][f]]} position={[P.X((ELEVATOR.doorU0 + ELEVATOR.doorU1) / 2), P.Y(f) + ELEVATOR.doorH + 0.45, P.Z(ELEVATOR.v0 - 0.17)]} rotation={[0, Math.PI, 0]} width={1.4} />
+          <Plaque lines={[`FLOOR ${f + 1}`, ['Lobby · Bistro · Threads', 'Screening · Studio', 'Boardroom · Suite'][f]]} position={[P.X((ELEVATOR.doorU0 + ELEVATOR.doorU1) / 2), P.Y(f) + ELEVATOR.doorH + 0.78, P.Z(ELEVATOR.v0 - 0.17)]} rotation={[0, Math.PI, 0]} width={1.2} />
         </group>
       ))}
     </group>

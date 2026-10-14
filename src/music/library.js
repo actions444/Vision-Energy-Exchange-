@@ -46,6 +46,8 @@ const DEMO_TRACKS = [
   { id: 't-velvet-rope', title: 'Velvet Rope', gen: { style: 'rnb', bpm: 70, bars: 16, root: 51, seed: 151 }, colors: ['#5a2340', '#c98a5a', '#1c1424'], shape: 'waves' },
   { id: 't-late-checkout', title: 'Late Checkout', gen: { style: 'rnb', bpm: 76, bars: 16, root: 48, seed: 162 }, colors: ['#3a1f4d', '#e0a370', '#120d18'], shape: 'rings' },
   { id: 't-slow-motion', title: 'Slow Motion', gen: { style: 'rnb', bpm: 66, bars: 16, root: 53, seed: 173 }, colors: ['#6b2a3a', '#d8b48a', '#140f16'], shape: 'waves' },
+  // elevator
+  { id: 't-going-up', title: 'Going Up', gen: { style: 'piano', bpm: 84, bars: 12, root: 60, seed: 214 }, colors: ['#c9a96a', '#e9e4d8', '#3c4652'], shape: 'rings' },
   // Reign Books: relaxing instrumental
   { id: 't-margin-notes', title: 'Margin Notes', gen: { style: 'piano', bpm: 66, bars: 16, root: 55, seed: 181 }, colors: ['#e9e1cf', '#7d5f45', '#3c4a3e'], shape: 'rings' },
   { id: 't-quiet-chapter', title: 'Quiet Chapter', gen: { style: 'piano', bpm: 60, bars: 16, root: 53, seed: 192 }, colors: ['#d8cdb4', '#4c5a48', '#8a6a4a'], shape: 'waves' },
@@ -57,6 +59,7 @@ const DEMO_PLAYLISTS = [
   { id: 'pl-records', name: 'Storms Records Rotation', kind: 'tracks', trackIds: ['t-crate-digger', 't-needle-drop'], shuffle: true, demo: true },
   { id: 'pl-lounge', name: 'Lounge R&B & Soul', kind: 'tracks', trackIds: ['t-velvet-rope', 't-late-checkout', 't-slow-motion'], shuffle: true, demo: true },
   { id: 'pl-club', name: 'Neon Lounge Club Night', kind: 'tracks', trackIds: ['t-after-hours', 't-purple-static'], shuffle: true, demo: true },
+  { id: 'pl-elevator', name: 'Elevator Music', kind: 'tracks', trackIds: ['t-going-up'], shuffle: false, demo: true },
   { id: 'pl-books', name: 'Reign Books Reading Room', kind: 'tracks', trackIds: ['t-margin-notes', 't-quiet-chapter', 't-reading-room'], shuffle: true, demo: true },
   { id: 'pl-streets', name: 'City Storm', kind: 'tracks', trackIds: ['t-thunder-avenue', 't-wet-asphalt'], shuffle: false, demo: true },
   { id: 'pl-lobby', name: 'Plaza Lobby', kind: 'tracks', trackIds: ['t-welcome-desk', 't-velvet-hour'], shuffle: false, demo: true },

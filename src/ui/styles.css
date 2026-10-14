@@ -340,3 +340,4 @@ input[type="color"] { width: 64px; height: 36px; border: 0; background: none; }
 .drive-hud .gear { font-family: var(--mono); font-size: 13px; color: var(--teal); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
 .drive-hud em { font-style: normal; color: var(--dim); font-size: 12px; }
 @media (pointer: coarse) { .drive-hud { bottom: auto; top: calc(var(--safe-t) + 58px); } }
+.floor-btn.lit { box-shadow: 0 0 0 2px #ffd27a inset, 0 0 18px rgba(255, 210, 122, .35); }
