@@ -35,6 +35,8 @@ import Gym from './gym/Gym.jsx'
 import ConcertHall from './ConcertHall.jsx'
 import ParkGolf from './ParkGolf.jsx'
 import Casino from './Casino.jsx'
+import ParkingGarage from './ParkingGarage.jsx'
+import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 import { LIB } from '../config/library.js'
 import { groundPieces } from '../config/island.js'
 import { EXTRA_COLLIDERS } from '../config/extraColliders.js'
@@ -190,6 +192,7 @@ export default function City() {
       <ConcertHall />
       <ParkGolf />
       <Casino />
+      <ParkingGarage />
       <RigidBody type="fixed" colliders={false}>
         {EXTRA_COLLIDERS.map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={i} args={[hx, hy, hz]} position={[x, y, z]} />)}
       </RigidBody>
@@ -387,6 +390,7 @@ const RESERVED = [
   [LIB.x0 - 4, LIB.x1 + 30, LIB.z0 - 4, LIB.z1 + 4], // Public Library and its forecourt
   [12, 74, -128, -80], // Museum of American Heritage, portico and grounds
   [22, 74, -84, -44], // Storm Athletic Club and its forecourt
+  [GARAGE_SITE.x0 - 3, GARAGE_SITE.x1 + 3, GARAGE_SITE.z0 - 3, GARAGE_SITE.z1 + 3], // Stormline Parking Garage
 ]
 function Skyline() {
   const mats = getMaterials()

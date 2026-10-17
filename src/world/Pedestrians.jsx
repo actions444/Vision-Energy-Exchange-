@@ -217,14 +217,22 @@ export default function Pedestrians() {
         if (near < 2.2) f.yaw = lerpAngle(f.yaw, Math.atan2(pp.x - f.x, pp.z - f.z), dt * 3) // glance at you
         if (s.timer <= 0 && s.resume && s.path) { s.resume = false; s.phase = 'move'; return }
         if (s.timer <= 0 && searches < 2) {
-          // pick somewhere new anywhere in the part of town this person can walk to
+          // pick somewhere new anywhere in the part of town this person can walk to — steering away
+          // from spots where someone else is already standing, so idle people don't pile up together
           const here = cellZ(s.pz) * NX + cellX(s.px)
           const cells = regions[w.region]
           let path = null
-          for (let tries = 0; tries < 6 && !path; tries++) {
+          for (let tries = 0; tries < 8 && !path; tries++) {
             const c = cells[Math.floor(Math.random() * cells.length)]
-            const d = Math.hypot(centreX(c % NX) - s.px, centreZ((c / NX) | 0) - s.pz)
+            const cx = centreX(c % NX), cz = centreZ((c / NX) | 0)
+            const d = Math.hypot(cx - s.px, cz - s.pz)
             if (d < 25 || d > 190) continue
+            let crowded = false
+            for (let j = 0; j < state.length; j++) {
+              if (j === i || state[j].phase !== 'wait') continue
+              if (Math.hypot(cx - state[j].px, cz - state[j].pz) < 4.5) { crowded = true; break }
+            }
+            if (crowded) continue
             searches++
             path = val[here] ? findPath(here, c) : null
           }
