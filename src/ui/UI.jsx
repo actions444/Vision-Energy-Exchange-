@@ -27,6 +27,7 @@ import AdminAccess from './AdminAccess.jsx'
 import NpcShiftsAdmin from './NpcShiftsAdmin.jsx'
 import DecorPanel from './DecorPanel.jsx'
 import LightsPanel from './LightsPanel.jsx'
+import DeparturesPanel from './DeparturesPanel.jsx'
 import GuidePanel from './GuidePanel.jsx'
 import { ttsSupported } from '../audio/tts.js'
 import JusticePanel from './JusticePanel.jsx'
@@ -98,6 +99,7 @@ export default function UI() {
       {panel?.type === 'live' && <LivePanel spaceId={panel.spaceId} spaceName={panel.spaceName} />}
       {panel?.type === 'library' && <LibraryPanel />}
       {panel?.type === 'exhibit' && <ExhibitPanel />}
+      {panel?.type === 'departures' && <DeparturesPanel />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
       {panel?.type === 'settings' && <SettingsPanel />}

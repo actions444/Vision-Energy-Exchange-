@@ -3,7 +3,7 @@
 
 export const CURB = 0.15
 /** ground slab and boundary of the West End (the original map runs x -130..130) */
-export const WEST = { x0: -400, x1: -130, z0: -130, z1: 130 }
+export const WEST = { x0: -660, x1: -130, z0: -130, z1: 130 }
 export const BOULEVARD = { z0: 14, z1: 26 } // the existing cross street, continued west
 export const MAPLE = { x0: -214, x1: -202 }
 export const CEDAR = { x0: -318, x1: -306 }
@@ -44,6 +44,17 @@ export const INDUSTRIAL = {
   yardB: { x0: -388, x1: -322, z0: -116, z1: -76 }, // container yard + warehouse C
 }
 
+/** Phase 5 (new, west of the industrial row): Vision Storms International Airport — a terminal,
+ *  control tower, apron and a single runway, with its own set of jobs. */
+export const AIRPORT = {
+  x0: -654, x1: -398, z0: -124, z1: 124,
+  apron: { x0: -480, x1: -398, z0: -40, z1: 60 },
+  runway: { x0: -654, x1: -490, z0: -10, z1: 30 },
+  terminal: { x0: -470, x1: -410, z0: -30, z1: 10 },
+  tower: { x: -415, z: -35, r: 3.2, h: 22 },
+  gateX: -434, // centre of the entrance road off the boulevard
+}
+
 /** Harbor Parade: two shops on the boulevard frontage of the south-east block (Phase 4 Maple Court is still reserved behind them) */
 export const PARADE = {
   laundromat: { x0: -197, x1: -177, z0: 31.5, z1: 45.5, doorC: -187 }, // VELVET SUDS LAUNDROMAT
@@ -63,4 +74,5 @@ export const SPAWNS = [
   ['recycling', 'Recycling drop-off', [-333, CURB + 0.2, 27.4], 0],
   ['depot', 'Waste-services depot (Cedar Works)', [-355, CURB + 0.2, 13.2], Math.PI],
   ['parade', 'Harbor Parade (laundromat, cleaners)', [-171, CURB + 0.2, 26.9], 0],
+  ['airport', 'Vision Storms International Airport', [-440, CURB + 0.2, 20], Math.PI],
 ]

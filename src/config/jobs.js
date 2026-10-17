@@ -57,6 +57,9 @@ export const UNIFORMS = {
   garden: { id: 'garden', name: 'Groundskeeper greens', price: 32, suit: '#3d7a4a', pants: '#4a4033', trim: '#d9c9a0', hat: '#c9b38a', vest: null },
   crew: { id: 'crew', name: 'Stage crew blacks', price: 36, suit: '#101012', pants: '#101012', trim: '#e0559f', hat: null, vest: null },
   courier: { id: 'courier', name: 'Courier jacket', price: 48, suit: '#e0782a', pants: '#1b1e26', trim: '#ffffff', hat: '#1b1e26', vest: null },
+  gate: { id: 'gate', name: 'Gate agent uniform', price: 52, suit: '#1b3a6e', pants: '#15223a', trim: '#f2c230', hat: null, vest: null },
+  tsa: { id: 'tsa', name: 'Airport security uniform', price: 60, suit: '#2a3344', pants: '#1a202c', trim: '#6fb8ff', hat: '#2a3344', vest: null },
+  ramp: { id: 'ramp', name: 'Ramp crew hi-vis', price: 34, suit: '#ff8a1f', pants: '#2a2d3a', trim: '#f2f2f2', hat: '#2a2d3a', vest: '#f2f2f2' },
 }
 
 // ---- sites: where you clock in ----
@@ -65,6 +68,7 @@ export const SITES = {
   jobcenter: { id: 'jobcenter', name: 'Job Center', pos: [65.3, 32.3] },
   carwashA: { id: 'carwashA', name: WASH_A.name, pos: cwWorld(WASH_A, 1.4, 6.4) },
   carwashB: { id: 'carwashB', name: WASH_B.name, pos: cwWorld(WASH_B, 1.4, 6.4) },
+  airport: { id: 'airport', name: 'Vision Storms International Airport', pos: [-460, 5] },
 }
 
 // ---- work stops ----
@@ -140,6 +144,16 @@ const STOP_LIST = [
   S('sh-west', 'Stage left', 'Coil the cables', 80.8, 41, 4),
   S('sh-back', 'Backstage', 'Check the lighting rig', 96, 48.6, 4),
   S('sh-east', 'Stage right', 'Move the road cases', 111.2, 41, 4),
+  // Vision Storms International Airport
+  S('ap-checkin', 'Check-in counter', 'Check in a passenger', -460, 5, 4),
+  S('ap-boardingA', 'Gate A boarding desk', 'Scan boarding passes', -430, -6, 4),
+  S('ap-boardingB', 'Gate B boarding desk', 'Scan boarding passes', -420, -6, 4),
+  S('ap-security', 'Security scanner', 'Screen a passenger', -450, -2, 4),
+  S('ap-bagcheck', 'Bag X-ray', 'Check a bag', -452, -4, 3.5),
+  S('ap-baggage', 'Baggage carousel', 'Load the carousel', -440, 2, 4),
+  S('ap-cart', 'Baggage cart', 'Load the cart', -436, 4.5, 3.5),
+  S('ap-ramp', 'Apron ramp', 'Marshal the aircraft', -405, 22, 4.5),
+  S('ap-tow', 'Tow tractor', 'Tow the baggage train', -405, 32, 4),
 ]
 
 // expand the car wash stops for both washes
@@ -208,6 +222,19 @@ export const JOBS = [
   { id: 'stagehand', title: 'Stagehand', cat: 'Events', site: ['jobcenter'], uniform: 'crew', wage: 64, shirt: '#101012', pants: '#101012',
     desc: 'Work the Grand Concert Stage: cables, rigging and road cases.',
     route: ['sh-west', 'sh-back', 'sh-east'] },
+  // Vision Storms International Airport
+  { id: 'gate-agent', title: 'Gate Agent', cat: 'Airport', site: ['airport'], uniform: 'gate', wage: 76, shirt: '#1b3a6e', pants: '#15223a',
+    desc: 'Check passengers in at the counter, then scan boarding passes at both gates.',
+    route: ['ap-checkin', 'ap-boardingA', 'ap-boardingB'] },
+  { id: 'tsa-officer', title: 'TSA Officer', cat: 'Airport', site: ['airport'], uniform: 'tsa', wage: 82, shirt: '#2a3344', pants: '#1a202c',
+    desc: 'Screen passengers at the walkthrough scanner and check bags on the X-ray belt.',
+    route: ['ap-security', 'ap-bagcheck'] },
+  { id: 'baggage-handler', title: 'Baggage Handler', cat: 'Airport', site: ['airport'], uniform: 'ramp', wage: 64, shirt: '#ff8a1f', pants: '#2a2d3a',
+    desc: 'Load the carousel and run the baggage cart out to the apron.',
+    route: ['ap-baggage', 'ap-cart'] },
+  { id: 'ramp-agent', title: 'Ramp Agent', cat: 'Airport', site: ['airport'], uniform: 'ramp', wage: 70, shirt: '#ff8a1f', pants: '#2a2d3a',
+    desc: 'Marshal aircraft on the apron and tow the baggage train.',
+    route: ['ap-ramp', 'ap-tow'] },
 ]
 
 export const jobById = (id) => JOBS.find((j) => j.id === id)

@@ -15,6 +15,7 @@ import RecreationGrounds from './RecreationGrounds.jsx'
 import WasteDistrict from './WasteDistrict.jsx'
 import IndustrialRow from './IndustrialRow.jsx'
 import HarborParade from './HarborParade.jsx'
+import Airport from './Airport.jsx'
 import { CURB, WEST, BOULEVARD, MAPLE, CEDAR, BLOCKS, PARADE } from '../../config/westend.js'
 
 // The West End: roads, sidewalks, crossings, lamps and street signs for the new districts west of the original map.
@@ -212,6 +213,7 @@ export default function WestEnd() {
       <IndustrialRow />
       <TerraceSite />
       <HarborParade />
+      <Airport />
     </>
   )
 }
