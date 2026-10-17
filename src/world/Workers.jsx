@@ -18,7 +18,15 @@ const job = (id) => JOBS.find((j) => j.id === id)
 const pt = (id, wait = 3, act = 'work', face) => ({ x: STOPS[id].x, z: STOPS[id].z, wait, act, face })
 const at = (x, z, wait = 0, act = 'stand', face) => ({ x, z, wait, act, face })
 const cw = (w, k, wait = 4, act = 'work', face) => pt(`${w.id}:${k}`, wait, act, face)
+// A short side-to-side patrol for a counter/desk worker, so nobody is ever frozen at one exact
+// point — they shuffle along their own station instead of standing dead still forever. `axis`
+// picks which way the counter runs ('x' or 'z'); `dist` keeps them within reach of it.
+const station = (x, z, wait = 6, face, axis = 'x', dist = 0.9) => {
+  const dx = axis === 'x' ? dist : 0, dz = axis === 'z' ? dist : 0
+  return [at(x - dx, z - dz, wait, 'work', face), at(x, z, Math.max(2, wait - 2), 'work', face), at(x + dx, z + dz, wait, 'work', face), at(x, z, Math.max(2, wait - 3), 'work', face)]
+}
 const cwAt = (w, u, v, wait = 0, act = 'stand', face) => { const [x, z] = cwWorld(w, u, v); return at(x, z, wait, act, face) }
+const cwStation = (w, u, v, wait = 6, face) => { const [x, z] = cwWorld(w, u, v); return station(x, z, wait, face, 'x', 0.7) }
 
 // shared walking lanes from the Post Office out to the avenue
 const OUT = [at(64, 62.5, 4, 'work'), at(64, 53.1), at(52, 53.1), at(34.4, 53.1), at(34.4, 30.2), at(8.6, 30.2)]
@@ -45,19 +53,19 @@ const WORKERS = [
   { name: 'Sam', job: 'stagehand', line: 'Load-in starts at noon. The rig weighs more than it looks.', speed: 1.1, loop: 'pingpong', path: [at(80.8, 41, 5, 'work', WEST), at(80.8, 47, 5, 'work', WEST)] },
   { name: 'Kai', job: 'stagehand', line: 'Checking the lights before the show.', speed: 1.1, loop: 'pingpong', path: [at(94, 49.2, 5, 'work', SOUTH), at(104, 49.2, 5, 'work', SOUTH)] },
   // Post Office staff
-  { name: 'Nora', job: 'postal-clerk', line: 'Next window, please. Stamps, parcels and P.O. boxes are all here.', speed: 1, loop: 'cycle', path: [at(47.5, 62.0, 99, 'work', SOUTH)] },
-  { name: 'Walt', job: 'postal-clerk', line: 'Need a parcel weighed? I am your man.', speed: 1, loop: 'cycle', path: [at(52.5, 62.0, 99, 'work', SOUTH)] },
-  { name: 'Ines', job: 'mail-sorter', line: 'Letters in the left tray, parcels on the right. Every route gets its own bundle.', speed: 1, loop: 'cycle', path: [at(47.2, 63.4, 99, 'work', NORTH)] },
-  { name: 'Omar', job: 'mail-sorter', line: 'The morning bags are the biggest. I am almost through them.', speed: 1, loop: 'cycle', path: [at(51.3, 63.4, 99, 'work', NORTH)] },
-  { name: 'Lou', job: 'mail-sorter', line: 'Bundling outgoing mail for the truck.', speed: 1, loop: 'cycle', path: [at(55.4, 63.4, 99, 'work', NORTH)] },
+  { name: 'Nora', job: 'postal-clerk', line: 'Next window, please. Stamps, parcels and P.O. boxes are all here.', speed: 1, loop: 'cycle', path: station(47.5, 62.0, 8, SOUTH, 'x', 0.7) },
+  { name: 'Walt', job: 'postal-clerk', line: 'Need a parcel weighed? I am your man.', speed: 1, loop: 'cycle', path: station(52.5, 62.0, 8, SOUTH, 'x', 0.7) },
+  { name: 'Ines', job: 'mail-sorter', line: 'Letters in the left tray, parcels on the right. Every route gets its own bundle.', speed: 1, loop: 'cycle', path: station(47.2, 63.4, 7, NORTH, 'x', 0.8) },
+  { name: 'Omar', job: 'mail-sorter', line: 'The morning bags are the biggest. I am almost through them.', speed: 1, loop: 'cycle', path: station(51.3, 63.4, 7, NORTH, 'x', 0.8) },
+  { name: 'Lou', job: 'mail-sorter', line: 'Bundling outgoing mail for the truck.', speed: 1, loop: 'cycle', path: station(55.4, 63.4, 7, NORTH, 'x', 0.8) },
   { name: 'Hank', job: 'mail-sorter', line: 'Loading the cage. Wheels on these things never go straight.', speed: 1, loop: 'pingpong', path: [at(56.4, 63.0, 5, 'work', EAST), at(59.6, 62.2, 4, 'work', EAST)] },
   // Job Center staff
-  { name: 'Alicia', job: 'receptionist', line: 'Welcome to the Job Center. The job board is on the west wall; the uniform shop is through the arch.', speed: 1, loop: 'cycle', path: [at(61.3, 35.4, 99, 'work', SOUTH)] },
-  { name: 'Greg', job: 'office-clerk', line: 'Applications are processed same day. Mostly.', speed: 1, loop: 'cycle', path: [at(59.3, 46.3, 99, 'work', NORTH)] },
+  { name: 'Alicia', job: 'receptionist', line: 'Welcome to the Job Center. The job board is on the west wall; the uniform shop is through the arch.', speed: 1, loop: 'cycle', path: station(61.3, 35.4, 8, SOUTH, 'x', 0.8) },
+  { name: 'Greg', job: 'office-clerk', line: 'Applications are processed same day. Mostly.', speed: 1, loop: 'cycle', path: station(59.3, 46.3, 8, NORTH, 'x', 0.8) },
   { name: 'Bea', job: 'janitor', line: 'Marble shows every footprint. That is job security.', speed: 0.9, loop: 'cycle', path: [at(58.5, 37, 5, 'work', NORTH), at(62, 37, 5, 'work', NORTH), at(62, 43.5, 5, 'work', SOUTH), at(58.5, 43.5, 5, 'work', SOUTH)] },
-  { name: 'Leo', job: 'retail-clerk', line: 'Every job has its own uniform. Buy yours here, then clock in at the right place.', speed: 1, loop: 'cycle', path: [at(70.6, 35.6, 99, 'work', SOUTH)] },
+  { name: 'Leo', job: 'retail-clerk', line: 'Every job has its own uniform. Buy yours here, then clock in at the right place.', speed: 1, loop: 'cycle', path: station(70.6, 35.6, 8, SOUTH, 'x', 0.8) },
   { name: 'Tess', job: 'retail-clerk', line: 'Restocking sizes. Everyone is a medium until they try it on.', speed: 1, loop: 'pingpong', path: [at(69.6, 45.0, 6, 'work', NORTH), at(70.9, 45.0, 6, 'work', NORTH)] },
-  { name: 'Paul', job: 'office-clerk', line: 'Payroll. Weekly, bi-weekly, monthly or yearly. Longer periods pay a bonus.', speed: 1, loop: 'cycle', path: [at(74.7, 40.5, 99, 'work', WEST)] },
+  { name: 'Paul', job: 'office-clerk', line: 'Payroll. Weekly, bi-weekly, monthly or yearly. Longer periods pay a bonus.', speed: 1, loop: 'cycle', path: station(74.7, 40.5, 8, WEST, 'z', 0.8) },
 ]
 // both car washes get the same crew
 for (const w of [WASH_A, WASH_B]) {
@@ -69,7 +77,7 @@ for (const w of [WASH_A, WASH_B]) {
     { name: w === WASH_A ? 'Priya' : 'Dale', job: 'wash-host', line: `Pay at the kiosk and drive into the tunnel. Wait for the green light.`, speed: 1, loop: 'pingpong',
       path: [cw(w, 'kiosk', 6, 'work', EAST), cwAt(w, 4.0, 0.2, 3, 'stand', EAST)] },
     { name: w === WASH_A ? 'Dan' : 'Kit', job: 'wash-host', line: 'Office is open. The time clock is on the wall.', speed: 1, loop: 'cycle',
-      path: [cwAt(w, 2.0, 7.9, 99, 'work', NORTH)] },
+      path: cwStation(w, 2.0, 7.9, 7, NORTH) },
   )
 }
 

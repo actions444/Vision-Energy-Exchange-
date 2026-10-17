@@ -23,9 +23,12 @@ export const GYM_STAFF = [
     look: { build: 'm', hair: '#15100c', eyes: '#2a170e', top: '#a33cff', casual: true, sleeveless: false, bottom: '#1d1f26', shoe: '#f4f4f4', badge: true },
     start: [39.5, -76.2, S],
     plan: [
-      hold(14, { yaw: S, g: ['write'], carry: 'tablet', stay: true, label: 'Checking in members on the tablet' }),
-      hold(10, { yaw: S, g: ['open'], talk: 0.45, label: 'Welcoming people at the desk' }),
-      hold(12, { yaw: S, g: ['read'], carry: 'tablet', stay: true, label: 'Updating the class schedule' }),
+      hold(12, { yaw: S, g: ['write'], carry: 'tablet', stay: true, label: 'Checking in members on the tablet' }),
+      go([[40.2, -76.2]]),
+      hold(9, { yaw: S, g: ['open'], talk: 0.45, label: 'Welcoming people at the desk' }),
+      go([[38.8, -76.2]]),
+      hold(10, { yaw: S, g: ['read'], carry: 'tablet', stay: true, label: 'Updating the class schedule' }),
+      go([[39.5, -76.2]]),
     ],
     lines: [
       'Welcome to Storm Athletic Club. Tap the desk to check in; your stats are kept on this device.',
@@ -39,8 +42,11 @@ export const GYM_STAFF = [
     start: [43.5, -50.15, N],
     plan: [
       hold(10, { yaw: N, g: ['shake'], carry: 'shaker', label: 'Shaking a protein shake' }),
+      go([[44.3, -50.15]]),
       hold(8, { yaw: N, g: ['stir'], label: 'Blending a Green Surge smoothie' }),
+      go([[42.8, -50.15]]),
       hold(9, { yaw: N, g: ['reach'], carry: 'glass', talk: 0.4, label: 'Serving a smoothie' }),
+      go([[43.5, -50.15]]),
       hold(8, { yaw: N, g: ['wipe'], carry: 'towel', stay: true, label: 'Wiping down the bar' }),
     ],
     lines: [
