@@ -26,6 +26,13 @@ export const playerState = {
   diveAir: false, // leaping head-first from the deck or the board
   launch: null, // { vx, vz, vy, yaw }: set by the diving board, consumed by the player controller
   rescuedAt: -1e9, // clock time of the last lifeguard rescue (the staff lifeguard walks over)
+
+  // ---- performance system (see music/lipsync.js, ui/PerformancePanel.jsx, world/ConcertStage.jsx) ----
+  sing: 0, // 0..1: mouth/posture "singing" blend on the Avatar; 1 while performing
+  performing: null, // { trackId } while actively performing a chosen track through the stage speakers, else null
+  dancing: false, // toggled by the performance menu; layers a dance sway on top of whatever else the avatar is doing
+  gesture: null, // one-shot performance gesture: 'clap' | 'bow' | 'point' | null (auto-clears at gestureUntil)
+  gestureUntil: 0,
 }
 
 export const cameraState = {

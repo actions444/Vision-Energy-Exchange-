@@ -492,6 +492,9 @@ export default function Player() {
     }
     if (playerState.emote && (state.clock.elapsedTime > playerState.emoteUntil || playerState.speed > 1)) playerState.emote = null
 
+    // performance gestures (clap/bow/point from the Performance panel): one-shot, auto-clears
+    if (playerState.gesture && state.clock.elapsedTime > playerState.gestureUntil) playerState.gesture = null
+
     // interactions
     const near = climb ? { id: 'climb-out', def: { label: climb.ladder ? 'Climb the ladder out' : 'Climb out of the pool', onInteract: () => {} } } : playing ? findNearestInteractable(playerState.position, !!mode) : null
     const label = near ? (typeof near.def.label === 'function' ? near.def.label() : near.def.label) : null

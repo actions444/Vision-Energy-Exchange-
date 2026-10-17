@@ -28,6 +28,7 @@ import NpcShiftsAdmin from './NpcShiftsAdmin.jsx'
 import DecorPanel from './DecorPanel.jsx'
 import LightsPanel from './LightsPanel.jsx'
 import DeparturesPanel from './DeparturesPanel.jsx'
+import PerformancePanel from './PerformancePanel.jsx'
 import GuidePanel from './GuidePanel.jsx'
 import { ttsSupported } from '../audio/tts.js'
 import JusticePanel from './JusticePanel.jsx'
@@ -100,6 +101,7 @@ export default function UI() {
       {panel?.type === 'library' && <LibraryPanel />}
       {panel?.type === 'exhibit' && <ExhibitPanel />}
       {panel?.type === 'departures' && <DeparturesPanel />}
+      {panel?.type === 'performance' && <PerformancePanel />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
       {panel?.type === 'settings' && <SettingsPanel />}
@@ -285,6 +287,7 @@ function HUD() {
     ['assets', 'My avatar', () => openPanel({ type: 'assets' }), 'Import your own 3D avatar (stays on this device)'],
     ['lights', 'Lights', () => openPanel({ type: 'lights' }), 'Switch rooms off and see what the lights are costing'],
     ['guide', 'TV guide', () => openPanel({ type: 'guide' }), 'What every screen shows, and when; the owner schedules music videos and movies'],
+    ['performance', 'Perform', () => openPanel({ type: 'performance' }), 'Sing, dance and work the crowd on the Grand Concert Stage'],
     ['places', 'Places', () => setPlaces((v) => !v), 'Travel to a district: downtown, Meadowbrook Park, the West End'],
     ['settings', 'Settings', () => openPanel({ type: 'settings' })],
     ['help', 'Help', () => openPanel({ type: 'help' })],

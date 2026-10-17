@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { applyWorkout } from './workoutPose.js'
+import { performanceMouth } from '../music/lipsync.js'
 
 // A rigged-by-hand, full-body procedural avatar (hips, spine, head, two-segment arms and legs).
 // It is the default player model and the model used for remote players. Animation is
@@ -58,7 +59,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     lUA: useRef(), lFA: useRef(), rUA: useRef(), rFA: useRef(),
     lUL: useRef(), lLL: useRef(), rUL: useRef(), rLL: useRef(),
   }
-  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null })
+  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null, clap: 0, bow: 0, dance: 0 })
 
   useFrame((_, dtRaw) => {
     // work uniform (set by the jobs system for the local player): recolour clothes, trim, cap and vest
@@ -232,13 +233,19 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     a.brow = k(a.brow, gs === 'brow' ? 1 : 0, 5)
     a.blow = k(a.blow, gs === 'blow' ? 1 : 0, 7)
     a.stir = k(a.stir, gs === 'stir' ? 1 : 0, 5)
+    // performance gestures: a crowd-facing clap and a bow (see ui/PerformancePanel.jsx)
+    a.clap = k(a.clap, gs === 'clap' ? 1 : 0, 7)
+    a.bow = k(a.bow, gs === 'bow' ? 1 : 0, 5)
     if (mouthRef.current) {
-      const syl = Math.abs(Math.sin(a.t * 8.6 + Math.sin(a.t * 2.3) * 2.2))
+      // real performers: mouth openness comes from the actual music (precomputed visemes if a
+      // track ever has them, else the live audio loudness); everyone else keeps the idle wiggle.
+      const live = state.performing ? performanceMouth(state.performing.trackId, a.t) : null
+      const syl = live != null ? live : Math.abs(Math.sin(a.t * 8.6 + Math.sin(a.t * 2.3) * 2.2))
       const open = a.sing * (0.25 + syl * 1.5)
       mouthRef.current.scale.set(1.15, 0.12 + open, 0.5)
       if (lipRef.current) lipRef.current.position.y = 0.0925 - Math.min(open, 1.2) * 0.011
     }
-    if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir > 0.01) {
+    if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir + a.clap + a.bow > 0.01) {
       const L = THREE.MathUtils.lerp
       r.head.current.rotation.x = L(r.head.current.rotation.x, -0.16, a.sing)
       r.head.current.rotation.z = Math.sin(a.t * 0.9) * 0.06 * a.sing
@@ -279,6 +286,27 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
       // stirring a pot: both hands forward, a small circle
       to(r.rUA, 'x', -0.75 + Math.sin(a.t * 4) * 0.08, a.stir); to(r.rUA, 'z', 0.1 + Math.cos(a.t * 4) * 0.1, a.stir); to(r.rFA, 'x', -0.8, a.stir)
       to(r.lUA, 'x', -0.5, a.stir); to(r.lUA, 'z', -0.12, a.stir); to(r.lFA, 'x', -0.9, a.stir)
+      // clapping toward the crowd: both forearms meet in front of the chest, hands beating together
+      to(r.lUA, 'x', -0.7, a.clap); to(r.lUA, 'z', 0.35, a.clap); to(r.lFA, 'x', -1.55 + Math.abs(Math.sin(a.t * 9)) * 0.25, a.clap)
+      to(r.rUA, 'x', -0.7, a.clap); to(r.rUA, 'z', -0.35, a.clap); to(r.rFA, 'x', -1.55 + Math.abs(Math.sin(a.t * 9)) * 0.25, a.clap)
+      // bowing to the audience: pitch forward from the waist, arms relaxed back
+      to(r.spine, 'x', 0.55, a.bow); to(r.head, 'x', 0.3, a.bow)
+      to(r.lUA, 'x', 0.3, a.bow); to(r.lUA, 'z', 0.05, a.bow); to(r.rUA, 'x', 0.3, a.bow); to(r.rUA, 'z', -0.05, a.bow)
+    }
+    // dancing: an additive sway/bounce layered on top of whatever else is happening (singing,
+    // walking, gesturing), so a performer can dance while singing rather than picking one.
+    a.dance = k(a.dance, state.dancing ? 1 : 0, 6)
+    if (a.dance > 0.01) {
+      const d = a.dance, beat = a.t * 5.3
+      r.hips.current.position.y += Math.abs(Math.sin(beat)) * 0.07 * d
+      r.hips.current.rotation.y += Math.sin(beat * 0.5) * 0.18 * d
+      r.hips.current.rotation.z = Math.sin(beat * 0.5 + 1) * 0.08 * d
+      r.spine.current.rotation.z = Math.sin(beat * 0.5) * 0.12 * d
+      r.head.current.rotation.z = Math.sin(beat * 0.5 + 0.6) * 0.08 * d
+      r.lUA.current.rotation.z += Math.sin(beat + 1) * 0.3 * d
+      r.rUA.current.rotation.z -= Math.sin(beat + 1) * 0.3 * d
+      r.lUL.current.rotation.x += Math.sin(beat) * 0.16 * d
+      r.rUL.current.rotation.x -= Math.sin(beat) * 0.16 * d
     }
     if (look?.gown) {
       // the train lifts a little when walking
