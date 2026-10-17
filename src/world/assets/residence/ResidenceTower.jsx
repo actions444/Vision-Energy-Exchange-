@@ -220,7 +220,9 @@ function Stairs({ floor }) {
       {Array.from({ length: steps + 1 }, (_, i) => (
         <Block key={'r' + i} position={[x0 + w + 0.05, y0 + rise * i + 0.55, z0 + run * i]} size={[0.04, 1.0, 0.04]} material={getMaterials().blackSteel} collide={i % 3 === 0} />
       ))}
-      <Block position={[x0 + w + 0.05, y0 + TOWER.floorH / 2 + 0.5, z0 + totalRun / 2]} size={[0.04, 0.04, totalRun]} material={getMaterials().blackSteel} collide={false} />
+      <mesh position={[x0 + w + 0.05, y0 + TOWER.floorH / 2 + 0.5, z0 + totalRun / 2]} rotation={[-slope, 0, 0]} material={getMaterials().blackSteel} castShadow>
+        <boxGeometry args={[0.04, 0.04, length]} />
+      </mesh>
     </group>
   )
 }
