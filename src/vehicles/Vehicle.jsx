@@ -2,23 +2,42 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, useRapier, useBeforePhysicsStep } from '@react-three/rapier'
 import * as THREE from 'three'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { input } from '../input/input.js'
 import { playerState, cameraState, registerInteractable } from '../state/runtime.js'
 import { registerLightAnchor, nightLit, env } from '../state/environment.js'
 import { useStore } from '../state/store.js'
 import { getMaterials } from '../world/materials.js'
 import Avatar from '../player/Avatar.jsx'
-import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies, vehicleActions, ROAD_LINES, wheelLayout } from './vehicles.js'
+import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies, vehicleActions, ROAD_LINES, wheelLayout, vehicleTypeForImport } from './vehicles.js'
 import { JetSkiBody, OpenGBody, EvSuvBody, CrossoverBody, LimoBody, EvBody, SlingBody, CruiserBody, SportBikeBody, BikeFront, useBodyMats } from './Bodies.jsx'
 import { priceOf } from '../config/vehicleShop.js'
 import { useJobs } from '../state/jobs.js'
+import { useAssets, registry } from '../assets/assetStore.js'
 
 // Drivable vehicles: a dynamic Rapier rigid body (the chassis) with a ray-cast vehicle
 // controller — four wheels with suspension, tyre friction, engine force, brakes and steering.
 // Chassis local axes: forward +x, up +y, right +z.
 
 export default function Vehicles() {
-  return VEHICLE_SPAWNS.map((s) => <Vehicle key={s.id} spawn={s} />)
+  const placed = useAssets((s) => s.placed)
+  const library = useAssets((s) => s.library)
+  const byId = useMemo(() => new Map(library.map((a) => [a.id, a])), [library])
+  // imported models placed in the world and marked drivable from the Asset library panel
+  // (see AssetPanel.jsx) become vehicles here, alongside the built-in catalog - same component,
+  // same physics, just a different body (see BodyFor's 'imported' case below).
+  const imported = useMemo(() => placed
+    .filter((p) => p.drivable && byId.get(p.assetId)?.kind === 'vehicle' && registry.has(p.assetId))
+    .map((p) => ({ id: p.iid, inst: p, T: vehicleTypeForImport(byId.get(p.assetId), p) })),
+  [placed, byId])
+  return (
+    <>
+      {VEHICLE_SPAWNS.map((s) => <Vehicle key={s.id} spawn={s} />)}
+      {imported.map(({ id, inst, T }) => (
+        <Vehicle key={id} spawn={{ id, type: null, position: inst.position, heading: inst.rotationY, paint: '#2a2a30', accent: '#8fe8ff' }} typeOverride={T} />
+      ))}
+    </>
+  )
 }
 
 /** How upright a body is: 1 = wheels down, 0 = on its side, -1 = on its roof. */
@@ -43,8 +62,8 @@ const tmpV = new THREE.Vector3()
 const tmpQ = new THREE.Quaternion()
 const FWD = new THREE.Vector3(1, 0, 0)
 
-function Vehicle({ spawn }) {
-  const T = VEHICLE_TYPES[spawn.type]
+function Vehicle({ spawn, typeOverride }) {
+  const T = typeOverride || VEHICLE_TYPES[spawn.type]
   const { world, rapier } = useRapier()
   if (typeof window !== 'undefined') { window.__vswWorld = world; window.__vswRapier = rapier }
   const body = useRef()
@@ -362,8 +381,29 @@ function BodyFor({ T, paint, accent, tailRef }) {
     case 'sling': return <SlingBody {...props} />
     case 'cruiser': return <CruiserBody {...props} />
     case 'sportbike': return <SportBikeBody {...props} />
+    case 'imported': return <ImportedBody {...props} />
     default: return <StyledBody {...props} />
   }
+}
+
+/** An imported GLB/GLTF model used as a vehicle's body (see vehicles.js: vehicleTypeForImport).
+ * Rendered at the same scale it was placed in the world at, offset so its own origin lines up
+ * with the chassis's physics origin the way a procedural body does. */
+function ImportedBody({ T }) {
+  const info = registry.get(T.assetId)
+  const obj = useMemo(() => (info ? skeletonClone(info.scene) : null), [info])
+  useEffect(() => {
+    if (!obj) return
+    obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true } })
+  }, [obj])
+  if (!info || !obj) return null
+  return (
+    <group scale={T.modelScale}>
+      <group position={info.offset}>
+        <primitive object={obj} />
+      </group>
+    </group>
+  )
 }
 
 function BikeFork({ T, paint, accent }) {

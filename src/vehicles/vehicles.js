@@ -338,6 +338,52 @@ export const useDriving = create(() => ({
   alt: null, // metres above the ground while flying
 }))
 
+/**
+ * Build a drivable VEHICLE_TYPES-shaped entry for an imported model (see assets/assetStore.js -
+ * a library asset of kind 'vehicle', placed in the world and marked drivable from the Asset
+ * library panel). Dimensions come straight from the model's measured bounding box; physics
+ * (mass, engine/brake force, suspension) are scaled from the closest built-in car by length, so
+ * an imported sedan-sized model drives roughly like Aurelia Sedan and a truck-sized one drives
+ * roughly like Voltline Pickup, without having to hand-tune every import. The visual body is the
+ * model itself (style: 'imported'), not a procedural shape - see BodyFor/ImportedBody in Vehicle.jsx.
+ */
+export function vehicleTypeForImport(asset, inst) {
+  const size = asset.size // [x, y, z] in the model's own units
+  const length = Math.max(1.6, size[0] * inst.scale)
+  const width = Math.max(0.8, size[2] * inst.scale)
+  const height = Math.max(0.9, size[1] * inst.scale)
+  // scale every tuning number off a reference sedan by length, so bigger models get
+  // proportionally more mass, engine force and wheelbase instead of driving identically
+  const ref = VEHICLE_TYPES['luxury-sedan']
+  const k = length / ref.length
+  const wheelBase = Math.max(1.0, length * 0.58)
+  const track = Math.max(0.7, width * 0.82)
+  const wheelRadius = THREE_clamp(height * 0.19, 0.22, 0.5)
+  return {
+    name: asset.name,
+    kind: 'Imported vehicle',
+    length, width, height,
+    wheelBase, track, wheelRadius, wheelWidth: wheelRadius * 0.72,
+    mass: Math.round(ref.mass * k * k * 0.6 + ref.mass * 0.25),
+    com: height * 0.14,
+    engineForce: Math.round(ref.engineForce * k),
+    reverseForce: Math.round(ref.reverseForce * k),
+    brakeForce: Math.round(ref.brakeForce * Math.sqrt(k)),
+    maxSpeed: ref.maxSpeed,
+    maxSteer: ref.maxSteer,
+    suspension: { ...ref.suspension, rest: height * 0.16, travel: height * 0.1 },
+    friction: ref.friction,
+    driverSeat: [length * 0.08, height * 0.5, -width * 0.22],
+    passengerSeats: [[length * 0.08, height * 0.5, width * 0.22], [-length * 0.25, height * 0.5, -width * 0.22], [-length * 0.25, height * 0.5, width * 0.22]],
+    style: 'imported',
+    assetId: asset.id,
+    modelScale: inst.scale,
+    hideWheels: true, // the imported model brings its own wheels; no separate wheel spin for now
+    colliders: [{ half: [length / 2 - 0.05, height * 0.42, width / 2 - 0.05], at: [0, height * 0.46, 0] }],
+  }
+}
+const THREE_clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+
 /** Wheel positions in chassis space: [x, z, steered]. Four wheels by default, a trike or a bike by layout. */
 export function wheelLayout(T) {
   const L = T.wheelBase / 2, W = T.track / 2

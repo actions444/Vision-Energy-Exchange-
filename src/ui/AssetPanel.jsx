@@ -146,6 +146,17 @@ function Editor({ inst }) {
   const step = height > 6 ? 2 : 0.5
   return (
     <div className="editor">
+      {asset?.kind === 'vehicle' && (
+        <div className="pad">
+          <span className="lbl">Driving</span>
+          {inst.drivable ? (
+            <button className="btn on" onClick={() => a.updatePlaced(inst.iid, { drivable: false })}>In the driving fleet ✓ · remove</button>
+          ) : (
+            <button className="btn primary" onClick={() => a.updatePlaced(inst.iid, { drivable: true, collider: 'none' })}>Make drivable</button>
+          )}
+          <small className="hint">Adds it to the vehicles you can get in and drive, with physics scaled from its size (speed, weight, steering). Its own wheels are used as-is; fine-tuning handling per model isn't available yet.</small>
+        </div>
+      )}
       <div className="pad">
         <span className="lbl">Move ({step} m)</span>
         <div className="dpad">

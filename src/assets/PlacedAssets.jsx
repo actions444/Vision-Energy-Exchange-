@@ -23,7 +23,9 @@ export default function PlacedAssets() {
   const library = useAssets((s) => s.library)
   const selected = useAssets((s) => s.selected)
   const byId = new Map(library.map((a) => [a.id, a]))
-  return placed.filter((p) => byId.has(p.assetId) && registry.has(p.assetId)).map((inst) => (
+  // a vehicle-kind instance marked drivable is rendered by vehicles/Vehicle.jsx instead (its own
+  // physics body + driving controls), so it's skipped here to avoid a duplicate body underneath it
+  return placed.filter((p) => byId.has(p.assetId) && registry.has(p.assetId) && !p.drivable).map((inst) => (
     <PlacedAsset key={inst.iid} inst={inst} kind={byId.get(inst.assetId).kind} selected={selected === inst.iid} />
   ))
 }
