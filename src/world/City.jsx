@@ -34,6 +34,7 @@ import Museum from './museum/Museum.jsx'
 import Gym from './gym/Gym.jsx'
 import ConcertHall from './ConcertHall.jsx'
 import ParkGolf from './ParkGolf.jsx'
+import Casino from './Casino.jsx'
 import { LIB } from '../config/library.js'
 import { groundPieces } from '../config/island.js'
 import { EXTRA_COLLIDERS } from '../config/extraColliders.js'
@@ -188,6 +189,7 @@ export default function City() {
       <Gym />
       <ConcertHall />
       <ParkGolf />
+      <Casino />
       <RigidBody type="fixed" colliders={false}>
         {EXTRA_COLLIDERS.map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={i} args={[hx, hy, hz]} position={[x, y, z]} />)}
       </RigidBody>

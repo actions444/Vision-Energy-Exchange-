@@ -33,6 +33,7 @@ import CarPanel from './CarPanel.jsx'
 import { PowerChip } from './PowerChip.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import AtmPanel from './AtmPanel.jsx'
+import { SlotsPanel, RoulettePanel, BlackjackPanel } from './CasinoPanel.jsx'
 import LibraryPanel from './LibraryPanel.jsx'
 import ExhibitPanel from './ExhibitPanel.jsx'
 import WorkoutHud from './WorkoutHud.jsx'
@@ -90,6 +91,9 @@ export default function UI() {
       {panel?.type === 'justice' && <JusticePanel />}
       {panel?.type === 'jobs' && <JobsPanel tab={panel.tab} />}
       {panel?.type === 'atm' && <AtmPanel />}
+      {panel?.type === 'slots' && <SlotsPanel />}
+      {panel?.type === 'roulette' && <RoulettePanel />}
+      {panel?.type === 'blackjack' && <BlackjackPanel />}
       {panel?.type === 'live' && <LivePanel spaceId={panel.spaceId} spaceName={panel.spaceName} />}
       {panel?.type === 'library' && <LibraryPanel />}
       {panel?.type === 'exhibit' && <ExhibitPanel />}
