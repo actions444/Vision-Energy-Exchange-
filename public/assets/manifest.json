@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "assets": [
+    { "id": "car-suv-crossover", "name": "Crossover SUV (Pearl)", "kind": "vehicle", "file": "assets/car-suv-crossover.glb" },
+    { "id": "car-suv-crossover-black", "name": "Crossover SUV (Black)", "kind": "vehicle", "file": "assets/car-suv-crossover-black.glb" }
+  ]
+}
