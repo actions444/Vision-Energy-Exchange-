@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { surface } from './materials.js'
-import { Wall, Block } from './jobkit.jsx'
+import { Wall, Block, Gate } from './jobkit.jsx'
 import { Sofa, Table, Rug, Counter, DiningSet, CeilingLight, Chair } from './furniture.jsx'
 import { Palms, PottedPlant } from './Vegetation.jsx'
 import { Hedge } from './flora/Plants.jsx'
@@ -227,8 +227,10 @@ function Villa() {
       <mesh position={[x1 - 9.5, VY + h + 0.34 + 3.18, z0 + 6.2]} material={m.stucco}><boxGeometry args={[20.4, 0.3, 12.2]} /></mesh>
       {/* front columns carrying the overhang */}
       {[x0 - 0.8, cx - 5, cx + 5, x1 + 0.8].map((px, i) => <Block key={i} position={[px, VY + h / 2, z1 + 3.4]} size={[0.38, h, 0.38]} material={m.stone} />)}
-      {/* interior: the Pool Lounge (see VillaInterior.jsx) */}
-      <VillaInterior />
+      {/* interior: the Pool Lounge (see VillaInterior.jsx) — only rendered while near the villa */}
+      <Gate x0={x0} x1={x1} z0={z0} z1={z1} pad={10}>
+        <VillaInterior />
+      </Gate>
       <BrandSign text="ISLA SERENA" sub="POOL LOUNGE · SWIM · DINE · RELAX" position={[cx, VY + h + 0.78, z1 + 5.85]} width={9} color="#f6f2e8" glow="#fff0d4" size={130} />
     </group>
   )

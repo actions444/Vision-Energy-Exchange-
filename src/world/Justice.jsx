@@ -18,6 +18,7 @@ import { useJustice } from '../state/justice.js'
 import { canvasTexture } from './canvasText.js'
 import { ElevatorCar } from './ElevatorCar.jsx'
 import { carById, carHole } from '../config/elevators.js'
+import { Gate } from './jobkit.jsx'
 import { FONTS } from '../config/theme.js'
 import { speakLine } from '../audio/tts.js'
 
@@ -180,7 +181,11 @@ export function JusticeBuilding({
       )}
       <DoubleDoor id={'justice-door-' + id} center={doorPos} halfWidth={doorHalf} height={doorH} facing={doorFacing} accent={doorAccent} label={doorLabel} finish="bronze" />
 
-      {children}
+      {/* interior furniture, cells, NPCs, dialogue kiosks etc. — only rendered while the camera is
+          inside or near the building, same as Casino/Museum/Library/Gym */}
+      <Gate x0={x0} x1={x1} z0={z0} z1={z1} pad={8}>
+        {children}
+      </Gate>
     </group>
   )
 }
