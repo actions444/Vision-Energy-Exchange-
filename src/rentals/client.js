@@ -1,6 +1,7 @@
 import { useStore } from '../state/store.js'
 import { useBackend } from '../backend/backend.js'
 import { logAccess } from '../admin/audit.js'
+import { isDevAdmin } from '../state/devAdmin.js'
 // Rental client. Two backends with the same interface:
 //  - 'server':  the Node rental API (server/rentalsApi.js). Access decisions, payments and
 //               bookings are made on the server. This is the real system.
@@ -176,8 +177,9 @@ export const rentalAccess = {
     if (!room) return { ok: true }
     const r = await getBackend().access(useRentals.getState().customer?.token, roomId)
     if (r.ok && r.state === 'renter') return { ok: true }
-    if (!r.ok && useBackend.getState().admin) {
-      // the platform owner may enter any space; entering a customer's private booking is logged
+    if (!r.ok && (useBackend.getState().admin || isDevAdmin())) {
+      // the platform owner (or this device's local admin mode) may enter any space; entering a
+      // customer's private booking is logged
       logAccess({ kind: 'entry', roomId, roomName: room.name, detail: r.reason || 'private booking' })
       useStore.getState().showToast(`Owner access: ${room.name}. This entry was added to the access log.`)
       return { ok: true, owner: true }
@@ -188,7 +190,7 @@ export const rentalAccess = {
     const room = useRentals.getState().rooms.find((r) => r.id === roomId)
     if (!room?.now || room.now.visibility === 'public') return null
     const base = `${room.name} · ${room.now.visibility === 'invite' ? 'invitation only' : 'private booking'}`
-    return useBackend.getState().admin ? base + ' · owner access (logged)' : base
+    return (useBackend.getState().admin || isDevAdmin()) ? base + ' · owner access (logged)' : base
   },
   /** Is this visitor the renter of the room right now (checked by the rental backend)? */
   async isRenter(roomId) {

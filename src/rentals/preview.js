@@ -10,6 +10,7 @@ import { playerState, cameraState } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { useRentals } from './client.js'
 import { useBackend } from '../backend/backend.js'
+import { isDevAdmin } from '../state/devAdmin.js'
 import { photoViews, tourSpot, doorSpot } from '../config/roomInfo.js'
 import { spaceById } from '../decor/spaces.js'
 import { closeDecorator } from '../decor/decor.js'
@@ -27,7 +28,7 @@ export const setForm = (roomId, patch) => useRentDraft.setState((s) => ({ forms:
 
 /** Should this visitor see the room without the current renter's content? */
 function needsMask(roomId) {
-  if (useBackend.getState().admin) return false
+  if (useBackend.getState().admin || isDevAdmin()) return false
   const room = useRentals.getState().rooms.find((r) => r.id === roomId)
   const mine = useRentals.getState().myBookings?.some((b) => b.roomId === roomId && b.status === 'approved' && new Date(b.start) <= new Date() && new Date(b.end) > new Date())
   return !!(room?.now && room.now.visibility !== 'public' && !mine)

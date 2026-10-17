@@ -19,6 +19,7 @@ import { useRentals } from '../rentals/client.js'
 import { musicEngine } from '../music/engine.js'
 import { prewarmDemoTracks } from '../music/library.js'
 import { useBackend, ownerSignIn } from '../backend/backend.js'
+import { useDevAdmin } from '../state/devAdmin.js'
 import MediaAdmin from './MediaAdmin.jsx'
 import RecordsPanel from './RecordsPanel.jsx'
 import CinemaPanel from './CinemaPanel.jsx'
@@ -58,7 +59,7 @@ export default function UI() {
   const phase = useStore((s) => s.phase)
   const ready = useStore((s) => s.ready)
   const panel = useStore((s) => s.panel)
-  const admin = useBackend((s) => s.admin)
+  const admin = useBackend((s) => s.admin) || useDevAdmin((s) => s.on)
   // owner panels never render for visitors (the backend also refuses their writes)
   const ok = !ADMIN_PANELS.has(panel?.type) || admin
   const film = useCine((s) => s.active)
@@ -255,7 +256,7 @@ function HUD() {
   const peers = usePeers((s) => s.peers)
   const status = usePeers((s) => s.status)
   const transport = usePeers((s) => s.transport)
-  const admin = useBackend((s) => s.admin)
+  const admin = useBackend((s) => s.admin) || useDevAdmin((s) => s.on)
   const zoneId = useMusic((s) => s.zoneId)
   const [menu, setMenu] = useState(false)
   const [places, setPlaces] = useState(false)
@@ -572,8 +573,24 @@ function SettingsPanel() {
         <input id="set-outdoor" type="checkbox" checked={outdoor} onChange={(e) => musicEngine.setOutdoor(e.target.checked)} />
       </label>
       <OwnerAccess />
+      <DevAdminToggle />
       <p className="hint">To play as one of your own 3D characters, import it in Assets and choose “Use as avatar”.</p>
     </Panel>
+  )
+}
+
+/** A local-only admin switch for this device, independent of the hosted/self-hosted owner-token
+ *  system above. Turn it on to open every door and paid/private room as the owner (owner entries
+ *  into a customer's private booking are still logged), without needing a server or a token —
+ *  useful while building and testing your own world. It never leaves this browser. */
+function DevAdminToggle() {
+  const on = useDevAdmin((s) => s.on)
+  const toggle = useDevAdmin((s) => s.toggle)
+  return (
+    <label className="row toggle">
+      <span><b>Admin mode (this device)</b><small>Enter every room and paid/private space as the owner, free, on this device — no server or token needed. Private entries are still logged.</small></span>
+      <input id="set-dev-admin" type="checkbox" checked={on} onChange={toggle} />
+    </label>
   )
 }
 
