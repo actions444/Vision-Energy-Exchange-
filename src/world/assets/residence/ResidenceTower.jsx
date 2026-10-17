@@ -6,11 +6,12 @@ import { Block } from '../../jobkit.jsx'
 import { surface, blackMarble, getMaterials } from '../../materials.js'
 import { SingleDoor, DoubleDoor } from '../../Door.jsx'
 import { BrandSign, Plaque } from '../../signs.jsx'
-import { Bed, NightStand, Wardrobe } from '../apartment/furnishings.jsx'
-import { Sofa, Table, Rug, Plant, Chair, DiningSet, CeilingLight, PendantLight, ClothingRack, Mannequin } from '../../furniture.jsx'
+import { Bed, NightStand, Wardrobe, KitchenRun } from '../apartment/furnishings.jsx'
+import { Sofa, Table, Rug, Plant, Chair, Stool, DiningSet, CeilingLight, PendantLight, ClothingRack, Mannequin } from '../../furniture.jsx'
 import { Toilet, Vanity, Shower, TowelRail, LightSwitch } from '../../Interior.jsx'
 import { registerInteractable, playerState } from '../../../state/runtime.js'
 import { useStore } from '../../../state/store.js'
+import { speakLine } from '../../../audio/tts.js'
 import { BUILT_RESIDENTS } from '../../../config/residences.js'
 import { TOWER, CORE, STAIR_SPAN, UNIT, Y } from '../../../config/residenceTower.js'
 import { SIGNATURE_ROOMS } from './residentRooms.jsx'
@@ -25,10 +26,13 @@ import { SIGNATURE_ROOMS } from './residentRooms.jsx'
 // collider like the Vision Storms Plaza's own flights), an elevator call panel per floor
 // (teleports you to the next floor - the same teleport mechanic the Places menu and the airport
 // departures board already use, not an animated rising car like the Plaza's), every door in the
-// five built residences, every sofa/chair/stool/bed (sit, and a bed doubles as "sleep"), closets
-// that open the real outfit picker (Settings > Appearance), light switches, and a name plaque at
-// each resident's door. What's scenery (for now): floors 6+ are reserved for the rest of the
-// character roster - see the `built: false` entries in src/config/residences.js.
+// five built residences, every sofa/chair/stool/bed (sit, and a bed doubles as "sleep"), a fitted
+// kitchen with a working collider in every lounge, closets that open the real outfit picker
+// (Settings > Appearance), light switches, a "Talk to <name>" greeting per resident spoken aloud
+// through the browser's text-to-speech when NPC voices are on (Settings > Sound - the same
+// audio/tts.js system the city's other talking NPCs use), and a name plaque at each resident's
+// door. What's scenery (for now): floors 6+ are reserved for the rest of the character roster -
+// see the `built: false` entries in src/config/residences.js.
 
 /** Shows its children only while the camera is near the tower (interiors aren't drawn across town). */
 function NearGate({ bounds, margin = 26, children }) {
@@ -129,6 +133,16 @@ function ResidentSuite({ resident, floor }) {
       <CeilingLight position={P(13, 0, 14.6)} size={[1.1, 0.7]} color="#fff1dc" zone={zone} intensity={14} distance={8} />
       <LightSwitch position={P(0.3, 1.3, 3.5)} yaw={Math.PI / 2} zone={zone} />
 
+      {/* kitchen run, fitted against the lounge's back (north) wall */}
+      <KitchenRun position={P(8, 0, 0.4)} yaw={0} length={6} fridge />
+      <Stool position={P(6.2, 1.5)} color={c.dark} />
+      <Stool position={P(7.4, 1.5)} color={c.dark} />
+      <CeilingLight position={P(8, 0, 0.8)} size={[1.0, 0.6]} color="#fff1dc" zone={zone} intensity={12} distance={6} />
+
+      {/* a quick "talk to <name>" greeting, voiced through the browser's text-to-speech when the
+          player has NPC voices on in Settings (Settings > Sound) */}
+      {resident.lines?.length > 0 && <TalkTo id={`residence-${resident.id}`} position={P(8, 1.4, 3)} name={resident.name} lines={resident.lines} />}
+
       {/* bedroom: u0..14, v18..30 */}
       <Rug position={P(7, 24, 0)} size={[5, 5]} color={c.primary} />
       <Bed position={P(7, 26)} yaw={Math.PI} color={c.accent} frame={c.gold} size={[1.9, 2.1]} />
@@ -166,6 +180,29 @@ function ResidentSuite({ resident, floor }) {
       <Plaque lines={[resident.name.toUpperCase(), resident.style || 'Private residence']} position={[ox + 0.08, y0 + 1.9, oz + 4]} rotation={[0, Math.PI / 2, 0]} width={1.5} />
     </group>
   )
+}
+
+/**
+ * A resident's spoken greeting: each interact shows the line as a toast and, if the player has NPC
+ * voices on (Settings > Sound), speaks it aloud through the browser's text-to-speech (`audio/tts.js`
+ * - the same system the city's other talking NPCs already use). Cycles through `lines` in order.
+ */
+function TalkTo({ id, position, name, lines }) {
+  useEffect(() => {
+    let i = 0
+    return registerInteractable(id, {
+      position: new THREE.Vector3(...position),
+      radius: 2.2,
+      label: () => `Talk to ${name}`,
+      onInteract: () => {
+        const line = lines[i % lines.length]
+        useStore.getState().showToast(`${name}: "${line}"`)
+        speakLine(line, { id, name })
+        i++
+      },
+    })
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  return null
 }
 
 /** Opens the existing outfit picker (Settings > Appearance) - the "interactive closet" trigger. */
