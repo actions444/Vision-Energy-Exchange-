@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import { BrandSign } from './signs.jsx'
 import { SITE, CENTER, GROUND_Y, MODEL_URL, SCALE, HEIGHT, DEPTH, ZONE } from '../config/parkingGarage.js'
+import GLBBoundary from './GLBBoundary.jsx'
 
 // ============================================================================
 // STORMLINE PARKING GARAGE
@@ -13,9 +14,30 @@ import { SITE, CENTER, GROUND_Y, MODEL_URL, SCALE, HEIGHT, DEPTH, ZONE } from '.
 // else here is procedural. Scaled and dropped onto its site east of the Employment District.
 // Collision is a hand-built approximation (flat deck slabs + ramps) since the import itself has
 // no physics of its own — same approach the rest of the city uses for interiors.
+//
+// Wrapped in GLBBoundary: this model isn't available inside the Claude artifact preview (.glb
+// files there 404), so a failed load just skips the visible model there instead of taking the
+// whole app down. The deck colliders and sign still render either way.
 // ============================================================================
 
 export default function ParkingGarage() {
+  return (
+    <GLBBoundary fallback={<ParkingGarageShell />}>
+      <ParkingGarageModel />
+    </GLBBoundary>
+  )
+}
+
+function ParkingGarageShell() {
+  return (
+    <group>
+      <Colliders />
+      <BrandSign text="STORMLINE PARKING" sub="4 LEVELS · OPEN 24/7" position={[CENTER.x, GROUND_Y + HEIGHT + 0.9, SITE.z0 - 0.3]} rotation={[0, Math.PI, 0]} width={16} color="#8fe8ff" glow="#ff2fa0" size={120} />
+    </group>
+  )
+}
+
+function ParkingGarageModel() {
   const gltf = useLoader(GLTFLoader, MODEL_URL, (loader) => {
     loader.setMeshoptDecoder(MeshoptDecoder)
   })
