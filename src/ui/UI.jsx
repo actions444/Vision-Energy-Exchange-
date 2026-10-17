@@ -51,9 +51,11 @@ import { usePreview, endTour } from '../rentals/preview.js'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
 import { useDriving, vehicleActions } from '../vehicles/vehicles.js'
+import { putDownCarried, throwAwayCarried } from '../assets/PlacedAssets.jsx'
 import { OUTFITS } from '../config/outfits.js'
 import CineOverlay from './CineOverlay.jsx'
 import { useCine } from '../state/cine.js'
+import ActionsPanel from './ActionsPanel.jsx'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access', 'npcs'])
 
@@ -102,6 +104,7 @@ export default function UI() {
       {panel?.type === 'exhibit' && <ExhibitPanel />}
       {panel?.type === 'departures' && <DeparturesPanel />}
       {panel?.type === 'performance' && <PerformancePanel />}
+      {panel?.type === 'actions' && <ActionsPanel />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
       {panel?.type === 'settings' && <SettingsPanel />}
@@ -288,6 +291,7 @@ function HUD() {
     ['lights', 'Lights', () => openPanel({ type: 'lights' }), 'Switch rooms off and see what the lights are costing'],
     ['guide', 'TV guide', () => openPanel({ type: 'guide' }), 'What every screen shows, and when; the owner schedules music videos and movies'],
     ['performance', 'Perform', () => openPanel({ type: 'performance' }), 'Sing, dance and work the crowd on the Grand Concert Stage'],
+    ['actions', 'Actions', () => openPanel({ type: 'actions' }), 'Wave, clap, bow, point, dance or exercise - anywhere, anytime'],
     ['places', 'Places', () => setPlaces((v) => !v), 'Travel to a district: downtown, Meadowbrook Park, the West End'],
     ['settings', 'Settings', () => openPanel({ type: 'settings' })],
     ['help', 'Help', () => openPanel({ type: 'help' })],
@@ -353,6 +357,7 @@ function HUD() {
       {mode === 'multi' && <Chat />}
       <ShiftHud />
       <DriveHud />
+      <CarryHud />
       {tour && (
         <div className="tour-bar" role="status">
           <span><b>Virtual tour</b> · {tour.name} ({tour.roomId}) · look around freely; nothing here can be changed</span>
@@ -402,6 +407,18 @@ function DriveHud() {
       <em>{driving}</em>
       <button className="btn small" id="veh-flip" onClick={() => act('flip')} title={alt != null ? 'Level the jet (F)' : 'Turn the vehicle upright (F)'}>{alt != null ? 'Level jet' : 'Flip vehicle'}</button>
       <button className="btn ghost small" id="veh-reset" onClick={() => act('reset')} title={alt != null ? 'Return the jet to its pad (R)' : 'Move the vehicle to the nearest road (R)'}>{alt != null ? 'Return to pad' : 'Reset vehicle'}</button>
+    </div>
+  )
+}
+
+function CarryHud() {
+  const carrying = useStore((s) => s.carrying)
+  if (!carrying) return null
+  return (
+    <div className="drive-hud" aria-live="off">
+      <em>Carrying: {carrying.name}</em>
+      <button className="btn small" onClick={putDownCarried} title="Set it back down nearby">Put down</button>
+      <button className="btn ghost small" onClick={throwAwayCarried} title="Discard it for good">Throw away</button>
     </div>
   )
 }
@@ -521,7 +538,7 @@ function SettingsPanel() {
         </div>
       </div>
       <Toggle k="bloom" label="Light glow" desc="Soft bloom around lamps, signs and screens." />
-      <Toggle k="rain" label="Rain effects" desc="Show falling rain when the weather is rainy." />
+      <Toggle k="rain" label="Weather effects" desc="Show falling rain or snow when the weather calls for it." />
       {ttsSupported
         ? <Toggle k="npcVoice" label="NPC voices" desc="Read townspeople and staff dialogue aloud with your browser's built-in voice when you talk to them." />
         : <p className="hint">NPC voices: not supported in this browser.</p>}

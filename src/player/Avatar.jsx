@@ -1,8 +1,25 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { applyWorkout } from './workoutPose.js'
 import { performanceMouth } from '../music/lipsync.js'
+import { registry } from '../assets/assetStore.js'
+
+// A picked-up prop held in front of the chest while state.carrying is set (see state/runtime.js,
+// world/Carryables.jsx). Shrunk to a consistent hand-held size regardless of the prop's real scale.
+function HeldProp({ state }) {
+  const c = state.carrying
+  const info = c ? registry.get(c.assetId) : null
+  const obj = useMemo(() => (info ? skeletonClone(info.scene) : null), [info])
+  if (!info || !obj) return null
+  const s = 0.32 / (info.size[1] || 1)
+  return (
+    <group position={[0, 0.02, 0.22]} rotation={[0, Math.PI, 0]} scale={s}>
+      <group position={info.offset}><primitive object={obj} /></group>
+    </group>
+  )
+}
 
 // A rigged-by-hand, full-body procedural avatar (hips, spine, head, two-segment arms and legs).
 // It is the default player model and the model used for remote players. Animation is
@@ -122,7 +139,9 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     }
 
     // body bob, lean, breathing
-    r.hips.current.position.y = 0.95 + Math.abs(Math.cos(a.phase)) * 0.045 * a.amp - a.run * 0.04 + air * 0.05
+    // (no longer dips the hips on `a.run`: that lowered the whole rig into the ground at a run
+    // without shortening the legs to match, so a running avatar's feet visibly sank into the street)
+    r.hips.current.position.y = 0.95 + Math.abs(Math.cos(a.phase)) * 0.045 * a.amp + air * 0.05
     r.hips.current.rotation.y = s * 0.08 * a.amp
     r.hips.current.rotation.x = 0 // (the swim pose below pitches the whole body from here)
     r.spine.current.rotation.x = 0.04 + a.run * 0.2 + air * 0.1
@@ -226,8 +245,8 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     a.read = k(a.read, gs === 'read' ? 1 : 0, 5)
     a.write = k(a.write, gs === 'write' ? 1 : 0, 5)
     a.point = k(a.point, gs === 'point' ? 1 : 0, 5)
-    // job gestures (staff NPCs)
-    a.tray = k(a.tray, gs === 'tray' ? 1 : 0, 5)
+    // job gestures (staff NPCs); also held while carrying a picked-up prop (state.carrying)
+    a.tray = k(a.tray, (gs === 'tray' || state.carrying) ? 1 : 0, 5)
     a.shake = k(a.shake, gs === 'shake' ? 1 : 0, 6)
     a.wipe = k(a.wipe, gs === 'wipe' ? 1 : 0, 5)
     a.brow = k(a.brow, gs === 'brow' ? 1 : 0, 5)
@@ -314,7 +333,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     }
   })
 
-  if (look?.social) return <SocialRig r={r} m={m} sm={sm} look={look} mouthRef={mouthRef} lipRef={lipRef} trainRef={trainRef} vestRef={vestRef} hatRef={hatRef} />
+  if (look?.social) return <SocialRig r={r} m={m} sm={sm} look={look} mouthRef={mouthRef} lipRef={lipRef} trainRef={trainRef} vestRef={vestRef} hatRef={hatRef} state={state} />
   return (
     <group ref={r.root}>
       <group ref={r.hips} position={[0, 0.95, 0]}>
@@ -340,6 +359,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
 
         {/* torso */}
         <group ref={r.spine} position={[0, 0.06, 0]}>
+          <HeldProp state={state} />
           <mesh geometry={g.torso} material={m.suit} position={[0, 0.3, 0]} scale={[1.18, 1, 0.82]} castShadow />
           <mesh ref={vestRef} visible={false} material={m.vest} position={[0, 0.3, 0]} scale={[1.18, 1, 0.82]}><capsuleGeometry args={[0.178, 0.2, 6, 12]} /></mesh>
           <mesh geometry={g.collar} material={m.neon} rotation={[Math.PI / 2, 0, 0]} position={[0, 0.58, 0]} />
@@ -479,7 +499,7 @@ function leopardTex() {
   return LEO
 }
 
-function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef }) {
+function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef, state }) {
   const g = socialGeo()
   const F = look.build === 'f'
   const gown = !!look.gown
@@ -514,6 +534,7 @@ function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef
 
         {/* torso */}
         <group ref={r.spine} position={[0, 0.06, 0]}>
+          <HeldProp state={state} />
           <mesh geometry={torso} material={topMat} scale={F ? [1.12, 1, 0.84] : [1.22, 1, 0.78]} castShadow />
           <mesh ref={vestRef} visible={false} material={m.vest} position={[0, 0.3, 0]} scale={[1.18, 1, 0.82]}><capsuleGeometry args={[0.178, 0.2, 6, 12]} /></mesh>
           {F ? (

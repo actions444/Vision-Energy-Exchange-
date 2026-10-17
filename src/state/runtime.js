@@ -33,6 +33,9 @@ export const playerState = {
   dancing: false, // toggled by the performance menu; layers a dance sway on top of whatever else the avatar is doing
   gesture: null, // one-shot performance gesture: 'clap' | 'bow' | 'point' | null (auto-clears at gestureUntil)
   gestureUntil: 0,
+
+  // ---- carried props (see world/Carryables.jsx, ui/ActionsPanel.jsx) ----
+  carrying: null, // { iid, assetId, name } while holding a picked-up prop; null if empty-handed
 }
 
 export const cameraState = {

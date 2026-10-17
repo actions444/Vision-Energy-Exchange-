@@ -6,6 +6,8 @@ import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.j
 import { useAssets, registry } from './assetStore.js'
 import { NEON } from '../config/theme.js'
 import { useSeats } from '../state/seats.js'
+import { playerState, registerInteractable } from '../state/runtime.js'
+import { useStore } from '../state/store.js'
 
 // Renders every placed imported model with a physics collider so the avatar can walk on,
 // into and around it. 'trimesh' gives exact collision (walkable interiors, stairs, ramps);
@@ -24,9 +26,11 @@ export default function PlacedAssets() {
   const selected = useAssets((s) => s.selected)
   const byId = new Map(library.map((a) => [a.id, a]))
   // a vehicle-kind instance marked drivable is rendered by vehicles/Vehicle.jsx instead (its own
-  // physics body + driving controls), so it's skipped here to avoid a duplicate body underneath it
-  return placed.filter((p) => byId.has(p.assetId) && registry.has(p.assetId) && !p.drivable).map((inst) => (
-    <PlacedAsset key={inst.iid} inst={inst} kind={byId.get(inst.assetId).kind} selected={selected === inst.iid} />
+  // physics body + driving controls); a prop-kind instance currently carried (state.carrying,
+  // see AssetPanel's pick-up interactable below) is rendered on the avatar instead (Avatar.jsx's
+  // HeldProp) - both are skipped here to avoid a duplicate body/visual.
+  return placed.filter((p) => byId.has(p.assetId) && registry.has(p.assetId) && !p.drivable && !p.held).map((inst) => (
+    <PlacedAsset key={inst.iid} inst={inst} asset={byId.get(inst.assetId)} selected={selected === inst.iid} />
   ))
 }
 
@@ -54,12 +58,31 @@ function buildTrimesh(info, scale) {
   return [new Float32Array(verts), new Uint32Array(idx)]
 }
 
-function PlacedAsset({ inst, kind, selected }) {
+function PlacedAsset({ inst, asset, selected }) {
+  const kind = asset.kind
   const info = registry.get(inst.assetId)
   const obj = useMemo(() => skeletonClone(info.scene), [info])
   const { position, rotationY, scale, collider } = inst
   const size = info.size
   const trimesh = useMemo(() => (collider === 'trimesh' ? buildTrimesh(info, scale) : null), [info, scale, collider])
+
+  // a small prop can be picked up and carried (see Avatar.jsx's HeldProp, AssetPanel's "Throw
+  // away"/"Put down"); registers an interact prompt near it while it's free to pick up
+  useEffect(() => {
+    if (kind !== 'prop') return
+    return registerInteractable('carry-' + inst.iid, {
+      position: new THREE.Vector3(...position),
+      radius: 2.2,
+      label: () => (playerState.carrying ? 'Your hands are full' : `Pick up ${asset.name}`),
+      onInteract: () => {
+        if (playerState.carrying) { useStore.getState().showToast('Put down what you\'re carrying first.'); return }
+        useAssets.getState().updatePlaced(inst.iid, { held: true })
+        playerState.carrying = { iid: inst.iid, assetId: inst.assetId, name: asset.name }
+        useStore.setState({ carrying: { name: asset.name } })
+        useAssets.getState().select(null)
+      },
+    })
+  }, [kind, inst.iid, inst.assetId, asset.name, position[0], position[1], position[2]]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // distance culling: hide the visual (not the collider) once far enough from the camera that
   // it wouldn't be noticed missing; a little hysteresis stops it flicking at the boundary
@@ -255,4 +278,28 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
       </group>
     </group>
   )
+}
+
+// ---- carry / put-down / throw-away (see the pickup registerInteractable above, UI.jsx's CarryHud) ----
+
+/** Sets a carried prop back down a step in front of the avatar, facing the way it's held. */
+export function putDownCarried() {
+  const c = playerState.carrying
+  if (!c) return
+  const p = playerState.position
+  const ahead = playerState.yaw
+  const x = p.x + Math.sin(ahead) * 1.1
+  const z = p.z + Math.cos(ahead) * 1.1
+  useAssets.getState().updatePlaced(c.iid, { held: false, position: [x, p.y, z], rotationY: (ahead * 180) / Math.PI })
+  playerState.carrying = null
+  useStore.setState({ carrying: null })
+}
+
+/** Permanently deletes whatever the avatar is carrying. */
+export function throwAwayCarried() {
+  const c = playerState.carrying
+  if (!c) return
+  useAssets.getState().removePlaced(c.iid)
+  playerState.carrying = null
+  useStore.setState({ carrying: null })
 }

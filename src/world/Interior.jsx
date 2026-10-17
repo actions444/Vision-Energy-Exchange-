@@ -322,7 +322,7 @@ const CHANNELS = [
       ctx.fillText('VISION WEATHER · DOWNTOWN', 24, 36)
       ctx.font = `800 76px ${FONTS.display}`
       ctx.fillStyle = '#ffffff'
-      const temp = Math.round(13 + 12 * Math.max(0, Math.sin(((E.time - 6) / 12) * Math.PI)) - (E.weather === 'storm' ? 4 : 0))
+      const temp = Math.round(13 + 12 * Math.max(0, Math.sin(((E.time - 6) / 12) * Math.PI)) + (WEATHER[E.weather]?.tempOffset || 0))
       ctx.fillText(temp + '°', 24, 130)
       ctx.font = `600 26px ${FONTS.display}`
       ctx.fillText(WEATHER[E.weather]?.label || 'Clear', 24, 172)
@@ -330,14 +330,24 @@ const CHANNELS = [
       ctx.fillText(formatTime(E.time), 24, 206)
       // animated glyph
       const gx = w - 150, gy = 120
-      if (E.weather === 'clear' && !night) {
+      const clearLike = E.weather === 'clear' || E.weather === 'cold'
+      if (clearLike && !night) {
         const r = 44 + Math.sin(t * 1.5) * 2
         const g = ctx.createRadialGradient(gx, gy, 4, gx, gy, r * 1.7)
-        g.addColorStop(0, '#fff6c0'); g.addColorStop(0.4, 'rgba(255,214,120,0.7)'); g.addColorStop(1, 'rgba(255,214,120,0)')
+        if (E.weather === 'cold') { g.addColorStop(0, '#eaf6ff'); g.addColorStop(0.4, 'rgba(170,210,255,0.6)'); g.addColorStop(1, 'rgba(170,210,255,0)') }
+        else { g.addColorStop(0, '#fff6c0'); g.addColorStop(0.4, 'rgba(255,214,120,0.7)'); g.addColorStop(1, 'rgba(255,214,120,0)') }
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, gy, r * 1.7, 0, 7); ctx.fill()
-      } else if (night && E.weather === 'clear') {
+      } else if (night && clearLike) {
         ctx.fillStyle = '#e8ecf6'; ctx.beginPath(); ctx.arc(gx, gy, 38, 0, 7); ctx.fill()
         ctx.fillStyle = night ? '#16233c' : '#8fc0dd'; ctx.beginPath(); ctx.arc(gx + 16, gy - 10, 34, 0, 7); ctx.fill()
+      } else if (E.weather === 'snow') {
+        ctx.fillStyle = 'rgba(236,242,248,0.95)'
+        for (const [ox, oy, r] of [[-26, 0, 26], [4, -10, 32], [30, 4, 22]]) { ctx.beginPath(); ctx.arc(gx + ox, gy + oy, r, 0, 7); ctx.fill() }
+        ctx.fillStyle = 'rgba(255,255,255,0.95)'
+        for (let i = 0; i < 10; i++) {
+          const x = gx - 34 + i * 7.2, y = gy + 32 + ((t * 60 + i * 41) % 66)
+          ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 7); ctx.fill()
+        }
       } else {
         ctx.fillStyle = 'rgba(230,236,244,0.95)'
         for (const [ox, oy, r] of [[-26, 0, 26], [4, -10, 32], [30, 4, 22]]) { ctx.beginPath(); ctx.arc(gx + ox, gy + oy, r, 0, 7); ctx.fill() }

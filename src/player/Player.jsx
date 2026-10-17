@@ -513,7 +513,10 @@ export default function Player() {
   return (
     <RigidBody ref={body} type="kinematicPosition" colliders={false} position={SPAWN.toArray()} enabledRotations={[false, false, false]}>
       <CapsuleCollider ref={collider} args={[CAPSULE_HALF, CAPSULE_R]} position={[0, CAPSULE_HALF + CAPSULE_R, 0]} />
-      <group ref={visual} rotation={[0, playerState.yaw, 0]} visible={phase === 'playing'}>
+      {/* small cosmetic lift: the rig's feet sit a few cm below its own root in both poses (confirmed
+          live - feet visibly sink into the street), and this is purely visual (it never touches
+          playerState.position, so seats/vehicles/interactable ranges are unaffected) */}
+      <group ref={visual} position={[0, 0.035, 0]} rotation={[0, playerState.yaw, 0]} visible={phase === 'playing'}>
         {useImported ? (
           <ImportedAvatar assetId={avatarCfg.assetId} facing={avatarCfg.facing} state={playerState} />
         ) : (

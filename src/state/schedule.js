@@ -12,9 +12,11 @@ const save = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)) }
 export const ACTIONS = {
   lightsOff: { label: 'Lights off everywhere', run: () => useLights.getState().allOff() },
   lightsOn: { label: 'Lights on everywhere', run: () => useLights.getState().allOn() },
-  weatherClear: { label: 'Weather: clear', run: () => useEnv.setState({ weather: 'clear' }) },
+  weatherClear: { label: 'Weather: sunny', run: () => useEnv.setState({ weather: 'clear' }) },
   weatherRain: { label: 'Weather: rain', run: () => useEnv.setState({ weather: 'rain' }) },
   weatherStorm: { label: 'Weather: thunderstorm', run: () => useEnv.setState({ weather: 'storm' }) },
+  weatherSnow: { label: 'Weather: snow', run: () => useEnv.setState({ weather: 'snow' }) },
+  weatherCold: { label: 'Weather: cold', run: () => useEnv.setState({ weather: 'cold' }) },
 }
 
 export const useSchedule = create((set, get) => ({

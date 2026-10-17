@@ -5,10 +5,12 @@ import { create } from 'zustand'
 import * as THREE from 'three'
 
 export const WEATHER = {
-  clear: { label: 'Clear', cloud: 0.18, rain: 0, storm: 0, fog: 0.0018 },
-  cloudy: { label: 'Cloudy', cloud: 0.62, rain: 0, storm: 0, fog: 0.0028 },
-  rain: { label: 'Rain', cloud: 0.85, rain: 1, storm: 0, fog: 0.0055 },
-  storm: { label: 'Thunderstorm', cloud: 0.97, rain: 1.4, storm: 1, fog: 0.0075 },
+  clear: { label: 'Sunny', cloud: 0.18, rain: 0, storm: 0, snow: 0, fog: 0.0018, tempOffset: 0 },
+  cloudy: { label: 'Cloudy', cloud: 0.62, rain: 0, storm: 0, snow: 0, fog: 0.0028, tempOffset: -2 },
+  rain: { label: 'Rain', cloud: 0.85, rain: 1, storm: 0, snow: 0, fog: 0.0055, tempOffset: -3 },
+  storm: { label: 'Thunderstorm', cloud: 0.97, rain: 1.4, storm: 1, snow: 0, fog: 0.0075, tempOffset: -4 },
+  snow: { label: 'Snow', cloud: 0.8, rain: 0, storm: 0, snow: 1, fog: 0.0048, tempOffset: -18, cold: true },
+  cold: { label: 'Cold', cloud: 0.3, rain: 0, storm: 0, snow: 0, fog: 0.0026, tempOffset: -14, cold: true },
 }
 
 export const useEnv = create((set) => ({
@@ -30,7 +32,9 @@ export const env = {
   cloud: 0.2,
   rain: 0,
   storm: 0,
+  snow: 0,
   wet: 0,
+  cold: 0, // 0..1: eases toward 1 on 'snow'/'cold' weather, drives frost tint + breath vapor
   fog: 0.002,
   flash: 0,
 }

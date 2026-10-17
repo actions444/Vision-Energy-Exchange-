@@ -15,7 +15,7 @@ import { tickSchedule } from '../state/schedule.js'
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
 const C = (h) => new THREE.Color(h)
-const FOG = { day: C('#b8c6d4'), golden: C('#d9a682'), night: C('#0b1019'), rain: C('#7c8590') }
+const FOG = { day: C('#b8c6d4'), golden: C('#d9a682'), night: C('#0b1019'), rain: C('#7c8590'), snow: C('#dfe6ee') }
 const HEMI_SKY = { day: C('#cfe0ff'), golden: C('#ffc9a0'), night: C('#1a2440') }
 const HEMI_GROUND = { day: C('#8a7d6a'), night: C('#0c0d12') }
 const SUN = { day: C('#fff4e2'), golden: C('#ffb074'), moon: C('#9db4ff') }
@@ -135,8 +135,10 @@ export default function Atmosphere() {
     env.cloud += (W.cloud - env.cloud) * k
     env.rain += (W.rain - env.rain) * k
     env.storm += (W.storm - env.storm) * k
+    env.snow += ((W.snow || 0) - env.snow) * k
     env.fog += (W.fog - env.fog) * k
     env.wet += ((W.rain > 0 ? 1 : 0) - env.wet) * (W.rain > 0 ? k * 0.5 : k * 0.08)
+    env.cold += ((W.cold ? 1 : 0) - env.cold) * k * 0.4
     const overcast = smooth(0.5, 1, env.cloud)
     indoor.current += ((isIndoors(camera.position) ? 1 : 0) - indoor.current) * (1 - Math.exp(-dt * 3))
     const shade = 1 - indoor.current
@@ -199,6 +201,7 @@ export default function Atmosphere() {
 
     // fog
     fog.color.copy(FOG.night).lerp(FOG.day, env.day).lerp(FOG.golden, env.golden * 0.6).lerp(FOG.rain.clone().multiplyScalar(0.2 + 0.8 * env.day), overcast * 0.7)
+    fog.color.lerp(FOG.snow.clone().multiplyScalar(0.3 + 0.7 * env.day), env.snow * 0.6)
     fog.density = env.fog * (1 + env.night * 0.4) * (near ? 1.7 : 1)
 
     // exposure: the sky model is HDR; keep night readable
@@ -256,6 +259,7 @@ export default function Atmosphere() {
       />
       <LightPool size={quality === 'high' ? 8 : 5} />
       {showRain && <Rain camera={camera} count={quality === 'high' ? 3000 : 1400} />}
+      {showRain && <Snow camera={camera} count={quality === 'high' ? 1800 : 800} />}
     </>
   )
 }
@@ -341,4 +345,56 @@ function Rain({ count, camera }) {
     if (ref.current) ref.current.visible = env.rain > 0.02 && !isIndoors(camera.position)
   })
   return <lineSegments ref={ref} geometry={geo} material={mat} frustumCulled={false} />
+}
+
+// Slow, drifting snowflakes (round points, gentle sideways sway, no lightning tint needed).
+function Snow({ count, camera }) {
+  const ref = useRef()
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 }, uCam: { value: new THREE.Vector3() }, uAmount: { value: 0 }, uLight: { value: 1 } },
+    vertexShader: /* glsl */ `
+      attribute vec3 seed;
+      uniform float uTime; uniform vec3 uCam; uniform float uAmount;
+      varying float vA;
+      const float SIZE = 46.0; const float H = 24.0;
+      void main() {
+        vec3 p = seed;
+        float fall = 1.1 + fract(seed.x * 3.7) * 1.3;
+        p.y = mod(seed.y - uTime * fall, H);
+        float sway = sin(uTime * (0.5 + fract(seed.z * 5.1)) + seed.x * 6.2) * 1.4;
+        p.x += sway;
+        p.xz = mod(seed.xz - uCam.xz + SIZE * 0.5, SIZE) - SIZE * 0.5 + uCam.xz;
+        p.y += uCam.y - 8.0;
+        vA = step(fract(seed.z * 11.7), uAmount);
+        vec4 mv = viewMatrix * vec4(p, 1.0);
+        gl_PointSize = (2.2 + fract(seed.x * 9.3) * 2.6) * (120.0 / max(1.0, -mv.z));
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `uniform float uLight; varying float vA;
+      void main(){
+        if (vA <= 0.0) discard;
+        float d = length(gl_PointCoord - vec2(0.5));
+        if (d > 0.5) discard;
+        float a = (1.0 - smoothstep(0.3, 0.5, d)) * vA;
+        gl_FragColor = vec4(vec3(0.95, 0.97, 1.0) * uLight, a * 0.85);
+      }`,
+  }), [])
+  const geo = useMemo(() => {
+    const seeds = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) seeds.set([Math.random() * 46, Math.random() * 24, Math.random() * 46], i * 3)
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3))
+    g.setAttribute('seed', new THREE.BufferAttribute(seeds, 3))
+    return g
+  }, [count])
+  useFrame((s) => {
+    mat.uniforms.uTime.value = s.clock.elapsedTime
+    mat.uniforms.uCam.value.copy(camera.position)
+    mat.uniforms.uAmount.value = env.snow
+    mat.uniforms.uLight.value = 0.35 + 0.65 * env.day
+    if (ref.current) ref.current.visible = env.snow > 0.02 && !isIndoors(camera.position)
+  })
+  return <points ref={ref} geometry={geo} material={mat} frustumCulled={false} />
 }
