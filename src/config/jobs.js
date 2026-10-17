@@ -248,3 +248,25 @@ export function routeFor(job, siteId) {
 export const stopsPerShift = (job) => job.route.length
 export const stopPay = (job) => Math.round(job.wage / job.route.length)
 export const routeBonus = (job) => Math.round(job.wage * ROUTE_BONUS)
+
+// ---- job performance rating ----
+// A single 0..100 rating that follows the player across jobs (it represents how reliable an
+// employee they are, not a per-job stat). It starts neutral at 50 and moves with how a shift is
+// actually worked: finishing tasks steadily nudges it up, walking away mid-task or rushing the
+// quality tap (see state/jobs.js tagTask) knocks it down. It scales every stop's pay and the
+// route-completion bonus by up to +/-20%, and shows as a title in the Jobs panel.
+export const RATING_START = 50
+export const RATING_TIERS = [
+  [0, 20, 'On notice'],
+  [20, 40, 'Trainee'],
+  [40, 60, 'Reliable'],
+  [60, 80, 'Model employee'],
+  [80, 101, 'Star employee'],
+]
+export function ratingTier(rating) {
+  return (RATING_TIERS.find(([lo, hi]) => rating >= lo && rating < hi) || RATING_TIERS[2])[2]
+}
+/** 0.8x at rating 0, 1.0x at the neutral starting rating (50), 1.2x at rating 100. */
+export function ratingMultiplier(rating) {
+  return 0.8 + (Math.max(0, Math.min(100, rating)) / 100) * 0.4
+}

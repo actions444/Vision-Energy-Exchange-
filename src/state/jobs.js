@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useStore } from './store.js'
-import { PAY, START_WALLET, ROUTE_BONUS, STOPS, jobById, uniformById, routeFor, stopPay, routeBonus, SITES, WASH_PRICE, WASH_SECONDS, IRON_PRICE } from '../config/jobs.js'
+import { PAY, START_WALLET, ROUTE_BONUS, STOPS, jobById, uniformById, routeFor, stopPay, routeBonus, SITES, WASH_PRICE, WASH_SECONDS, IRON_PRICE, RATING_START, ratingMultiplier, ratingTier } from '../config/jobs.js'
 import { BUSINESSES, businessById } from '../config/businesses.js'
 
 // Jobs, uniforms, shifts and payroll.
@@ -22,6 +22,7 @@ const BASE = {
   wallet: START_WALLET, bank: 0, day: 1, owned: [], wearing: null,
   jobId: null, schedule: 'weekly', accrued: 0, periodStart: 1, hiredDay: null,
   lifetime: 0, shifts: 0, ledger: [],
+  rating: RATING_START, // 0..100 job-performance rating; see config/jobs.js ratingMultiplier/ratingTier
   vehicles: [], // owned vehicle ids (config/vehicleShop.js)
   businesses: {}, // businessId -> { boughtDay, lastPayout: day of last passive-income payout }
   ownedDecor: [], // purchased decor/catalog item ids (decor/catalog.jsx) — separate from `owned` (uniforms)
@@ -54,6 +55,7 @@ export const useJobs = create((set, get) => {
     set({ ledger: [{ day: s.day, kind, text, amount }, ...s.ledger].slice(0, 80) })
   }
   const add = (amount, kind, text) => { set({ wallet: get().wallet + amount }); log(kind, text, amount) }
+  const bumpRating = (delta) => set({ rating: Math.max(0, Math.min(100, get().rating + delta)) })
   /** Pay out every owned business stake for each day since its last payout. Called once per
    * world-day advance, right after `day` increments. */
   const payBusinesses = () => {
@@ -203,24 +205,49 @@ export const useJobs = create((set, get) => {
       if (!s.shift || s.task) return
       const stop = s.shift.route[s.shift.idx]
       if (!stop) return
-      set({ task: { stopId: stop, start: performance.now(), secs: STOPS[stop]?.secs ?? 3 } })
+      set({ task: { stopId: stop, start: performance.now(), secs: STOPS[stop]?.secs ?? 3, tapped: false } })
     },
-    cancelTask: (why) => { if (get().task) { set({ task: null }); if (why) toast(why) } },
+    /** Walking away mid-task cancels it and costs a little performance rating (see ShiftHud's bar
+     * for the visible timer that would have kept it running). */
+    cancelTask: (why) => {
+      if (get().task) {
+        set({ task: null })
+        bumpRating(-4)
+        if (why) toast(why)
+      }
+    },
+    /** The quality tap: press E again while a task is running (the shift card's progress bar shows
+     * where you are in it). Landing it in the last stretch, right as the bar fills, is a "quality"
+     * finish and raises your rating; jabbing it right at the start is a rushed finish and costs a
+     * little. The middle of the bar is a no-op so there's no penalty for an imprecise tap. Only the
+     * first tap per task counts, so mashing E doesn't let you re-roll it. */
+    tagTask: () => {
+      const s = get()
+      if (!s.task || s.task.tapped) return
+      const frac = (performance.now() - s.task.start) / (s.task.secs * 1000)
+      set({ task: { ...s.task, tapped: true } })
+      if (frac < 0.3) { bumpRating(-2); toast('Rushed it - wait for the task to finish next time.') }
+      else if (frac >= 0.75) { bumpRating(3); toast('Nice timing! Performance rating up.') }
+    },
 
-    /** The current stop's task finished: pay it and move to the next stop. */
+    /** The current stop's task finished: pay it (scaled by the performance rating) and move to the
+     * next stop. Completing a stop steadily (without being tagged as rushed) nudges the rating up. */
     completeStop: () => {
       const s = get()
       const job = jobById(s.jobId)
       if (!s.shift || !job) return
-      const pay = stopPay(job)
+      const mult = ratingMultiplier(s.rating)
+      const pay = Math.round(stopPay(job) * mult)
       let earned = s.shift.earned + pay
       let idx = s.shift.idx + 1
       set({ accrued: s.accrued + pay, lifetime: s.lifetime + pay, task: null })
+      bumpRating(0.4)
       if (idx >= s.shift.route.length) {
-        const bonus = routeBonus(job)
+        const bonus = Math.round(routeBonus(job) * mult)
         set({ accrued: get().accrued + bonus, lifetime: get().lifetime + bonus, shifts: get().shifts + 1, shift: null })
+        bumpRating(1)
         log('shift', `Shift complete: ${job.title}`, earned + bonus)
-        toast(`Shift complete! +${fmt(earned + bonus)} credits this pay period (includes a ${Math.round(ROUTE_BONUS * 100)}% route bonus).`)
+        toast(`Shift complete! +${fmt(earned + bonus)} credits this pay period (includes a ${Math.round(ROUTE_BONUS * 100)}% route bonus). Performance: ${ratingTier(get().rating)}.`)
       } else {
         set({ shift: { ...s.shift, idx, earned } })
         toast(`+${fmt(pay)} credits · stop ${idx + 1} of ${s.shift.route.length}`)

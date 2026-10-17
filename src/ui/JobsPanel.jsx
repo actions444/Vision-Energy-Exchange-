@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { useJobs } from '../state/jobs.js'
-import { JOBS, JOB_CATS, UNIFORMS, PAY, PAY_ORDER, SITES, jobById, uniformById, stopPay, routeBonus, ROUTE_BONUS, WASH_PRICE } from '../config/jobs.js'
+import { JOBS, JOB_CATS, UNIFORMS, PAY, PAY_ORDER, SITES, jobById, uniformById, stopPay, routeBonus, ROUTE_BONUS, WASH_PRICE, ratingTier, ratingMultiplier } from '../config/jobs.js'
 import { VEHICLE_PRICES } from '../config/vehicleShop.js'
 import { VEHICLE_TYPES, VEHICLE_SPAWNS, JET_SPAWNS, JET_TYPES } from '../vehicles/vehicles.js'
 import { BUSINESSES } from '../config/businesses.js'
@@ -46,6 +46,10 @@ function Overview({ go }) {
         <div className="meter"><span className="meter-label">This pay period</span><strong id="jobs-accrued">{fmt(s.accrued)} cr</strong><em>{job ? `+${fmt(bonus)} bonus on payday` : 'no job yet'}</em></div>
         <div className="meter"><span className="meter-label">World day</span><strong id="jobs-day">Day {s.day}</strong><em>{job ? `${sched.label} pay in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'not employed'}</em></div>
       </div>
+      <div className="meter-row">
+        <div className="meter"><span className="meter-label">Performance</span><strong id="jobs-rating">{ratingTier(s.rating)}</strong><em>{Math.round(s.rating)}/100 · pays {Math.round(ratingMultiplier(s.rating) * 100)}% of listed rates</em></div>
+      </div>
+      <p className="note">Your performance rating follows you between jobs. Finish work stops steadily to nudge it up; walking away mid-task costs you. While a task runs, the shift card shows a progress bar — press E again once it's nearly full for a quality-tap bonus, or too early for a small rushed-it penalty. It scales every stop's pay and the route bonus by up to ±20%.</p>
 
       {job ? (
         <div className="admin-row jobs-current">
@@ -84,12 +88,13 @@ function JobsTab() {
         {list.map((j) => {
           const u = uniformById(j.uniform)
           const mine = s.jobId === j.id
+          const mult = ratingMultiplier(s.rating)
           return (
             <li key={j.id} className="admin-row" id={'job-' + j.id}>
               <span style={{ flex: 1, minWidth: 200 }}>
                 <b>{j.title}</b> <small>{j.cat}</small><br />
                 <small>{j.desc}</small><br />
-                <small>{fmt(j.wage)} cr per shift ({fmt(stopPay(j))} per stop, +{fmt(routeBonus(j))} for finishing) · {j.route.length} stops · clock in at {j.site.map((x) => SITES[x].name).join(' or ')}</small><br />
+                <small>{fmt(j.wage)} cr per shift ({fmt(stopPay(j) * mult)} per stop, +{fmt(routeBonus(j) * mult)} for finishing, at your current {ratingTier(s.rating)} rating) · {j.route.length} stops · clock in at {j.site.map((x) => SITES[x].name).join(' or ')}</small><br />
                 <small>Uniform: {u.name}, {u.price} cr {s.owned.includes(u.id) ? '(you own it)' : ''}</small>
               </span>
               <button className={'btn small ' + (mine ? 'on' : 'primary')} id={'hire-' + j.id} disabled={mine} onClick={() => s.hire(j.id)}>{mine ? 'Your job' : s.jobId ? 'Switch to this' : 'Hire me'}</button>

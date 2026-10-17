@@ -46,7 +46,7 @@ export default function JobDirector() {
       onInteract: () => {
         const s = useJobs.getState()
         if (!s.shift) return
-        if (s.task) { toast('Keep going, the task is running. Stay at the spot until it finishes.'); return }
+        if (s.task) { s.tagTask(); return }
         s.startTask()
       },
     }))

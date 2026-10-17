@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useJobs } from '../state/jobs.js'
 import { useStore } from '../state/store.js'
 import { playerState } from '../state/runtime.js'
-import { STOPS, jobById } from '../config/jobs.js'
+import { STOPS, jobById, ratingTier } from '../config/jobs.js'
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US')
 
@@ -26,6 +26,7 @@ export function ShiftHud() {
   const shift = useJobs((s) => s.shift)
   const task = useJobs((s) => s.task)
   const jobId = useJobs((s) => s.jobId)
+  const rating = useJobs((s) => s.rating)
   const [, tick] = useState(0)
   useEffect(() => {
     if (!shift) return
@@ -40,10 +41,15 @@ export function ShiftHud() {
   const prog = task ? Math.min(1, (performance.now() - task.start) / (task.secs * 1000)) : 0
   return (
     <div className="shift-card" id="shift-card" role="status">
-      <small>{job?.title} · stop {Math.min(shift.idx + 1, shift.route.length)} of {shift.route.length}</small>
+      <small>{job?.title} · stop {Math.min(shift.idx + 1, shift.route.length)} of {shift.route.length} · {ratingTier(rating)}</small>
       <b id="shift-stop">{stop?.label}</b>
       <span>{task ? `${stop.verb}…` : dist < 2.6 ? `Press E: ${stop.verb}` : `Go to the gold beacon · ${Math.round(dist)} m`}</span>
-      {task && <div className="shift-bar"><i style={{ width: prog * 100 + '%' }} /></div>}
+      {task && (
+        <>
+          <div className="shift-bar"><i style={{ width: prog * 100 + '%' }} />{!task.tapped && <span className="sweet" />}</div>
+          {!task.tapped && <small className="shift-tip">{prog >= 0.75 ? 'Press E now for a performance bonus!' : 'Press E again near the end for a bonus'}</small>}
+        </>
+      )}
       <em>Earned this shift: {fmt(shift.earned)} cr</em>
     </div>
   )
