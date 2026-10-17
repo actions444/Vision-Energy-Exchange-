@@ -4,7 +4,7 @@
 // Local plan coordinates: u runs west->east (0..28), v runs south->north (0..28).
 // The street entrance is on the east facade (u = 28) facing the avenue.
 
-export const PLAZA = { x0: -44, x1: -16, z0: 34, z1: 62, floors: 3, floorH: 4.2, base: 0.15, code: 'VSP' }
+export const PLAZA = { x0: -44, x1: -16, z0: 34, z1: 62, floors: 10, floorH: 4.2, base: 0.15, code: 'VSP' }
 export const P = {
   X: (u) => PLAZA.x0 + u,
   Z: (v) => PLAZA.z0 + v,
@@ -14,11 +14,17 @@ export const P = {
 // Corridor band and the vertical core
 export const CORRIDOR = { v0: 10, v1: 18 }
 export const ELEVATOR = { u0: 0.3, u1: 3.0, v0: 18, v1: 21, doorU0: 0.6, doorU1: 2.6, doorH: 2.4 }
-export const STAIRS = [
-  // F1 -> F2 rises toward the west; F2 -> F3 rises toward the east
-  { fromFloor: 0, u0: 3, u1: 10, v0: 15.6, v1: 17.6, up: 'west' },
-  { fromFloor: 1, u0: 3, u1: 10, v0: 10.4, v1: 12.4, up: 'east' },
-]
+// One flight per floor-to-floor climb, alternating sides so the landings zig-zag up the building:
+// flights from even floors rise toward the west, from odd floors toward the east.
+export const STAIRS = Array.from({ length: PLAZA.floors - 1 }, (_, f) => (f % 2 === 0
+  ? { fromFloor: f, u0: 3, u1: 10, v0: 15.6, v1: 17.6, up: 'west' }
+  : { fromFloor: f, u0: 3, u1: 10, v0: 10.4, v1: 12.4, up: 'east' }))
+/** Names shown on the elevator panel and plaques. Floors above the furnished ones are offices and lounges. */
+const FLOOR_NAMES = ['Lobby · Bistro · Threads', 'Screening Room · Recording Studio', 'Boardroom · Skyline Suite']
+export const floorName = (f) => FLOOR_NAMES[f] || (f === PLAZA.floors - 1 ? 'Sky lounge' : 'Offices')
+/** Power zone for a floor's corridors and lights. The ground floor is the lobby zone. */
+export const floorZone = (f) => (f === 0 ? 'lobby' : `floor-${f + 1}`)
+
 export const DOOR_U = 20 // room doors on the corridor walls (centre)
 
 /**

@@ -90,6 +90,7 @@ export const net = {
       pd.speed = m.s
       pd.grounded = !!m.g
       pd.sit = m.st ? 1 : 0
+      pd.swim = m.sw ? 'swim' : null
       pd.sitHeight = m.sh || 0.45
     } else if (m.t === 'emote') {
       pd.emote = m.e
@@ -119,6 +120,7 @@ export const net = {
       s: +ps.speed.toFixed(2),
       g: ps.grounded ? 1 : 0,
       st: ps.sit ? 1 : 0,
+      sw: ps.swim === 'swim' ? 1 : 0,
       sh: +(ps.sitHeight || 0.45).toFixed(2),
     })
   },

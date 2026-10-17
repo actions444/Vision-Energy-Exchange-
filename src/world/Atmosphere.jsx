@@ -9,6 +9,9 @@ import {
   useEnv, env, WEATHER, sunDirection, moonDirection,
   updateNightMaterials, updateWetMaterials, lightAnchors,
 } from '../state/environment.js'
+import { tickPower, updatePowerMaterials, zoneLit } from '../state/power.js'
+import { updateWindowViews } from './Interior.jsx'
+import { tickSchedule } from '../state/schedule.js'
 
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
 const C = (h) => new THREE.Color(h)
@@ -22,6 +25,9 @@ const SUN = { day: C('#fff4e2'), golden: C('#ffb074'), moon: C('#9db4ff') }
 export default function Atmosphere() {
   const { gl, scene, camera } = useThree()
   const quality = useStore((s) => s.settings.quality)
+  const drawDist = useStore((s) => s.settings.drawDist)
+  const near = drawDist === 'near'
+  useEffect(() => { camera.far = near ? 480 : 1200; camera.updateProjectionMatrix() }, [camera, near])
   const showRain = useStore((s) => s.settings.rain)
   const sun = useRef()
   const hemi = useRef()
@@ -193,13 +199,18 @@ export default function Atmosphere() {
 
     // fog
     fog.color.copy(FOG.night).lerp(FOG.day, env.day).lerp(FOG.golden, env.golden * 0.6).lerp(FOG.rain.clone().multiplyScalar(0.2 + 0.8 * env.day), overcast * 0.7)
-    fog.density = env.fog * (1 + env.night * 0.4)
+    fog.density = env.fog * (1 + env.night * 0.4) * (near ? 1.7 : 1)
 
     // exposure: the sky model is HDR; keep night readable
     gl.toneMappingExposure = (0.46 + env.golden * 0.08 + env.night * 0.44) * (1 - env.storm * 0.22 * shade) + indoor.current * 0.12 * (1 - env.night)
 
     updateNightMaterials()
     updateWetMaterials()
+    // the power meter runs on in-world time: `speed` is in-world minutes per real second
+    tickPower((E.running ? (E.speed * dt) / 60 : 0), dt)
+    updatePowerMaterials()
+    updateWindowViews()
+    if (E.running) tickSchedule(useEnv.getState().time)
 
     // re-bake reflections from the sky when the sun or clouds change enough
     const b = envBake.current
@@ -262,7 +273,7 @@ function LightPool({ size }) {
       const cp = camera.position
       for (const a of lightAnchors) if (a.follow) a.position.y = a.follow()
       picks.current = lightAnchors
-        .filter((a) => !a.night || env.night > 0.02)
+        .filter((a) => (!a.night || env.night > 0.02) && zoneLit(a.zone))
         .map((a) => [a, a.position.distanceToSquared(cp)])
         .filter(([a, d]) => d < (a.range || 70) * (a.range || 70))
         .sort((x, y) => x[1] - y[1])
@@ -277,7 +288,7 @@ function LightPool({ size }) {
       l.position.copy(a.position)
       l.color.set(a.color || '#ffd9a8')
       l.distance = a.distance || 14
-      const target = (a.intensity || 20) * (a.night ? env.night : 1)
+      const target = (a.intensity || 20) * (a.night ? env.night : 1) * (zoneLit(a.zone) ? 1 : 0)
       l.intensity += (target - l.intensity) * 0.2
     })
   })

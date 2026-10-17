@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { useBackend, backend } from '../backend/backend.js'
-import { useMedia, KINDS, uploadMedia, updateMedia, deleteMedia, fileUrl } from '../media/media.js'
+import { useMedia, KINDS, uploadMedia, importFromUrl, updateMedia, deleteMedia, fileUrl } from '../media/media.js'
 
 // Owner-only media library: upload, describe, publish/unpublish and delete songs, album covers,
 // music videos, movies, audiobook chapters and e-books. Files and catalog entries are stored by
 // the backend, so they persist and every visitor sees what is published.
-const FILTERS = [['all', 'All'], ['song', 'Songs'], ['cover', 'Covers'], ['video', 'Music videos'], ['movie', 'Movies'], ['audiobook', 'Audiobooks'], ['ebook', 'E-books'], ['drafts', 'Drafts']]
+const FILTERS = [['all', 'All'], ['song', 'Songs'], ['cover', 'Photos & covers'], ['video', 'Music videos'], ['movie', 'Movies'], ['audiobook', 'Audiobooks'], ['ebook', 'E-books'], ['file', 'Other files'], ['drafts', 'Drafts']]
 const mb = (n) => (n / 1048576).toFixed(n < 10 * 1048576 ? 1 : 0) + ' MB'
 const dur = (s) => (s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : '')
 
@@ -56,12 +56,18 @@ function Uploader() {
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const input = useRef()
+  const [link, setLink] = useState('')
+  const [linkErr, setLinkErr] = useState(null)
+  const fromLink = async () => {
+    setLinkErr(null); setBusy(true)
+    try { await importFromUrl(link, { kind, album: album.trim(), artist: artist.trim(), book: kind === 'audiobook' ? album.trim() : '', publish }); setLink('') } catch (e) { setLinkErr(e.message) } finally { setBusy(false) }
+  }
   const go = async (files) => {
     if (!files.length) return
     setBusy(true)
     try { await uploadMedia(files, { kind, album: album.trim(), artist: artist.trim(), book: kind === 'audiobook' ? album.trim() : '', publish }) } finally { setBusy(false) }
   }
-  const accept = kind === 'auto' ? Object.values(KINDS).map((k) => k.accept).join(',') : KINDS[kind].accept
+  const accept = kind === 'auto' || kind === 'file' ? undefined : KINDS[kind].accept // 'any file' when the type is detected automatically
   const groupLabel = kind === 'audiobook' ? 'Book title' : kind === 'ebook' ? 'Series (optional)' : 'Album'
   return (
     <div
@@ -81,12 +87,17 @@ function Uploader() {
         <label className="field"><span>{kind === 'ebook' || kind === 'audiobook' ? 'Author' : 'Artist'}</span><input id="media-artist" value={artist} onChange={(e) => setArtist(e.target.value)} /></label>
         <label className="row toggle compact"><span><b>Publish now</b><small>Off saves a draft only you see.</small></span><input id="media-publish" type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} /></label>
       </div>
+      <div className="fields two">
+        <label className="field"><span>Import from a link</span><input id="media-link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://… a direct link to an MP3, MP4, photo or other file" /></label>
+        <button className="btn small" id="media-link-go" disabled={busy || !link.trim()} onClick={fromLink}>Import link</button>
+      </div>
+      {linkErr && <p className="error">{linkErr}</p>}
       <div className="drop-actions">
         <label className={'btn primary file' + (busy ? ' disabled' : '')}>
           {busy ? 'Uploading…' : 'Choose files'}
           <input ref={input} id="media-upload" type="file" multiple accept={accept} disabled={busy} onChange={(e) => { go([...e.target.files]); e.target.value = '' }} />
         </label>
-        <small className="hint">or drop files here · MP3/M4A songs and audiobook chapters, JPG/PNG/WebP covers, MP4/WebM videos, PDF/TXT e-books · up to {Math.round(b.maxFileBytes / 1048576)} MB per file{b.kind === 'hosted' ? ' on this page (use a self-hosted server for full-length movies)' : ''}</small>
+        <small className="hint">or drop files here · any format: audio (MP3, WAV, FLAC, OGG, M4A…) is converted to MP3, photos (HEIC, GIF, AVIF, BMP, SVG…) to JPEG/WebP, videos are kept as uploaded, PDF/TXT/Markdown open as e-books and anything else is stored as a file · up to {Math.round(b.maxFileBytes / 1048576)} MB per file{b.kind === 'hosted' ? ' on this page (use a self-hosted server for full-length movies)' : ''}</small>
       </div>
     </div>
   )
@@ -120,13 +131,14 @@ function MediaRow({ item, onChange }) {
         <input aria-label="Title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
         <input aria-label="Artist or author" placeholder={item.kind === 'ebook' || item.kind === 'audiobook' ? 'Author' : 'Artist'} value={draft.artist} onChange={(e) => setDraft({ ...draft, artist: e.target.value })} />
         <input aria-label="Album or book" placeholder={item.kind === 'audiobook' ? 'Book' : 'Album'} value={draft.album || ''} onChange={(e) => setDraft({ ...draft, album: e.target.value })} />
-        <small>{meta}</small>
+        <small>{meta}{item.convertedFrom ? ` · converted from ${item.convertedFrom}` : ''}</small>
+        {item.note && <small className="error">{item.note}</small>}
       </div>
       <span className={'badge ' + (item.published ? 'live' : '')}>{item.published ? 'Published' : 'Draft'}</span>
       <div className="row-actions">
         {dirty && <button className="btn primary small" onClick={save} disabled={saving}>Save</button>}
         <button className="btn small" onClick={togglePub} disabled={saving}>{item.published ? 'Unpublish' : 'Publish'}</button>
-        {item.kind !== 'cover' && <button className="btn ghost small" onClick={showPreview}>{preview ? 'Close preview' : 'Preview'}</button>}
+        {<button className="btn ghost small" onClick={showPreview}>{preview ? 'Close preview' : 'Preview'}</button>}
         {confirm ? (
           <>
             <button className="btn small danger" onClick={remove} disabled={saving}>Delete for good</button>
@@ -143,6 +155,6 @@ function MediaRow({ item, onChange }) {
 function Preview({ item, url }) {
   if (item.kind === 'video' || item.kind === 'movie') return <video className="media-preview" src={url} controls playsInline preload="metadata" />
   if (item.kind === 'song' || item.kind === 'audiobook') return <audio className="media-preview" src={url} controls preload="metadata" />
-  if (item.kind === 'ebook') return <a className="btn small" href={url} target="_blank" rel="noreferrer">Open the file</a>
-  return null
+  if (item.kind === 'cover') return <img className="media-preview" src={url} alt="" style={{ maxWidth: '100%', maxHeight: 260 }} />
+  return <a className="btn small" href={url} download={item.fileName || true} target="_blank" rel="noreferrer">{item.kind === 'ebook' ? 'Open the file' : 'Download the file'}</a>
 }

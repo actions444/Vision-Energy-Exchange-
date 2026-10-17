@@ -115,7 +115,7 @@ wss.on('connection', (ws) => {
     switch (msg.t) {
       case 'state':
         if (!Array.isArray(msg.p) || msg.p.length !== 3 || !msg.p.every(Number.isFinite)) return
-        broadcast(room, id, { t: 'state', id, p: msg.p, y: +msg.y || 0, s: +msg.s || 0, g: msg.g ? 1 : 0, st: msg.st ? 1 : 0, sh: Math.min(1.2, Math.max(0, +msg.sh || 0)) })
+        broadcast(room, id, { t: 'state', id, p: msg.p, y: +msg.y || 0, s: +msg.s || 0, g: msg.g ? 1 : 0, st: msg.st ? 1 : 0, sw: msg.sw ? 1 : 0, sh: Math.min(1.2, Math.max(0, +msg.sh || 0)) })
         break
       case 'emote':
         broadcast(room, id, { t: 'emote', id, e: clean(msg.e, 16) })

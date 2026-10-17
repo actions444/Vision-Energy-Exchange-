@@ -4,6 +4,7 @@ import { useBackend } from '../backend/backend.js'
 import { useMedia, fileUrl } from '../media/media.js'
 import { useMusic } from '../music/engine.js'
 import { useStore } from '../state/store.js'
+import { useJobs } from '../state/jobs.js'
 import {
   SCREENS, useCinema, sessionFor, positionOf, watchable, shared, privateView, unlockCinema,
   setMovieVolume, setMovieMuted, cinemaTiming, screenForZone, now,
@@ -33,7 +34,7 @@ function Showtimes() {
           const shown = sess?.shared ? sess : null
           return (
             <div className="admin-row" key={s.id}>
-              <div className="grow"><b>{s.name}</b><small>{s.venue}</small></div>
+              <div className="grow"><b>{s.name}</b><small>{s.venue}{s.price ? ` · premium · ${s.price} cr a ticket` : ''}</small></div>
               <span className={'badge' + (shown ? ' live' : '')}>{shown ? (shown.state === 'paused' ? 'Paused · ' : positionOf(shown) <= 0 ? 'Starting · ' : 'Now showing · ') + shown.title : 'No screening'}</span>
             </div>
           )
@@ -60,7 +61,7 @@ function ScreenControls({ screenId }) {
   const chosen = movies.find((m) => m.id === pick)
   const run = async (fn) => { setErr(null); try { unlockCinema(); await fn() } catch (e) { setErr(e.message || String(e)) } }
   const ctl = sess?.shared ? shared : privateView
-  const canControl = sess ? (!sess.shared || admin) : false
+  const canControl = sess ? !sess.scheduled && (!sess.shared || admin) : false
   const pos = sess ? positionOf(sess) : 0
   const dur = t?.duration || sess?.duration || null
 
@@ -68,11 +69,12 @@ function ScreenControls({ screenId }) {
     <Panel title={screen.name} eyebrow={`${screen.venue} · screen & sound`}>
       <div className="fields">
         {!here && <p className="hint">Walk into {screen.name} to watch. You can still set up a screening from here.</p>}
+        {screen.price && !sess && <p className="hint">{screen.name} is a premium room: starting your own private showing here costs {screen.price} cr a ticket. A screening the owner starts for everyone is always free to watch.</p>}
         {sess ? (
           <div className="now-showing">
             <Poster id={sess.movieId} />
             <div className="grow">
-              <small className="eyebrow">{sess.shared ? 'Screening for everyone' : 'Private viewing · only you'}</small>
+              <small className="eyebrow">{sess.scheduled ? 'Scheduled · TV guide' : sess.shared ? 'Screening for everyone' : 'Private viewing · only you'}</small>
               <b>{sess.title}</b>
               <small>{pos <= 0 && sess.state === 'playing' ? `Starts in ${Math.max(1, Math.ceil((sess.startedAt - now()) / 1000))} s` : `${fmt(pos)} / ${fmt(dur)}`}{' · '}{{ playing: 'playing', paused: 'paused' }[sess.state]}{here && st.status === 'loading' ? ' · buffering' : ''}{here && st.status === 'ended' ? ' · finished' : ''}</small>
             </div>
@@ -96,7 +98,8 @@ function ScreenControls({ screenId }) {
             </div>
           </>
         )}
-        {sess?.shared && !admin && <p className="hint">The owner runs this screening. Everyone in the theater sees the same moment of the movie.</p>}
+        {sess?.scheduled && <p className="hint">This showing is on the TV guide, so it starts and ends on schedule for everyone. {admin ? 'Change it in the TV guide.' : ''}</p>}
+        {sess?.shared && !sess.scheduled && !admin && <p className="hint">The owner runs this screening. Everyone in the theater sees the same moment of the movie.</p>}
 
         {movies.length > 0 && (!sess || (admin && !sess.shared)) && (
           <div className="field">
@@ -108,7 +111,10 @@ function ScreenControls({ screenId }) {
         )}
         {movies.length > 0 && !sess && (
           <div className="row-actions">
-            <button className="btn primary" id="cinema-watch" disabled={!chosen} onClick={() => run(() => privateView.start(screenId, chosen))}>Watch privately</button>
+            <button className="btn primary" id="cinema-watch" disabled={!chosen} onClick={() => run(() => {
+              if (screen.price && !useJobs.getState().spend(screen.price, 'ticket', `Ticket: ${screen.name}`)) return
+              return privateView.start(screenId, chosen)
+            })}>Watch privately{screen.price ? ` · ${screen.price} cr` : ''}</button>
             {admin && <button className="btn" id="cinema-share" disabled={!chosen} onClick={() => run(() => shared.start(screenId, chosen))}>Start screening for everyone</button>}
           </div>
         )}

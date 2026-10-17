@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
-import { getMaterials, surface } from './materials.js'
-import { PLAZA, P, CORRIDOR, ELEVATOR, STAIRS, DOOR_U, PLAZA_ROOMS } from '../config/plaza.js'
+import { getMaterials, surface, signatureMarble } from './materials.js'
+import { PLAZA, P, CORRIDOR, ELEVATOR, STAIRS, DOOR_U, PLAZA_ROOMS, floorName, floorZone } from '../config/plaza.js'
 import { DoubleDoor, SingleDoor } from './Door.jsx'
 import { BrandSign, Plaque } from './signs.jsx'
 import { FlowerBed, Bench, Planter, Bollard } from './props.jsx'
@@ -19,6 +19,10 @@ import { StaticBatch } from './batch.jsx'
 import { rentalAccess, useRentals } from '../rentals/client.js'
 import { money, credits } from '../../shared/rentals.js'
 import { useDecor, designFor } from '../decor/decor.js'
+import { Chandelier } from './Chandelier.jsx'
+import { TV, LightSwitch, Window } from './Interior.jsx'
+import { registerLoad } from '../state/power.js'
+import { RenovatedShell, EntranceDressing } from './facade/Renovated.jsx'
 
 export { PLAZA }
 
@@ -31,7 +35,17 @@ const W = PLAZA.x1 - PLAZA.x0 // 28
 const EXT = 0.3 // exterior wall thickness
 const PART = 0.15 // partition thickness
 const SLAB = 0.3
-const ENTRY = { v0: 12.2, v1: 15.8, h: 3.4 }
+const ENTRY = { v0: 12.8, v1: 15.2, h: 2.8 }
+const PLAZA_SPEC = {
+  x0: PLAZA.x0, x1: PLAZA.x1, z0: PLAZA.z0, z1: PLAZA.z1, h: PLAZA.floors * PLAZA.floorH, ih: PLAZA.floorH, facing: '+x', base: PLAZA.base, seed: 61,
+  wall: 'stone', T: 0.3, floorH: PLAZA.floorH, upperH: 2.3, plasterAll: true, groundGlazing: true, signClear: 6.6, parapetH: 1.1,
+  door: { at: PLAZA.z0 + 14, half: 1.2, h: 2.8 },
+  groundWindows: [5, 23].map((v) => ({ at: PLAZA.z0 + v, half: 3, v0: 0.9, v1: 3.4 })),
+  openings: {
+    '-z': [{ at: PLAZA.x0 + 14, half: 3, v0: 0.9, v1: 3.4 }], '+z': [{ at: PLAZA.x0 + 14, half: 3, v0: 0.9, v1: 3.4 }],
+    '-x': [5, 23].map((v) => ({ at: PLAZA.z0 + v, half: 3, v0: 0.9, v1: 3.4 })),
+  },
+}
 const CEIL = FH - SLAB // clear height of each floor
 
 const boxU = (u0, u1, v0, v1, y0, y1) => [P.X((u0 + u1) / 2), (y0 + y1) / 2, P.Z((v0 + v1) / 2), u1 - u0, y1 - y0, v1 - v0]
@@ -64,8 +78,8 @@ export default function PlazaBuilding() {
     curtain: m.windows(2, 7, 1),
     inside: nightLit(new THREE.MeshStandardMaterial({ color: '#9fb0bf', emissive: '#dfe9f3', roughness: 0.15, metalness: 0.1 }), 0.03, 0.26),
     plaster: surface('plaster', 6, 1.2),
-    lobbyFloor: m.marbleFloor(6, 2),
-    corridorFloor: surface('tile', 7, 2),
+    lobbyFloor: signatureMarble(6, 2),
+    corridorFloor: signatureMarble(7, 2),
     ceiling: new THREE.MeshStandardMaterial({ color: '#d9d5cd', roughness: 0.95 }),
     slabEdge: surface('concrete', 6, 0.2),
     roof: surface('concrete', 8, 8),
@@ -163,7 +177,8 @@ export default function PlazaBuilding() {
   useEffect(() => {
     const offs = []
     for (let f = 0; f < PLAZA.floors; f++) for (const u of [6, 14, 22]) {
-      offs.push(registerLightAnchor({ position: new THREE.Vector3(P.X(u), P.Y(f) + CEIL - 0.8, P.Z(14)), color: '#ffdcb0', intensity: 9, distance: 11, range: 35 }))
+      offs.push(registerLightAnchor({ position: new THREE.Vector3(P.X(u), P.Y(f) + CEIL - 0.8, P.Z(14)), color: '#ffdcb0', intensity: 9, distance: 11, range: 35, zone: floorZone(f) }))
+      offs.push(registerLoad({ zone: floorZone(f), watts: 42 }))
     }
     return () => offs.forEach((o) => o())
   }, [])
@@ -186,22 +201,8 @@ export default function PlazaBuilding() {
         {partitions.map(([x, y, z, sx, sy, sz], i) => <CuboidCollider key={'p' + i} args={[sx / 2, sy / 2, sz / 2]} position={[x, y, z]} />)}
       </RigidBody>
 
-      {/* ---- facades ---- */}
-      {facades.map(([u0, u1, v0, v1, y0, y1, kind, out], i) => {
-        const [x, y, z, sx, sy, sz] = boxU(u0, u1, v0, v1, y0, y1)
-        return <mesh key={'fv' + i} position={[x, y, z]} material={faceMats(kind, out)} castShadow={kind === 'stone'} receiveShadow><boxGeometry args={[sx, sy, sz]} /></mesh>
-      })}
-      {/* vertical stone piers outside */}
-      {[0, 7, 14, 21, 28].flatMap((t) => [[P.X(t), P.Z(-0.15)], [P.X(t), P.Z(28.15)], [P.X(-0.15), P.Z(t)], [P.X(28.15), P.Z(t)]])
-        .filter(([x, z]) => !(Math.abs(x - P.X(28.15)) < 0.01 && z > P.Z(ENTRY.v0 - 0.5) && z < P.Z(ENTRY.v1 + 0.5)))
-        .map(([x, z], i) => (
-          <mesh key={'pier' + i} position={[x, roofY / 2 + 0.4, z]} material={mats.stone} castShadow><boxGeometry args={[0.45, roofY + 0.8, 0.45]} /></mesh>
-        ))}
-      {/* roof + parapet */}
-      <mesh position={[cx, roofY - SLAB / 2, cz]} material={mats.roof} receiveShadow castShadow><boxGeometry args={[W, SLAB, W]} /></mesh>
-      {[[cx, cz - W / 2, W, 0.3], [cx, cz + W / 2, W, 0.3], [cx - W / 2, cz, 0.3, W], [cx + W / 2, cz, 0.3, W]].map(([x, z, sx, sz], i) => (
-        <mesh key={'par' + i} position={[x, roofY + 0.45, z]} material={mats.stone}><boxGeometry args={[sx + 0.3, 0.9, sz + 0.3]} /></mesh>
-      ))}
+      {/* ---- renovated facade: punched windows with reveals and frames, piers, string courses, cornice, parapet ---- */}
+      <RenovatedShell spec={PLAZA_SPEC} />
       <mesh position={[cx + 4, roofY + 1.2, cz + 6]} material={surface('concrete', 1, 1)}><boxGeometry args={[4, 2.4, 3]} /></mesh>
 
       {/* ---- slabs: floor finish on top, ceiling underneath, edge band ---- */}
@@ -224,15 +225,13 @@ export default function PlazaBuilding() {
       ))}
 
       {/* ---- entrance, signage, landscaping ---- */}
-      <DoubleDoor id="plaza-entrance" center={[P.X(28 - EXT / 2), P.Y(0), P.Z(14)]} halfWidth={1.8} height={ENTRY.h - 0.1} facing={Math.PI / 2} accent="#c9a96a" label="Energy Exchanges Plaza doors" />
-      <BrandSign text="VISION STORMS ENERGY EXCHANGES" sub="PLAZA · SHOPS · STUDIOS · SUITES" position={[P.X(28) + 0.06, P.Y(0) + 5.05, P.Z(14)]} rotation={[0, Math.PI / 2, 0]} width={12} />
-      <mesh position={[P.X(28) + 1.6, P.Y(0) + ENTRY.h + 0.35, P.Z(14)]} material={mats.steel} castShadow><boxGeometry args={[3.2, 0.18, 6.4]} /></mesh>
+      <DoubleDoor id="plaza-entrance" center={[P.X(28 - EXT / 2), P.Y(0), P.Z(14)]} halfWidth={1.2} height={ENTRY.h - 0.1} facing={Math.PI / 2} accent="#c9a96a" label="Energy Exchanges Plaza doors" finish="bronze" />
+      <EntranceDressing origin={[P.X(28), P.Z(14)]} base={P.Y(0)} name="VISION STORMS ENERGY EXCHANGES" sub="PLAZA · SHOPS · STUDIOS · SUITES" doorHalf={1.2} doorH={2.8} yaw={Math.PI / 2} signWidth={11} canopyW={7} parts={{ forecourt: false, benches: false }} planterAt={3.0} />
       <FlowerBed x={P.X(28) + 3.3} z={P.Z(6)} w={3} d={9} seed={21} />
       <FlowerBed x={P.X(28) + 3.3} z={P.Z(22)} w={3} d={9} seed={22} />
       <Bench position={[P.X(28) + 5.6, P.Y(0), P.Z(5)]} yaw={Math.PI / 2} />
       <Bench position={[P.X(28) + 5.6, P.Y(0), P.Z(23)]} yaw={Math.PI / 2} />
-      <Planter position={[P.X(28) + 1.4, P.Y(0), P.Z(10.6)]} />
-      <Planter position={[P.X(28) + 1.4, P.Y(0), P.Z(17.4)]} />
+      {/* planters flank the approach, well clear of the doorway (z 12.2 to 15.8) */}
       {[3, 25].map((v) => <Bollard key={v} position={[P.X(28) + 1.2, P.Y(0), P.Z(v)]} />)}
       <mesh position={[P.X(28) + 4.5, P.Y(0) + 0.008, P.Z(14)]} rotation={[-Math.PI / 2, 0, 0]} material={surface('pavers', 3, 1.5)} receiveShadow><planeGeometry args={[9, 5]} /></mesh>
       <FlowerBed x={P.X(-1.6)} z={P.Z(14)} w={2.2} d={20} seed={23} />
@@ -431,7 +430,7 @@ function Elevator() {
       {/* car: floor collider rides up and down */}
       <RigidBody ref={car} type="kinematicPosition" colliders={false} position={[ccx, elevator.y, ccz]}>
         <CuboidCollider ref={carCollider} args={[cw / 2 - 0.02, 0.06, cd / 2 - 0.02]} position={[0, -0.06, 0]} />
-        <mesh position={[0, -0.06, 0]} material={m.marbleFloor(1, 1)} receiveShadow><boxGeometry args={[cw, 0.12, cd]} /></mesh>
+        <mesh position={[0, -0.06, 0]} material={signatureMarble(1, 1)} receiveShadow><boxGeometry args={[cw, 0.12, cd]} /></mesh>
         <mesh position={[0, 2.55, 0]} material={brushed}><boxGeometry args={[cw, 0.08, cd]} /></mesh>
         <mesh position={[0, 2.5, 0]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[cw * 0.6, cd * 0.6]} /><meshStandardMaterial color="#fff" emissive="#fff3e2" emissiveIntensity={1.4} /></mesh>
         <mesh position={[-cw / 2 + 0.03, 1.27, 0]} material={wood}><boxGeometry args={[0.04, 2.55, cd]} /></mesh>
@@ -456,7 +455,7 @@ function Elevator() {
         <group key={'fr' + f}>
           <mesh position={[P.X((ELEVATOR.doorU0 + ELEVATOR.doorU1) / 2), P.Y(f) + ELEVATOR.doorH + 0.06, P.Z(ELEVATOR.v0 - 0.17)]} material={m.chrome}><boxGeometry args={[ELEVATOR.doorU1 - ELEVATOR.doorU0 + 0.2, 0.12, 0.04]} /></mesh>
           <mesh position={[P.X(ELEVATOR.doorU1 + 0.25), P.Y(f) + 1.15, P.Z(ELEVATOR.v0 - 0.17)]} material={panelMat}><boxGeometry args={[0.12, 0.25, 0.02]} /></mesh>
-          <Plaque lines={[`FLOOR ${f + 1}`, ['Lobby · Bistro · Threads', 'Screening · Studio', 'Boardroom · Suite'][f]]} position={[P.X((ELEVATOR.doorU0 + ELEVATOR.doorU1) / 2), P.Y(f) + ELEVATOR.doorH + 0.78, P.Z(ELEVATOR.v0 - 0.17)]} rotation={[0, Math.PI, 0]} width={1.2} />
+          <Plaque lines={[`FLOOR ${f + 1}`, floorName(f)]} position={[P.X((ELEVATOR.doorU0 + ELEVATOR.doorU1) / 2), P.Y(f) + ELEVATOR.doorH + 0.78, P.Z(ELEVATOR.v0 - 0.17)]} rotation={[0, Math.PI, 0]} width={1.2} />
         </group>
       ))}
     </group>
@@ -475,20 +474,33 @@ function Lobby() {
       <Plant position={[P.X(27), y, P.Z(10.8)]} scale={1.2} />
       <Plant position={[P.X(27), y, P.Z(17.3)]} scale={1.2} />
       <Plant position={[P.X(12), y, P.Z(17.3)]} />
+      {/* grand chandeliers over the lobby, a directory screen and the master light switch */}
+      <Chandelier position={[P.X(19), y + CEIL, P.Z(14)]} type="crystal" size={1.6} drop={1.2} zone="lobby" intensity={16} />
+      <Chandelier position={[P.X(8), y + CEIL, P.Z(14)]} type="gold" size={1.3} drop={1.0} zone="lobby" intensity={12} />
+      <TV position={[P.X(20.4), y + 1.9, P.Z(CORRIDOR.v1 - PART / 2 - 0.02)]} yaw={Math.PI} size={[2.4, 1.35]} id="tv-lobby" zone="lobby" channel={0} />
+      <LightSwitch position={[P.X(26.4), y + 1.25, P.Z(CORRIDOR.v1 - PART / 2 - 0.02)]} yaw={Math.PI} zone="lobby" />
       <BrandSign text="ENERGY EXCHANGES" sub="PLAZA DIRECTORY" position={[P.X(14), y + 2.9, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={4.4} color="#2a2a2c" glow="#ffffff" />
       <Plaque lines={['DIRECTORY', '1 Bistro · Threads   2 Screening · Studio   3 Boardroom · Suite']} position={[P.X(14), y + 1.6, P.Z(CORRIDOR.v1 - PART / 2 - 0.01)]} rotation={[0, Math.PI, 0]} width={3.2} />
     </group>
   )
 }
 
+// Upper floors 2 to 10: each has a lounge sofa, a glazed window onto the city, a chandelier,
+// plants, a light switch and a wall TV, all on that floor's own power zone.
 function UpperCorridors() {
-  return [1, 2].map((f) => {
+  return Array.from({ length: PLAZA.floors - 1 }, (_, i) => i + 1).map((f) => {
     const y = P.Y(f)
+    const Z = floorZone(f)
     return (
       <group key={f}>
-        <Sofa position={[P.X(24), y, P.Z(10.8)]} yaw={0} length={2.2} color={f === 1 ? '#5f6b62' : '#6a5d6f'} />
+        <Sofa position={[P.X(24), y, P.Z(10.8)]} yaw={0} length={2.2} color={f === 1 ? '#5f6b62' : f === 2 ? '#6a5d6f' : '#4f5d6b'} />
+        <Window position={[P.X(27.7), y, P.Z(14)]} yaw={-Math.PI / 2} width={3.2} height={2.1} sill={0.95} view="city" />
+        <Window position={[P.X(0.3), y, P.Z(14)]} yaw={Math.PI / 2} width={3.2} height={2.1} sill={0.95} view={f % 2 ? 'garden' : 'ocean'} />
+        <Chandelier position={[P.X(20), y + CEIL, P.Z(14)]} type="modern" size={1} drop={0.8} zone={Z} intensity={8} />
         <Plant position={[P.X(27), y, P.Z(17.3)]} />
         <Plant position={[P.X(13), y, P.Z(17.3)]} />
+        <LightSwitch position={[P.X(26.4), y + 1.25, P.Z(CORRIDOR.v1 - PART / 2 - 0.02)]} yaw={Math.PI} zone={Z} />
+        <TV position={[P.X(20.4), y + 1.9, P.Z(CORRIDOR.v1 - PART / 2 - 0.02)]} yaw={Math.PI} size={[2.1, 1.18]} id={'tv-floor-' + f} zone={Z} channel={f % 4} />
       </group>
     )
   })

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
-import { getMaterials, surface } from './materials.js'
+import { getMaterials, surface, signatureMarble } from './materials.js'
 import { P, PLAZA, CORRIDOR, ELEVATOR } from '../config/plaza.js'
 import {
   Chair, Stool, Sofa, Table, DiningSet, Counter, Rug, Plant, CeilingLight, PendantLight,
@@ -17,14 +17,21 @@ import { FONTS } from '../config/theme.js'
 import { Auditorium, ExitSign } from './Cinema.jsx'
 import { DOOR_U } from '../config/plaza.js'
 import { StaticBatch } from './batch.jsx'
+import { Window, TV, LightSwitch, Bathroom, Mirror } from './Interior.jsx'
+import { Chandelier } from './Chandelier.jsx'
+import { PottedPlant } from './Vegetation.jsx'
 
-// Furnishings for the six Plaza rooms. Every chair, stool and sofa is sittable.
+// Furnishings for the six Plaza rooms. Every chair, stool and sofa is sittable; every room has
+// glazed windows onto the world outside, a working TV, a chandelier, a light switch by the door
+// and its own bathroom.
 const CEIL = PLAZA.floorH - 0.3
 const at = (u, f, v, dy = 0) => [P.X(u), P.Y(f) + dy, P.Z(v)]
 const S0 = 0.3, S1 = CORRIDOR.v0 - 0.075 // south room v range
 const N0 = CORRIDOR.v1 + 0.075, N1 = 27.7 // north room v range
 
-function RoomFloor({ f, side, material }) {
+// Every room floor: the signature black marble with pink, purple and teal veins.
+function RoomFloor({ f, side }) {
+  const material = signatureMarble(7, 1.6)
   const v0 = side === 'south' ? S0 : N0, v1 = side === 'south' ? S1 : N1
   const u0 = side === 'north' ? ELEVATOR.u1 + 0.2 : 0.3
   return (
@@ -34,10 +41,37 @@ function RoomFloor({ f, side, material }) {
     </>
   )
 }
-function RoomLights({ f, side, color = '#fff0dc', intensity = 20, us = [6, 14, 22] }) {
+function RoomLights({ f, side, color = '#fff0dc', intensity = 20, us = [6, 14, 22], zone }) {
   intensity *= 0.5
   const v = side === 'south' ? (S0 + S1) / 2 : (N0 + N1) / 2
-  return us.map((u) => <CeilingLight key={u} position={at(u, f, v, CEIL - 0.01)} size={[1.2, 1.2]} color={color} intensity={intensity} />)
+  return us.map((u) => <CeilingLight key={u} position={at(u, f, v, CEIL - 0.01)} size={[1.2, 1.2]} color={color} intensity={intensity} zone={zone} />)
+}
+
+/**
+ * Windows along a room's exterior walls, set into the building's glazing band. `skip` is a list
+ * of [u0, u1] spans the plan already uses (a bathroom wall, a cinema screen).
+ */
+function RoomWindows({ f, side, view = 'city', east = true, drapes = false, drapeColor, skip = [] }) {
+  const south = side === 'south'
+  const wallV = south ? S0 : N1
+  const yaw = south ? 0 : Math.PI
+  const us = south ? [5.5, 10.5, 15.5, 20.5, 25.5] : [6, 11, 16, 21, 26]
+  const clear = (u) => !skip.some(([a, b]) => u + 1.7 > a && u - 1.7 < b)
+  const eastV = south ? (S0 + S1) / 2 - 1.2 : (N0 + N1) / 2 + 1
+  return (
+    <>
+      {us.filter(clear).map((u) => (
+        <Window key={u} position={at(u, f, wallV)} yaw={yaw} width={3.1} height={2.1} sill={0.95} view={view} drapes={drapes} drapeColor={drapeColor} />
+      ))}
+      {east && <Window position={at(27.7, f, eastV)} yaw={-Math.PI / 2} width={2.8} height={2.1} sill={0.95} view="city" drapes={drapes} drapeColor={drapeColor} />}
+    </>
+  )
+}
+
+/** The light switch inside a room, on the corridor wall beside its door. */
+function RoomSwitch({ f, side, zone, u = DOOR_U + 1.15 }) {
+  const south = side === 'south'
+  return <LightSwitch position={at(u, f, south ? S1 : N0, 1.25)} yaw={south ? Math.PI : 0} zone={zone} />
 }
 
 // shared big-screen material: an animated title card, or the visitor's video when one is playing
@@ -82,22 +116,30 @@ export default function PlazaRooms() {
 // ---------------- VSP-101 Vision Storms Bistro (restaurant) ----------------
 function Bistro() {
   const f = 0
-  const m = getMaterials()
-  const tables = [[4, 3], [8.5, 3], [13, 3], [4, 7.2], [8.5, 7.2], [13, 7.2]]
+  const Z = 'VSP-101'
+  const tables = [[7.5, 3], [12, 3], [16.5, 3], [7.5, 7.2], [12, 7.2], [16.5, 7.2]]
   return (
     <group>
-      <RoomFloor f={f} side="south" material={surface('tile', 10, 4, { color: '#cdc4b4' })} />
+      <RoomFloor f={f} side="south" />
+      <RoomWindows f={f} side="south" view="garden" skip={[[0.3, 4.85]]} />
+      <RoomSwitch f={f} side="south" zone={Z} />
       {tables.map(([u, v], i) => <DiningSet key={i} position={at(u, f, v)} chairs={4} size={0.9} color={['#6b4f3a', '#3f4a3c'][i % 2]} />)}
-      {tables.map(([u, v], i) => <PendantLight key={'p' + i} position={at(u, f, v, CEIL)} drop={1.4} />)}
+      {tables.map(([u, v], i) => <PendantLight key={'p' + i} position={at(u, f, v, CEIL)} drop={1.4} zone={Z} />)}
       {/* bar */}
       <Counter position={at(23.5, f, 5)} yaw={Math.PI / 2} length={6} />
       {[3, 4.5, 6, 7.5].map((v) => <Stool key={v} position={at(22.4, f, v)} />)}
       <Shelf position={at(27.4, f, 5)} yaw={-Math.PI / 2} width={5} height={2.4} />
       <Sofa position={at(18, f, 0.85)} yaw={0} length={3.2} color="#7a3b33" label="Sit in booth" />
       <Table position={at(18, f, 1.95)} size={[2.2, 0.8]} />
-      <Plant position={at(1, f, 9.3)} scale={1.1} />
-      <BrandSign text="VISION BISTRO" position={[P.X(0.33), P.Y(f) + 2.6, P.Z(5)]} rotation={[0, Math.PI / 2, 0]} width={5} size={120} color="#2b2b2e" glow="#ffffff" />
-      <RoomLights f={f} side="south" intensity={14} />
+      <PottedPlant position={at(5.4, f, 9.3)} kind="areca" scale={1.25} />
+      <PottedPlant position={at(21.6, f, 9.3)} kind="monstera" scale={1.1} />
+      <Chandelier position={at(12, f, 5, CEIL)} type="gold" size={1.1} drop={0.8} zone={Z} intensity={9} />
+      {/* the bistro TV above the bar */}
+      <TV position={at(21.4, f, S1, 1.95)} yaw={Math.PI} size={[2.1, 1.18]} id="tv-bistro" zone={Z} channel={0} />
+      {/* restrooms */}
+      <Bathroom center={at(2.55, f, 1.8)} yaw={0} w={4.5} d={3.0} h={CEIL} zone={Z} />
+      <BrandSign text="VISION BISTRO" position={[P.X(0.33), P.Y(f) + 2.6, P.Z(6.4)]} rotation={[0, Math.PI / 2, 0]} width={5} size={120} color="#2b2b2e" glow="#ffffff" />
+      <RoomLights f={f} side="south" intensity={14} us={[10, 18, 25]} zone={Z} />
     </group>
   )
 }
@@ -106,11 +148,14 @@ function Bistro() {
 function Threads() {
   const f = 0
   const m = getMaterials()
+  const Z = 'VSP-102'
   const folded = useMemo(() => ['#1f2a44', '#b23a3a', '#e9e4d8', '#3d5a40', '#c9a24a'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 })), [])
   return (
     <group>
-      <RoomFloor f={f} side="north" material={surface('wood', 8, 3, { color: '#c8b49c' })} />
-      {[8, 12, 16].flatMap((u) => [[u, 24.5], [u, 27]]).map(([u, v], i) => <ClothingRack key={i} position={at(u, f, v)} seed={i} />)}
+      <RoomFloor f={f} side="north" />
+      <RoomWindows f={f} side="north" view="garden" skip={[[16.2, 20.9]]} />
+      <RoomSwitch f={f} side="north" zone={Z} />
+      {[7, 10.5, 14].flatMap((u) => [[u, 24.5], [u, 27]]).map(([u, v], i) => <ClothingRack key={i} position={at(u, f, v)} seed={i} />)}
       {[[10, 20.6], [15, 20.6]].map(([u, v], i) => (
         <group key={i}>
           <Table position={at(u, f, v)} size={[1.8, 0.9]} height={0.85} top="#e6e2da" />
@@ -119,7 +164,7 @@ function Threads() {
       ))}
       <Mannequin position={at(22, f, 19.6)} color="#1f2a44" />
       <Mannequin position={at(24, f, 19.6)} yaw={-0.3} color="#b23a3a" />
-      {/* fitting rooms with curtains */}
+      {/* fitting rooms with curtains and a dressing mirror */}
       {[0, 1, 2].map((k) => (
         <group key={k}>
           <RigidBody type="fixed" colliders={false}>
@@ -129,12 +174,15 @@ function Threads() {
           <mesh position={at(4.8 + k * 1.6, f, 25.92, 1.15)} material={m.fabric('#8c7b6b')}><boxGeometry args={[1.5, 2.0, 0.03]} /></mesh>
         </group>
       ))}
+      <Mirror position={at(3.3, f, 24.2, 1.35)} yaw={Math.PI / 2} size={[1.1, 2]} zone={Z} />
       <Sofa position={at(5.5, f, 22.5)} yaw={0} length={1.6} color="#a89a8a" label="Sit on bench" />
       <Counter position={at(25.5, f, 25)} yaw={-Math.PI / 2} length={2.6} top="wood" />
-      <mesh position={at(27.66, f, 22, 1.4)} rotation={[0, -Math.PI / 2, 0]}><planeGeometry args={[1.8, 2.2]} /><meshStandardMaterial color="#cfd6dc" metalness={1} roughness={0.02} /></mesh>
-      <BrandSign text="STORMS THREADS" position={[P.X(16), P.Y(f) + 2.9, P.Z(N1 - 0.03)]} rotation={[0, Math.PI, 0]} width={5} size={120} color="#2b2b2e" glow="#ffffff" />
-      <Plant position={at(26.8, f, 19)} />
-      <RoomLights f={f} side="north" intensity={18} />
+      <TV position={at(27.7, f, 21.6, 1.85)} yaw={-Math.PI / 2} size={[1.7, 0.96]} id="tv-threads" zone={Z} channel={1} />
+      <Chandelier position={at(11, f, 22.8, CEIL)} type="modern" size={1} drop={0.75} zone={Z} intensity={8} />
+      <Bathroom center={at(18.55, f, 26.1)} yaw={Math.PI} w={4.5} d={3.0} h={CEIL} zone={Z} />
+      <BrandSign text="STORMS THREADS" position={[P.X(23.5), P.Y(f) + 2.9, P.Z(N1 - 0.03)]} rotation={[0, Math.PI, 0]} width={5} size={120} color="#2b2b2e" glow="#ffffff" />
+      <PottedPlant position={at(26.8, f, 19)} kind="fiddle" scale={1.2} />
+      <RoomLights f={f} side="north" intensity={18} us={[7, 14, 22]} zone={Z} />
     </group>
   )
 }
@@ -142,11 +190,15 @@ function Threads() {
 // ---------------- VSP-201 Screening Room (movie theater) ----------------
 function Screening() {
   const f = 1
+  const Z = 'VSP-201'
   // the room becomes a small stadium-seated theater: 4 tiers of recliners, a 16:9-ish screen,
   // aisle, exit sign, screen & sound controls; plays movies from the media library
   return (
     <group>
-      <RoomFloor f={f} side="south" material={surface('carpet', 8, 3, { color: '#3a2a2e' })} />
+      <RoomFloor f={f} side="south" />
+      {/* the auditorium takes the west end, so windows only run along the lounge */}
+      <RoomWindows f={f} side="south" view="city" skip={[[0.3, 16.6], [16.0, 20.7]]} east={false} drapes drapeColor="#2a1b2e" />
+      <RoomSwitch f={f} side="south" zone={Z} />
       <Auditorium
         screenId="VSP-201"
         title="Screening Room"
@@ -157,8 +209,11 @@ function Screening() {
       <ExitSign position={at(DOOR_U, f, S1 - 0.06, 2.65)} yaw={Math.PI} />
       <Counter position={at(25.5, f, 3)} yaw={Math.PI / 2} length={3} top="wood" />
       <Sofa position={at(22, f, 0.85)} yaw={0} length={2.6} color="#4a1a22" label="Sit on lounge sofa" />
-      <Plant position={at(27, f, 9.2)} />
-      <RoomLights f={f} side="south" color="#ffd9b0" intensity={6} us={[19, 24]} />
+      <TV position={at(27.7, f, 2.6, 1.8)} yaw={-Math.PI / 2} size={[1.6, 0.9]} id="tv-screening" zone={Z} channel={0} />
+      <Chandelier position={at(23, f, 6.5, CEIL)} type="crystal" size={0.85} drop={0.7} zone={Z} intensity={7} />
+      <Bathroom center={at(18.35, f, 7.5)} yaw={0} w={4.5} d={3.0} h={CEIL} zone={Z} />
+      <PottedPlant position={at(27, f, 9.2)} kind="snake" scale={1.1} />
+      <RoomLights f={f} side="south" color="#ffd9b0" intensity={6} us={[21, 26]} zone={Z} />
     </group>
   )
 }
@@ -167,10 +222,13 @@ function Screening() {
 function Studio() {
   const f = 1
   const m = getMaterials()
+  const Z = 'VSP-202'
   const consoleMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1a1b1e', emissive: '#3b6cff', emissiveIntensity: 0.15, roughness: 0.5 }), [])
   return (
     <group>
-      <RoomFloor f={f} side="north" material={surface('wood', 7, 3, { color: '#8c6b4f' })} />
+      <RoomFloor f={f} side="north" />
+      <RoomWindows f={f} side="north" view="city" skip={[[10.2, 17.8]]} east={false} drapes drapeColor="#2c3340" />
+      <RoomSwitch f={f} side="north" zone={Z} />
       <AcousticPanels position={at(14, f, N1 - 0.06, 1.4)} yaw={Math.PI} cols={8} rows={2} color="#3c4652" />
       <AcousticPanels position={at(27.64, f, 23, 1.4)} yaw={-Math.PI / 2} cols={4} rows={2} color="#5a4a3c" />
       {/* control desk + console + monitors */}
@@ -179,6 +237,8 @@ function Studio() {
       <Speaker position={at(12.6, f, 25.5, 0.8)} yaw={Math.PI} scale={0.8} />
       <Speaker position={at(15.4, f, 25.5, 0.8)} yaw={Math.PI} scale={0.8} />
       <Chair position={at(14, f, 24.1)} yaw={0} color="#22252b" label="Sit at the console" />
+      {/* the studio reference screen, tuned to Storms Records */}
+      <TV position={at(27.7, f, 20.2, 1.85)} yaw={-Math.PI / 2} size={[1.5, 0.84]} id="tv-studio" zone={Z} channel={1} soundbar={false} />
       {/* vocal booth (glass on two sides) */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[2, 1.3, 0.03]} position={at(7, f, 22.5, 1.3)} />
@@ -199,10 +259,11 @@ function Studio() {
           </group>
         )
       })}
-      <PendantLight position={at(21, f, 22.4, CEIL)} drop={1.3} />
+      <PendantLight position={at(21, f, 22.4, CEIL)} drop={1.3} zone={Z} />
       <Sofa position={at(26.9, f, 25)} yaw={-Math.PI / 2} length={2.4} color="#3b3f46" />
+      <Bathroom center={at(5.55, f, 19.6)} yaw={0} w={4.5} d={3.0} h={CEIL} zone={Z} />
       <BrandSign text="VISION RECORDING STUDIO" sub="MUSIC · PODCASTS" position={[P.X(20), P.Y(f) + 2.8, P.Z(N0 + 0.03)]} width={3.6} size={120} color="#2b2b2e" glow="#ffffff" />
-      <RoomLights f={f} side="north" color="#ffe2c0" intensity={12} />
+      <RoomLights f={f} side="north" color="#ffe2c0" intensity={12} us={[6, 13, 20]} zone={Z} />
     </group>
   )
 }
@@ -210,21 +271,27 @@ function Studio() {
 // ---------------- VSP-301 Boardroom (conference) ----------------
 function Boardroom() {
   const f = 2
+  const Z = 'VSP-301'
   const screen = useScreen('Boardroom', 'VSP-301 · Energy Exchanges Plaza')
   return (
     <group>
-      <RoomFloor f={f} side="south" material={surface('carpet', 8, 3, { color: '#596069' })} />
+      <RoomFloor f={f} side="south" />
+      <RoomWindows f={f} side="south" view="city" skip={[[21.3, 26.0]]} drapes drapeColor="#38405c" />
+      <RoomSwitch f={f} side="south" zone={Z} />
       <Table position={at(11, f, 5)} size={[7, 1.5]} top="wood" />
       {[-2.7, -1.35, 0, 1.35, 2.7].flatMap((du) => [[11 + du, 3.65, 0], [11 + du, 6.35, Math.PI]]).map(([u, v, yaw], i) => (
         <Chair key={i} position={at(u, f, v)} yaw={yaw} color="#2b2f36" />
       ))}
       <Chair position={at(15.1, f, 5)} yaw={-Math.PI / 2} color="#2b2f36" />
       <WallScreen position={at(0.36, f, 5, 1.8)} yaw={Math.PI / 2} size={[3.6, 2.0]} material={screen} />
-      <Counter position={at(26.9, f, 5)} yaw={-Math.PI / 2} length={4} height={0.9} depth={0.5} top="wood" />
-      <mesh position={at(22, f, S0 + 0.03, 1.6)}><planeGeometry args={[3, 1.3]} /><meshStandardMaterial color="#f7f7f5" roughness={0.3} /></mesh>
-      <Plant position={at(1, f, 9.2)} />
-      <Plant position={at(20.5, f, 9.2)} />
-      <RoomLights f={f} side="south" intensity={18} />
+      <Counter position={at(26.9, f, 3.2)} yaw={-Math.PI / 2} length={3.2} height={0.9} depth={0.5} top="wood" />
+      {/* the boardroom's own TV, on the Energy Exchange channel */}
+      <TV position={at(18.6, f, S0, 1.85)} yaw={0} size={[2.2, 1.24]} id="tv-boardroom" zone={Z} channel={2} />
+      <Chandelier position={at(11, f, 5, CEIL)} type="modern" size={1.3} drop={0.9} zone={Z} intensity={11} />
+      <Bathroom center={at(23.65, f, 7.7)} yaw={0} w={4.5} d={3.0} h={CEIL} zone={Z} />
+      <PottedPlant position={at(1, f, 9.2)} kind="fiddle" scale={1.2} />
+      <PottedPlant position={at(18, f, 9.2)} kind="areca" scale={1.1} />
+      <RoomLights f={f} side="south" intensity={18} us={[5, 11, 17]} zone={Z} />
     </group>
   )
 }
@@ -232,6 +299,7 @@ function Boardroom() {
 // ---------------- VSP-302 Skyline Suite (private rental) ----------------
 function Suite() {
   const f = 2
+  const Z = 'VSP-302'
   const masked = usePreview((s) => s.mask === 'VSP-302') // touring visitors don't see a private renter's sign/message
   const custom = useRentals((s) => s.rooms.find((r) => r.id === 'VSP-302')?.customization) || {}
   const eff = masked ? {} : custom
@@ -239,23 +307,31 @@ function Suite() {
   const screen = useScreen(eff.welcome || 'Skyline Suite', 'Private rental suite · VSP-302')
   return (
     <group>
-      <RoomFloor f={f} side="north" material={surface('wood', 7, 3, { color: '#a58a6c' })} />
+      <RoomFloor f={f} side="north" />
+      {/* the suite looks out over the gardens on three sides */}
+      <RoomWindows f={f} side="north" view="city" skip={[[12.9, 19.1]]} drapes drapeColor="#4a2f52" />
+      <RoomSwitch f={f} side="north" zone={Z} />
       {/* accent wall the renter can recolour */}
-      <mesh position={at(16, f, N1 - 0.02, CEIL / 2)} rotation={[0, Math.PI, 0]} material={accent}><planeGeometry args={[23, CEIL]} /></mesh>
+      <mesh position={at(16, f, N1 - 0.02, CEIL / 2)} rotation={[0, Math.PI, 0]} material={accent}><planeGeometry args={[5.8, CEIL]} /></mesh>
       <Rug position={at(16, f, 23.5)} size={[6, 4]} color="#7d6a58" />
       <Sofa position={at(16, f, 21.2)} yaw={0} length={2.8} color="#d3c7b6" />
       <Sofa position={at(16, f, 25.9)} yaw={Math.PI} length={2.8} color="#d3c7b6" />
       <Table position={at(16, f, 23.5)} size={[1.6, 0.8]} height={0.4} top="marble" />
       <Sofa position={at(19.4, f, 23.5)} yaw={-Math.PI / 2} length={1} color="#6f5b4b" label="Sit in armchair" />
       <WallScreen position={at(27.64, f, 23.5, 1.7)} yaw={-Math.PI / 2} size={[3, 1.7]} material={screen} />
-      <Table position={at(7, f, 26.6)} size={[1.8, 0.8]} top="wood" />
-      <Chair position={at(7, f, 25.8)} yaw={0} color="#2b2f36" label="Sit at the desk" />
-      <Shelf position={at(4.5, f, 27.4)} yaw={Math.PI} width={2.2} height={2.2} />
-      <Plant position={at(26.8, f, 19)} scale={1.2} />
-      <Plant position={at(10.5, f, 19)} />
-      <PendantLight position={at(16, f, 23.5, CEIL)} drop={1.1} />
+      {/* the suite's own TV faces the sofas */}
+      <TV position={at(16, f, N1 - 0.06, 1.8)} yaw={Math.PI} size={[2.4, 1.35]} id="tv-suite" zone={Z} channel={3} />
+      <Table position={at(10, f, 26.6)} size={[1.8, 0.8]} top="wood" />
+      <Chair position={at(10, f, 25.8)} yaw={0} color="#2b2f36" label="Sit at the desk" />
+      <Shelf position={at(22.5, f, 27.4)} yaw={Math.PI} width={2.2} height={2.2} />
+      <Mirror position={at(27.6, f, 19.6, 1.5)} yaw={-Math.PI / 2} size={[1.2, 2.1]} zone={Z} />
+      <Chandelier position={at(16, f, 23.5, CEIL)} type="crystal" size={1.25} drop={1.0} zone={Z} intensity={12} />
+      {/* the suite's full bathroom, with the jacuzzi */}
+      <Bathroom center={at(6.7, f, 19.7)} yaw={0} w={6.8} d={3.2} h={CEIL} zone={Z} jacuzzi />
+      <PottedPlant position={at(26.8, f, 21.4)} kind="monstera" scale={1.3} />
+      <PottedPlant position={at(8.6, f, 22.6)} kind="areca" scale={1.2} />
       {eff.signText && <BrandSign text={eff.signText} position={[P.X(16), P.Y(f) + 3.2, P.Z(N1 - 0.05)]} rotation={[0, Math.PI, 0]} width={6} size={110} color="#f4f1ea" />}
-      <RoomLights f={f} side="north" intensity={16} />
+      <RoomLights f={f} side="north" intensity={16} us={[9, 16, 23]} zone={Z} />
     </group>
   )
 }

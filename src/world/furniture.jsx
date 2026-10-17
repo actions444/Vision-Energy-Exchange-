@@ -5,6 +5,9 @@ import * as THREE from 'three'
 import { getMaterials, surface } from './materials.js'
 import { useSeats } from '../state/seats.js'
 import { registerLightAnchor } from '../state/environment.js'
+import { registerLoad, switchedMaterial, zoneLit, zoneName, ZONES } from '../state/power.js'
+import { registerScreen, guideSurface } from '../guide/guide.js'
+import { PottedPlant } from './Vegetation.jsx'
 
 // Interior furniture. Every piece has a collider; anything you can sit on registers seats,
 // so a Sit button appears when you walk up to it. Local +z is the front of each piece.
@@ -70,7 +73,7 @@ export function Sofa({ position, yaw = 0, length = 2.2, color = '#5a6270', label
 
 export function Table({ position, yaw = 0, size = [1.6, 0.9], height = 0.75, top = 'wood', round = false }) {
   const m = getMaterials()
-  const topMat = top === 'wood' ? surface('wood', 1, 1) : top === 'marble' ? m.marbleWall(0.5, 0.5) : solid(top, 0.4)
+  const topMat = top && top.isMaterial ? top : top === 'wood' ? surface('wood', 1, 1) : top === 'marble' ? m.marbleWall(0.5, 0.5) : solid(top, 0.4)
   return (
     <RigidBody type="fixed" colliders={false} position={position} rotation={[0, yaw, 0]}>
       {round ? <CylinderCollider args={[height / 2, size[0] / 2]} position={[0, height / 2, 0]} /> : <CuboidCollider args={[size[0] / 2, height / 2, size[1] / 2]} position={[0, height / 2, 0]} />}
@@ -93,7 +96,7 @@ export function Table({ position, yaw = 0, size = [1.6, 0.9], height = 0.75, top
 }
 
 /** Table with chairs around it (all seats registered). */
-export function DiningSet({ position, round = true, chairs = 4, size = 1.0, color = '#6b4f3a' }) {
+export function DiningSet({ position, round = true, chairs = 4, size = 1.0, color = '#6b4f3a', top = 'wood' }) {
   const items = useMemo(() => Array.from({ length: chairs }, (_, i) => {
     const a = (i / chairs) * Math.PI * 2
     const r = size / 2 + 0.38
@@ -101,7 +104,7 @@ export function DiningSet({ position, round = true, chairs = 4, size = 1.0, colo
   }), [position[0], position[1], position[2], chairs, size]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <group>
-      <Table position={position} round={round} size={[size, size]} />
+      <Table position={position} round={round} size={[size, size]} top={top} />
       {items.map((c, i) => <Chair key={i} position={c.p} yaw={c.yaw} color={color} />)}
     </group>
   )
@@ -127,26 +130,21 @@ export function Rug({ position, size = [3, 2], color = '#6d5a4a', yaw = 0 }) {
   )
 }
 
-export function Plant({ position, scale = 1 }) {
-  const pot = solid('#d9d5cd', 0.7)
-  const leaf = useMemo(() => new THREE.MeshStandardMaterial({ color: '#3e6b34', roughness: 0.85, flatShading: true }), [])
-  return (
-    <RigidBody type="fixed" colliders={false} position={position}>
-      <CylinderCollider args={[0.3 * scale, 0.25 * scale]} position={[0, 0.3 * scale, 0]} />
-      <mesh position={[0, 0.25 * scale, 0]} material={pot} castShadow><cylinderGeometry args={[0.24 * scale, 0.18 * scale, 0.5 * scale, 16]} /></mesh>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <mesh key={i} position={[Math.cos(i * 1.3) * 0.15 * scale, (0.75 + i * 0.12) * scale, Math.sin(i * 1.3) * 0.15 * scale]} rotation={[0.3 * Math.cos(i), i, 0.3 * Math.sin(i)]} material={leaf} castShadow>
-          <icosahedronGeometry args={[0.28 * scale, 0]} />
-        </mesh>
-      ))}
-    </RigidBody>
-  )
+/**
+ * An indoor plant in a pot. Species is picked from the position so a building gets a varied
+ * planting scheme without every call site naming one; pass `kind` to choose.
+ */
+export function Plant({ position, scale = 1, kind, yaw = 0 }) {
+  const KINDS = ['monstera', 'fiddle', 'areca', 'snake', 'fern']
+  const pick = kind || KINDS[Math.abs(Math.round(position[0] * 7 + position[2] * 13)) % KINDS.length]
+  return <PottedPlant position={position} kind={pick} scale={scale * 1.15} yaw={yaw || (position[0] * 0.7 + position[2] * 0.3) % 6} />
 }
 
 /** Recessed ceiling light panel + a light anchor for the shared light pool. */
-export function CeilingLight({ position, size = [1.2, 1.2], intensity = 22, color = '#fff1dc', distance = 11 }) {
-  const mat = getMaterials().shared('ceilLight' + color, () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: color, emissiveIntensity: 0.9 }))
-  useEffect(() => (intensity > 0 ? registerLightAnchor({ position: new THREE.Vector3(position[0], position[1] - 0.6, position[2]), color, intensity, distance, range: 40 }) : undefined), [position[0], position[1], position[2], intensity]) // eslint-disable-line react-hooks/exhaustive-deps
+export function CeilingLight({ position, size = [1.2, 1.2], intensity = 22, color = '#fff1dc', distance = 11, zone, watts = 48 }) {
+  const mat = getMaterials().shared('ceilLight' + color + (zone || ''), () => switchedMaterial(new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: color, emissiveIntensity: 0.9 }), zone, 0.9, 0.015))
+  useEffect(() => (intensity > 0 ? registerLightAnchor({ position: new THREE.Vector3(position[0], position[1] - 0.6, position[2]), color, intensity, distance, range: 40, zone }) : undefined), [position[0], position[1], position[2], intensity, zone]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => registerLoad({ zone, watts }), [zone, watts])
   return (
     <mesh position={position} rotation={[Math.PI / 2, 0, 0]} material={mat}>
       <planeGeometry args={size} />
@@ -154,10 +152,11 @@ export function CeilingLight({ position, size = [1.2, 1.2], intensity = 22, colo
   )
 }
 
-export function PendantLight({ position, drop = 1.2, color = '#ffd9a6' }) {
+export function PendantLight({ position, drop = 1.2, color = '#ffd9a6', zone, watts = 22 }) {
   const m = getMaterials()
-  const glow = useMemo(() => new THREE.MeshStandardMaterial({ color: '#fff3df', emissive: color, emissiveIntensity: 2 }), [color])
-  useEffect(() => registerLightAnchor({ position: new THREE.Vector3(position[0], position[1] - drop - 0.3, position[2]), color, intensity: 10, distance: 7, range: 30 }), [position[0], position[1], position[2]]) // eslint-disable-line react-hooks/exhaustive-deps
+  const glow = useMemo(() => switchedMaterial(new THREE.MeshStandardMaterial({ color: '#fff3df', emissive: color, emissiveIntensity: 2 }), zone, 2, 0.02), [color, zone])
+  useEffect(() => registerLightAnchor({ position: new THREE.Vector3(position[0], position[1] - drop - 0.3, position[2]), color, intensity: 10, distance: 7, range: 30, zone }), [position[0], position[1], position[2], zone]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => registerLoad({ zone, watts }), [zone, watts])
   return (
     <group position={position}>
       <mesh position={[0, -drop / 2, 0]} material={m.blackSteel}><cylinderGeometry args={[0.006, 0.006, drop, 4]} /></mesh>
@@ -228,14 +227,31 @@ export function Shelf({ position, yaw = 0, width = 2, height = 2.2, books = true
   )
 }
 
-/** Wall-mounted display. Pass a material (e.g. a video or shader screen) or get a dark panel. */
-export function WallScreen({ position, yaw = 0, size = [3, 1.7], material }) {
+/**
+ * Wall-mounted display. Pass a material (e.g. a video or shader screen) or get a dark panel.
+ * Give it an `id` (and the `zone` whose lights power it) and it joins the TV guide: whatever the
+ * owner has scheduled for it, its venue or all screens plays on it at the scheduled time.
+ */
+export function WallScreen({ position, yaw = 0, size = [3, 1.7], material, id, zone, venue, name }) {
   const m = getMaterials()
   const off = useMemo(() => new THREE.MeshStandardMaterial({ color: '#0d0e10', roughness: 0.15, metalness: 0.4 }), [])
+  const grp = useRef()
+  const face = useRef()
+  useEffect(() => {
+    if (!id || material) return
+    const z = ZONES.find((x) => x.id === zone)
+    return registerScreen({ id, name: name || (zone ? `${zoneName(zone)} screen` : 'Wall screen'), venue: venue || z?.group || 'World', obj: grp.current, active: () => !zone || zoneLit(zone) })
+  }, [id, zone, venue, name, material])
+  useFrame(() => {
+    if (!id || material || !face.current) return
+    const g = !zone || zoneLit(zone) ? guideSurface(id) : null
+    const want = g || off
+    if (face.current.material !== want) face.current.material = want
+  })
   return (
-    <group position={position} rotation={[0, yaw, 0]}>
+    <group ref={grp} position={position} rotation={[0, yaw, 0]} userData={id && !material ? { noBatch: true } : undefined}>
       <mesh position={[0, 0, -0.03]} material={m.blackSteel}><boxGeometry args={[size[0] + 0.08, size[1] + 0.08, 0.05]} /></mesh>
-      <mesh material={material || off}><planeGeometry args={size} /></mesh>
+      <mesh ref={face} material={material || off}><planeGeometry args={size} /></mesh>
     </group>
   )
 }

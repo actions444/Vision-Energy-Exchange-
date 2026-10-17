@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
-import { getMaterials } from './materials.js'
+import { getMaterials, signatureMarble } from './materials.js'
 import { GALLERY as G } from './layout.js'
 import { DoubleDoor } from './Door.jsx'
 import { canvasTexture, wrapText, roundRect } from './canvasText.js'
 import { BrandSign } from './signs.jsx'
 import { LightAnchor } from './props.jsx'
+import { RenovatedShell, EntranceDressing } from './facade/Renovated.jsx'
 import { CRAFTS, LATEST, CONNECT, ARTIST } from '../config/portfolio.js'
 import { NEON, FONTS } from '../config/theme.js'
 import { registerInteractable } from '../state/runtime.js'
@@ -23,13 +24,18 @@ const D = G.maxZ - G.minZ
 const CX = (G.minX + G.maxX) / 2
 const CZ = (G.minZ + G.maxZ) / 2
 const Y0 = G.floorY
+const GALLERY_SPEC = {
+  x0: G.minX, x1: G.maxX, z0: G.minZ, z1: G.maxZ, h: G.height, ih: G.height, facing: '+z', base: G.floorY, seed: 71,
+  wall: 'marble', inner: 'marble', trim: 'granite', T: G.wall, door: { at: 0, half: G.doorHalf, h: G.doorHeight },
+  groundWindows: [-8, 8].map((at) => ({ at, half: 2.2, v0: 1.0, v1: 4.4 })), pilasters: false, parapetH: 0.7,
+}
 
 export default function Gallery() {
   const mats = getMaterials()
   const m = useMemo(() => ({
     wall: mats.marbleWall(4, 1.5),
     wallSide: mats.marbleWall(3, 1.5),
-    floor: mats.marbleFloor(5, 4),
+    floor: signatureMarble(5, 4),
     ceiling: new THREE.MeshStandardMaterial({ color: '#f2f0ec', roughness: 0.9 }),
     // architectural LED lines (warm white) and brushed metal trims instead of neon
     teal: new THREE.MeshStandardMaterial({ color: '#b9a37a', roughness: 0.3, metalness: 0.9 }),
@@ -61,52 +67,17 @@ export default function Gallery() {
         <CuboidCollider args={[W / 2, Y0 / 2, D / 2]} position={[CX, Y0 / 2, CZ]} />
       </RigidBody>
 
-      {/* ---------- shell visuals ---------- */}
-      <mesh position={[CX, Y0 + H / 2, G.minZ + t / 2]} material={m.wall} receiveShadow castShadow>
-        <boxGeometry args={[W, H, t]} />
-      </mesh>
-      <mesh position={[G.minX + t / 2, Y0 + H / 2, CZ]} material={m.wallSide} receiveShadow castShadow>
-        <boxGeometry args={[t, H, D]} />
-      </mesh>
-      <mesh position={[G.maxX - t / 2, Y0 + H / 2, CZ]} material={m.wallSide} receiveShadow castShadow>
-        <boxGeometry args={[t, H, D]} />
-      </mesh>
-      {[L, -L].map((x, i) => (
-        <mesh key={i} position={[x, Y0 + H / 2, frontZ - t / 2]} material={m.wallSide} receiveShadow castShadow>
-          <boxGeometry args={[frontSeg, H, t]} />
-        </mesh>
-      ))}
-      <mesh position={[0, Y0 + G.doorHeight + (H - G.doorHeight) / 2, frontZ - t / 2]} material={m.wallSide}>
-        <boxGeometry args={[dh * 2, H - G.doorHeight, t]} />
-      </mesh>
-      <mesh position={[CX, Y0 + H + 0.2, CZ]} material={m.ceiling} castShadow>
-        <boxGeometry args={[W + 0.6, 0.4, D + 0.6]} />
-      </mesh>
+      {/* ---------- shell visuals: polished black marble cladding, recessed windows, stone base and cornice ---------- */}
+      <RenovatedShell spec={GALLERY_SPEC} />
+      <mesh position={[CX, Y0 + H - 0.002, CZ]} rotation={[Math.PI / 2, 0, 0]} material={m.ceiling}><planeGeometry args={[W - t * 2, D - t * 2]} /></mesh>
       <mesh position={[CX, Y0 + 0.005, CZ]} rotation={[-Math.PI / 2, 0, 0]} material={m.floor} receiveShadow>
         <planeGeometry args={[W - t * 2, D - t * 2]} />
       </mesh>
 
-      {/* ---------- facade ---------- */}
-      <BrandSign text="REIGN GALLERY" sub="TRINITY REIGN · VISION STORMS" position={[0, Y0 + 6.4, frontZ + 0.03]} width={14} color="#232326" glow="#fff3dc" />
-      {/* door frame neon */}
-      <mesh position={[-dh - 0.08, Y0 + G.doorHeight / 2, frontZ + 0.05]} material={m.teal}><boxGeometry args={[0.1, G.doorHeight, 0.1]} /></mesh>
-      <mesh position={[dh + 0.08, Y0 + G.doorHeight / 2, frontZ + 0.05]} material={m.teal}><boxGeometry args={[0.1, G.doorHeight, 0.1]} /></mesh>
-      <mesh position={[0, Y0 + G.doorHeight + 0.08, frontZ + 0.05]} material={m.teal}><boxGeometry args={[dh * 2 + 0.26, 0.1, 0.1]} /></mesh>
-      {/* building edge outlines */}
-      {[[G.minX, frontZ], [G.maxX, frontZ], [G.minX, G.minZ], [G.maxX, G.minZ]].map(([x, z], i) => (
-        <mesh key={i} position={[x, Y0 + H / 2, z]} material={m.pink}><boxGeometry args={[0.14, H + 0.4, 0.14]} /></mesh>
-      ))}
-      <mesh position={[0, Y0 + H + 0.42, frontZ]} material={m.pink}><boxGeometry args={[W, 0.1, 0.1]} /></mesh>
-      {/* canopy */}
-      <mesh position={[0, Y0 + G.doorHeight + 0.6, frontZ + 1.6]} material={mats.darkMetal} castShadow>
-        <boxGeometry args={[7, 0.18, 3.2]} />
-      </mesh>
-      <mesh position={[0, Y0 + G.doorHeight + 0.5, frontZ + 1.6]} rotation={[Math.PI / 2, 0, 0]} material={m.yellow}>
-        <planeGeometry args={[6.4, 2.8]} />
-      </mesh>
-      <LightAnchor position={[0, Y0 + 4, frontZ + 2.2]} color="#ffe2b8" intensity={14} distance={12} night />
+      {/* ---------- entrance: lettered marble fascia, bronze canopy with downlights, lamps, planters ---------- */}
+      <EntranceDressing origin={[0, frontZ]} base={Y0} name="REIGN GALLERY" sub="TRINITY REIGN · VISION STORMS" doorHalf={dh} doorH={G.doorHeight} yaw={0} signWidth={8.4} canopyW={6.6} parts={{ forecourt: false }} planterAt={dh + 1.5} benchAt={dh + 3.4} />
 
-      <DoubleDoor id="gallery-doors" center={[0, Y0, frontZ - t / 2]} halfWidth={dh} height={G.doorHeight} facing={0} accent={NEON.teal} label="gallery doors" />
+      <DoubleDoor id="gallery-doors" center={[0, Y0, frontZ - t / 2]} halfWidth={dh} height={G.doorHeight} facing={0} accent={NEON.teal} label="gallery doors" finish="bronze" />
 
       {/* ---------- interior ---------- */}
       <BrandSign text="TRINITY REIGN" position={[0, Y0 + 7.8, G.minZ + t + 0.03]} width={11} color="#26262a" glow="#ffffff" />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { surface, blackMarble } from './materials.js'
+import { surface, blackMarble, signatureMarble } from './materials.js'
 import { PLAZA, P, CORRIDOR, ELEVATOR, DOOR_U, STAIRS } from '../config/plaza.js'
 import { Chandelier } from './Chandelier.jsx'
 
@@ -67,7 +67,7 @@ function useInstances(list) {
 export default function CorridorFinish() {
   const M = m()
   const floors = Array.from({ length: PLAZA.floors }, (_, f) => f)
-  const marble = useMemo(() => blackMarble('#c9a96a', 9, 3), [])
+  const marble = useMemo(() => signatureMarble(9, 3), [])
 
   // moulding frames (4 bars each) on the upper walls, and sconce pairs between them
   const { bars, sconces } = useMemo(() => {

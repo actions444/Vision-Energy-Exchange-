@@ -49,6 +49,7 @@ function RemotePlayer({ id, name, accent, skin }) {
     anim.current.grounded = pd.grounded
     anim.current.emote = now < pd.emoteUntil ? pd.emote : null
     anim.current.sit = pd.sit || 0
+    anim.current.swim = pd.swim || null
     anim.current.sitHeight = pd.sitHeight || 0.45
 
     // chat bubble

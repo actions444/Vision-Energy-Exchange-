@@ -11,8 +11,9 @@ import { create } from 'zustand'
 import { backend, useBackend } from '../backend/backend.js'
 import { useRentals, rentalAccess } from '../rentals/client.js'
 import { spaceById, fits } from './spaces.js'
-import { itemById } from './catalog.jsx'
+import { itemById, floorById, wallpaperById, doorById } from './catalog.jsx'
 import { logAccess } from '../admin/audit.js'
+import { useJobs } from '../state/jobs.js'
 
 const EMPTY = { items: [], floor: null, wall: null, light: null, door: null }
 const LS = (id) => 'vsw-decor-' + id
@@ -93,15 +94,34 @@ export function undo() {
   if (!s.undo.length) return
   useDecor.setState({ draft: s.undo[s.undo.length - 1], undo: s.undo.slice(0, -1), dirty: true, placing: null, selected: null })
 }
-export const setFloor = (id) => edit((d) => { d.floor = id })
-export const setWall = (kind, id) => edit((d) => { d.wall = id ? { kind, id } : null })
+// A premium floor/wallpaper/door finish (one with a `price`) is bought once, same as items.
+export function setFloor(id) {
+  const f = id && floorById(id)
+  if (f?.price && !useJobs.getState().buyDecorItem(f)) return
+  edit((d) => { d.floor = id })
+}
+export function setWall(kind, id) {
+  const wp = kind === 'paper' && id ? wallpaperById(id) : null
+  if (wp?.price && !useJobs.getState().buyDecorItem(wp)) return
+  edit((d) => { d.wall = id ? { kind, id } : null })
+}
 export const setLight = (id) => edit((d) => { d.light = id })
-export const setDoor = (id) => edit((d) => { d.door = id })
+export function setDoor(id) {
+  const dr = id && doorById(id)
+  if (dr?.price && !useJobs.getState().buyDecorItem(dr)) return
+  edit((d) => { d.door = id })
+}
 
-/** Start placing a new item (or moving a placed one), in front of the avatar. */
+/** Start placing a new item (or moving a placed one), in front of the avatar. Premium catalog
+ * items (a `price` on the item) must be bought once with useJobs.buyDecorItem before they can be
+ * placed the first time; moving an item you already placed never charges again. */
 export function beginPlace(itemId, fromUid = null, start) {
   const s = useDecor.getState()
   if (!s.allowed?.ok) return
+  if (!fromUid) {
+    const item = itemById(itemId)
+    if (item?.price && !useJobs.getState().buyDecorItem(item)) return // toast already shown by buyDecorItem/spend
+  }
   const existing = fromUid ? s.draft.items.find((i) => i.uid === fromUid) : null
   const yaw = existing?.yaw ?? start?.yaw ?? 0
   useDecor.setState({ placing: { itemId, uid: fromUid, x: 0, z: 0, yaw, valid: false, follow: !existing }, selected: null })

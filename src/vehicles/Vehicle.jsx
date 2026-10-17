@@ -8,7 +8,10 @@ import { registerLightAnchor, nightLit, env } from '../state/environment.js'
 import { useStore } from '../state/store.js'
 import { getMaterials } from '../world/materials.js'
 import Avatar from '../player/Avatar.jsx'
-import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies, vehicleActions, ROAD_LINES } from './vehicles.js'
+import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies, vehicleActions, ROAD_LINES, wheelLayout } from './vehicles.js'
+import { JetSkiBody, OpenGBody, EvSuvBody, CrossoverBody, LimoBody, EvBody, SlingBody, CruiserBody, SportBikeBody, BikeFront, useBodyMats } from './Bodies.jsx'
+import { priceOf } from '../config/vehicleShop.js'
+import { useJobs } from '../state/jobs.js'
 
 // Drivable vehicles: a dynamic Rapier rigid body (the chassis) with a ray-cast vehicle
 // controller — four wheels with suspension, tyre friction, engine force, brakes and steering.
@@ -27,12 +30,12 @@ const quatY = (h) => ({ x: 0, y: Math.sin(h / 2), z: 0, w: Math.cos(h / 2) })
  * stability control plus a low centre of gravity), so curbs, planters and crashes don't tip
  * the car over. Yaw is untouched, so steering feels the same.
  */
-function stabilise(rb, dt) {
+function stabilise(rb, dt, T) {
   if (!rb) return
   const r = rb.rotation()
   const ux = 2 * (r.x * r.y - r.w * r.z), uz = 2 * (r.y * r.z + r.w * r.x)
   const av = rb.angvel()
-  const k = 9000, c = 2500
+  const k = T?.stab?.k ?? 9000, c = T?.stab?.c ?? 2500
   rb.applyTorqueImpulse({ x: (-uz * k - av.x * c) * dt, y: 0, z: (ux * k - av.z * c) * dt }, true)
 }
 
@@ -43,6 +46,7 @@ const FWD = new THREE.Vector3(1, 0, 0)
 function Vehicle({ spawn }) {
   const T = VEHICLE_TYPES[spawn.type]
   const { world, rapier } = useRapier()
+  if (typeof window !== 'undefined') { window.__vswWorld = world; window.__vswRapier = rapier }
   const body = useRef()
   const ctl = useRef(null)
   const wheelRefs = useRef([])
@@ -55,8 +59,13 @@ function Vehicle({ spawn }) {
   const prevCam = useRef(null)
   const colHandles = useRef(new Set())
 
-  const L = T.wheelBase / 2, W = T.track / 2, CY = 0.55
-  const wheelPos = [[L, -W], [L, W], [-L, -W], [-L, W]]
+  const W = T.track / 2, CY = T.cy ?? 0.55
+  const layout = useMemo(() => wheelLayout(T), [T])
+  const wheelPos = layout // [x, z, steered]
+  const nW = layout.length
+  const leanRef = useRef()
+  const leanVal = useRef(0)
+  const groundLocal = CY - T.suspension.rest - T.wheelRadius // height of the ground under the chassis origin
 
   // ---- physics: create the controller once the chassis exists ----
   useEffect(() => {
@@ -78,7 +87,7 @@ function Vehicle({ spawn }) {
         vc.setWheelSideFrictionStiffness(i, 1)
       })
       // mass set directly with a low centre of mass (colliders carry no mass): stable in turns
-      rb.setAdditionalMassProperties(T.mass, { x: 0, y: T.com, z: 0 }, { x: 900, y: 5000, z: 4700 }, { w: 1, x: 0, y: 0, z: 0 }, true)
+      rb.setAdditionalMassProperties(T.mass, { x: 0, y: T.com, z: 0 }, T.inertia || { x: 900, y: 5000, z: 4700 }, { w: 1, x: 0, y: 0, z: 0 }, true)
       ctl.current = vc
       vehicleBodies.set(spawn.id, { body: rb, controller: vc, door: () => toWorld([0.2, 0, -(W + 0.6)]) })
       for (let i = 0; i < rb.numColliders(); i++) colHandles.current.add(rb.collider(i).handle)
@@ -108,8 +117,10 @@ function Vehicle({ spawn }) {
   }
 
   // ---- getting in and out ----
+  const price = priceOf(spawn.id) // 0 for the free starter fleet
   const enter = () => {
     if (useDriving.getState().vehicleId || playerState.seated) return
+    if (price && !useJobs.getState().buyVehicle(spawn.id, price, T.name)) return // toast already shown
     const col = world.getCollider(playerState.colliderHandle)
     col?.setEnabled(false)
     prevCam.current = { distance: cameraState.distance, pitch: cameraState.pitch }
@@ -153,7 +164,11 @@ function Vehicle({ spawn }) {
   useEffect(() => registerInteractable('vehicle-' + spawn.id, {
     position: () => (body.current ? toWorld([0.2, 0, -(W + 0.6)]) : new THREE.Vector3(...spawn.position)),
     radius: 2.2,
-    label: () => (useDriving.getState().vehicleId ? `${T.name}` : `Drive the ${T.name}`),
+    label: () => {
+      if (useDriving.getState().vehicleId) return T.name
+      if (price && !useJobs.getState().vehicles.includes(spawn.id)) return `Buy the ${T.name} · ${price} cr`
+      return `Drive the ${T.name}`
+    },
     onInteract: () => { if (!useDriving.getState().vehicleId) enter() },
   }), []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -180,13 +195,13 @@ function Vehicle({ spawn }) {
     if (live && input.brake) { brake = T.brakeForce * 1.4; engine = 0 }
     const maxSteer = T.maxSteer * (1 - Math.min(0.65, (Math.abs(speed) / T.maxSpeed) * 0.75))
     steer.current += (steerIn * maxSteer - steer.current) * 0.1
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < nW; i++) {
       vc.setWheelEngineForce(i, engine)
       vc.setWheelBrake(i, brake)
-      vc.setWheelSteering(i, i < 2 ? steer.current : 0)
+      vc.setWheelSteering(i, wheelPos[i][2] ? steer.current : 0)
     }
     vc.updateVehicle(1 / 60, undefined, undefined, (c) => c.handle !== playerState.colliderHandle && !c.isSensor())
-    stabilise(body.current, 1 / 60)
+    stabilise(body.current, 1 / 60, T)
     watchdog(1 / 60)
   })
 
@@ -197,7 +212,7 @@ function Vehicle({ spawn }) {
     if (!rb) return
     const t = rb.translation()
     // fell out of the world, or left the map: put it back on the nearest road
-    if (t.y < -6 || Math.abs(t.x) > 127 || Math.abs(t.z) > 127) { reset(); return }
+    if (t.y < -6 || t.x > 340 || t.x < -127 || Math.abs(t.z) > 127) { reset(); return }
     const up = upDot(rb)
     if (up < 0.35 && Math.hypot(rb.linvel().x, rb.linvel().z) < 2) {
       overSince.current += dt
@@ -270,7 +285,7 @@ function Vehicle({ spawn }) {
     const vc = ctl.current
     const rb = body.current
     if (!vc || !rb) return
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < nW; i++) {
       const g = wheelRefs.current[i]
       if (!g) continue
       const susp = vc.wheelSuspensionLength(i) ?? T.suspension.rest
@@ -279,6 +294,14 @@ function Vehicle({ spawn }) {
       g.children[0].rotation.z = -(vc.wheelRotation(i) || 0)
     }
     const speed = vc.currentVehicleSpeed()
+    if (T.lean && leanRef.current) {
+      // lean into the turn (pivoting at the ground): left steer (+) leans left (-x rotation)
+      const want = -(steer.current / T.maxSteer) * T.lean * Math.min(1, Math.abs(speed) / 9)
+      leanVal.current += (want - leanVal.current) * Math.min(1, dt * 6)
+      const a = leanVal.current
+      leanRef.current.rotation.x = a
+      leanRef.current.position.set(0, groundLocal * (1 - Math.cos(a)), -groundLocal * Math.sin(a))
+    }
     if (tail.current) tail.current.emissiveIntensity = (useDriving.getState().vehicleId === spawn.id && (input.brake || (input.move.y < -0.05 && speed > 0.5))) ? 3 : 0.4 + 1.2 * envNight()
     if (useDriving.getState().vehicleId !== spawn.id) return
     // the avatar rides in the driver's seat; the camera follows the car
@@ -307,29 +330,55 @@ function Vehicle({ spawn }) {
     <RigidBody ref={body} type="dynamic" colliders={false} position={spawn.position} rotation={[0, spawn.heading, 0]} linearDamping={0.05} angularDamping={0.8} ccd canSleep={false} userData={{ vehicle: spawn.id }}>
       {/* massless colliders: mass and a low centre of mass are set directly (see setAdditionalMassProperties) */}
       {T.colliders.map((c, i) => <CuboidCollider key={i} args={c.half} position={c.at} density={0} friction={0.3} />)}
-      {T.style === 'suv' ? <SuvBody T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} /> : <StyledBody T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} />}
-      {wheelPos.map(([x, z], i) => (
-        <group key={i} ref={(g) => (wheelRefs.current[i] = g)} position={[x, CY - T.suspension.rest, z]}>
-          <Wheel T={T} side={z < 0 ? -1 : 1} />
-        </group>
-      ))}
-      {driving && (
-        <group ref={driverRef} position={[T.driverSeat[0], T.driverSeat[1] - 0.42, T.driverSeat[2]]} rotation={[0, Math.PI / 2, 0]}>
-          <Avatar state={driverState} accent={profile.accent} skin={profile.skin} />
-        </group>
-      )}
+      <group ref={leanRef}>
+        <BodyFor T={T} paint={spawn.paint} accent={spawn.accent} tailRef={tail} />
+        {wheelPos.map(([x, z, steered], i) => (
+          <group key={i} ref={(g) => (wheelRefs.current[i] = g)} position={[x, CY - T.suspension.rest, z]}>
+            {T.hideWheels ? <group /> : <Wheel T={T} side={z < 0 ? -1 : 1} front={!!steered} paint={spawn.paint} accent={spawn.accent} />}
+          </group>
+        ))}
+        {driving && (
+          <group ref={driverRef} position={[T.driverSeat[0], T.driverSeat[1] - 0.42, T.driverSeat[2]]} rotation={[0, Math.PI / 2, 0]}>
+            <Avatar state={driverState} accent={profile.accent} skin={profile.skin} />
+          </group>
+        )}
+      </group>
     </RigidBody>
   )
 }
 
 const envNight = () => env.night || 0
 
-function Wheel({ T, side }) {
+function BodyFor({ T, paint, accent, tailRef }) {
+  const props = { T, paint, accent, tailRef }
+  switch (T.style) {
+    case 'suv': return <SuvBody {...props} />
+    case 'jetski': return <JetSkiBody {...props} />
+    case 'opengx': return <OpenGBody {...props} />
+    case 'evsuv': return <EvSuvBody {...props} />
+    case 'crossover': return <CrossoverBody {...props} />
+    case 'limo': return <LimoBody {...props} />
+    case 'ev': return <EvBody {...props} />
+    case 'sling': return <SlingBody {...props} />
+    case 'cruiser': return <CruiserBody {...props} />
+    case 'sportbike': return <SportBikeBody {...props} />
+    default: return <StyledBody {...props} />
+  }
+}
+
+function BikeFork({ T, paint, accent }) {
+  const mats = useBodyMats(paint, accent, null)
+  return <BikeFront T={T} sport={T.style === 'sportbike'} mats={mats} />
+}
+
+function Wheel({ T, side, front, paint, accent }) {
   const m = getMaterials()
   const tire = m.shared('tire', () => new THREE.MeshStandardMaterial({ color: '#141414', roughness: 0.9 }))
   const rim = m.shared('rimChrome', () => new THREE.MeshStandardMaterial({ color: '#c9ccd2', roughness: 0.2, metalness: 1 }))
   const r = T.wheelRadius, w = T.wheelWidth
+  const bikeFront = T.layout === 'bike' && front
   return (
+    <>
     <group>
       <mesh rotation={[Math.PI / 2, 0, 0]} material={tire} castShadow><cylinderGeometry args={[r, r, w, 28]} /></mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, side * (w / 2 + 0.002)]} material={rim}><cylinderGeometry args={[r * 0.68, r * 0.68, 0.02, 24]} /></mesh>
@@ -337,6 +386,8 @@ function Wheel({ T, side }) {
         <mesh key={k} position={[0, 0, side * (w / 2 + 0.012)]} rotation={[0, 0, (k * Math.PI) / 3]} material={rim}><boxGeometry args={[r * 1.2, 0.05, 0.02]} /></mesh>
       ))}
     </group>
+    {bikeFront && <BikeFork T={T} paint={paint} accent={accent} />}
+    </>
   )
 }
 
@@ -355,19 +406,24 @@ function SuvBody({ T, paint, accent, tailRef }) {
   }, [paint, accent])
   useEffect(() => { tailRef.current = mats.tail }, [mats, tailRef])
   const Lh = T.length / 2, Wh = T.width / 2
+  const cl = T.cabLen ?? 3.0 // cabin length
+  const floating = T.variant === 'floating'
   return (
     <group userData={{ noBatch: true }}>
       {/* lower body + hood + cabin */}
       <mesh position={[0, 0.92, 0]} material={mats.body} castShadow receiveShadow><boxGeometry args={[T.length, 0.78, T.width]} /></mesh>
       <mesh position={[Lh - 0.85, 1.36, 0]} material={mats.body} castShadow><boxGeometry args={[1.7, 0.12, T.width - 0.06]} /></mesh>
-      <mesh position={[-0.35, 1.68, 0]} material={mats.body} castShadow><boxGeometry args={[3.0, 0.62, T.width - 0.16]} /></mesh>
-      <mesh position={[-0.35, 2.0, 0]} material={mats.plastic}><boxGeometry args={[2.9, 0.04, T.width - 0.3]} /></mesh>
+      <mesh position={[-0.35, 1.68, 0]} material={floating ? mats.plastic : mats.body} castShadow><boxGeometry args={[cl, 0.62, T.width - 0.16]} /></mesh>
+      {floating
+        ? <mesh position={[-0.35, 2.02, 0]} material={mats.body} castShadow><boxGeometry args={[cl + 0.1, 0.07, T.width - 0.06]} /></mesh>
+        : <mesh position={[-0.35, 2.0, 0]} material={mats.plastic}><boxGeometry args={[cl - 0.1, 0.04, T.width - 0.3]} /></mesh>}
+      {floating && [-1, 1].map((s) => <mesh key={'fl' + s} position={[Lh - 0.9, 1.28, s * 0.5]} material={mats.trim}><boxGeometry args={[1.2, 0.02, 0.03]} /></mesh>)}
       {/* glass: windscreen, side windows, rear */}
       <mesh position={[1.17, 1.66, 0]} rotation={[0, 0, 0.42]} material={mats.glass}><boxGeometry args={[0.04, 0.66, T.width - 0.26]} /></mesh>
-      {[-1, 1].map((s) => <mesh key={s} position={[-0.35, 1.7, s * (Wh - 0.075)]} material={mats.glass}><boxGeometry args={[2.8, 0.5, 0.02]} /></mesh>)}
-      <mesh position={[-1.86, 1.7, 0]} material={mats.glass}><boxGeometry args={[0.03, 0.5, T.width - 0.3]} /></mesh>
+      {[-1, 1].map((s) => <mesh key={s} position={[-0.35, 1.7, s * (Wh - 0.075)]} material={mats.glass}><boxGeometry args={[cl - 0.2, 0.5, 0.02]} /></mesh>)}
+      <mesh position={[-0.35 - cl / 2 - 0.01, 1.7, 0]} material={mats.glass}><boxGeometry args={[0.03, 0.5, T.width - 0.3]} /></mesh>
       {/* pillars */}
-      {[0.9, -0.3, -1.55].flatMap((x) => [-1, 1].map((s) => <mesh key={x + ':' + s} position={[x, 1.7, s * (Wh - 0.07)]} material={mats.plastic}><boxGeometry args={[0.1, 0.62, 0.04]} /></mesh>))}
+      {[0.9, -0.3, -0.35 - cl / 2 + 0.2].flatMap((x) => [-1, 1].map((s) => <mesh key={x + ':' + s} position={[x, 1.7, s * (Wh - 0.07)]} material={mats.plastic}><boxGeometry args={[0.1, 0.62, 0.04]} /></mesh>))}
       {/* grille, headlights, tail lights, trim */}
       <mesh position={[Lh + 0.005, 1.0, 0]} material={mats.trim}><boxGeometry args={[0.02, 0.5, 1.1]} /></mesh>
       {[-0.1, 0, 0.1, 0.2].map((y) => <mesh key={y} position={[Lh + 0.012, 0.92 + y, 0]} material={mats.plastic}><boxGeometry args={[0.01, 0.03, 1.04]} /></mesh>)}
@@ -396,22 +452,6 @@ function SuvBody({ T, paint, accent, tailRef }) {
       ))}
     </group>
   )
-}
-
-function useBodyMats(paint, accent, tailRef) {
-  const mats = useMemo(() => ({
-    body: new THREE.MeshPhysicalMaterial({ color: paint, roughness: 0.22, metalness: 0.75, clearcoat: 1, clearcoatRoughness: 0.08 }),
-    trim: new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 1 }),
-    chrome: new THREE.MeshStandardMaterial({ color: '#d6d8dc', roughness: 0.15, metalness: 1 }),
-    glass: new THREE.MeshPhysicalMaterial({ color: '#0d1116', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.55 }),
-    head: nightLit(new THREE.MeshStandardMaterial({ color: '#e9eef5', emissive: '#fff6e0', roughness: 0.1 }), 3, 0.25),
-    drl: nightLit(new THREE.MeshStandardMaterial({ color: accent, emissive: accent, roughness: 0.2 }), 2.2, 0.9),
-    tail: new THREE.MeshStandardMaterial({ color: '#4a0608', emissive: '#ff1a1a', emissiveIntensity: 0.4, roughness: 0.3 }),
-    plastic: new THREE.MeshStandardMaterial({ color: '#16171a', roughness: 0.8 }),
-    interior: new THREE.MeshStandardMaterial({ color: '#2a2220', roughness: 0.7 }),
-  }), [paint, accent])
-  useEffect(() => { tailRef.current = mats.tail }, [mats, tailRef])
-  return mats
 }
 
 const box = (key, mat, pos, size, rot) => <mesh key={key} position={pos} rotation={rot} material={mat} castShadow><boxGeometry args={size} /></mesh>
@@ -473,8 +513,13 @@ function StyledBody({ T, paint, accent, tailRef }) {
     parts.push(box('lo', m.body, [0, 0.98, 0], [T.length, 0.84, T.width]))
     parts.push(box('cab', m.body, [-0.25, 1.78, 0], [2.9, 0.78, T.width - 0.12]))
     parts.push(box('ws', m.glass, [1.22, 1.78, 0], [0.04, 0.66, T.width - 0.3], [0, 0, 0.16]))
-    parts.push(box('rack', m.plastic, [-0.3, 2.22, 0], [2.6, 0.06, T.width - 0.2]))
-    ;[-0.9, 0, 0.9].forEach((x) => parts.push(box('rb' + x, m.plastic, [x - 0.3, 2.28, 0], [0.05, 0.06, T.width - 0.15])))
+    if (T.variant === 'retro') {
+      parts.push(box('roofc', m.trim, [-0.25, 2.2, 0], [2.7, 0.07, T.width - 0.08])) // contrasting roof panel
+      parts.push(box('sidec', m.trim, [Lh - 0.9, 1.4, 0], [0.9, 0.02, T.width - 0.1]))
+    } else {
+      parts.push(box('rack', m.plastic, [-0.3, 2.22, 0], [2.6, 0.06, T.width - 0.2]))
+      ;[-0.9, 0, 0.9].forEach((x) => parts.push(box('rb' + x, m.plastic, [x - 0.3, 2.28, 0], [0.05, 0.06, T.width - 0.15])))
+    }
     ;[-1, 1].forEach((k) => {
       parts.push(box('sw' + k, m.glass, [-0.3, 1.86, k * (Wh - 0.055)], [2.6, 0.5, 0.02]))
       ;[T.wheelBase / 2, -T.wheelBase / 2].forEach((x) => parts.push(box('fl' + k + x, m.plastic, [x, 1.12, k * (Wh + 0.07)], [1.25, 0.16, 0.16])))

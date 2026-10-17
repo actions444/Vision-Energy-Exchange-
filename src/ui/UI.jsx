@@ -1,3 +1,4 @@
+import { SPAWNS, BLOCKS, PARK, PARADE } from '../config/westend.js'
 import Objective, { restartObjective } from './Objective.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
@@ -22,15 +23,35 @@ import MediaAdmin from './MediaAdmin.jsx'
 import RecordsPanel from './RecordsPanel.jsx'
 import CinemaPanel from './CinemaPanel.jsx'
 import AdminAccess from './AdminAccess.jsx'
+import NpcShiftsAdmin from './NpcShiftsAdmin.jsx'
 import DecorPanel from './DecorPanel.jsx'
+import LightsPanel from './LightsPanel.jsx'
+import GuidePanel from './GuidePanel.jsx'
+import { ttsSupported } from '../audio/tts.js'
+import JusticePanel from './JusticePanel.jsx'
+import CarPanel from './CarPanel.jsx'
+import { PowerChip } from './PowerChip.jsx'
+import JobsPanel from './JobsPanel.jsx'
+import AtmPanel from './AtmPanel.jsx'
+import LibraryPanel from './LibraryPanel.jsx'
+import ExhibitPanel from './ExhibitPanel.jsx'
+import WorkoutHud from './WorkoutHud.jsx'
+import UnderwaterTint from './UnderwaterTint.jsx'
+import BreathBar from './BreathBar.jsx'
+import { JobsChip, ShiftHud } from './JobHud.jsx'
 import { useDecor, openDecorator } from '../decor/decor.js'
 import { spaceAt } from '../decor/spaces.js'
+import { useSocial } from '../state/social.js'
+import LivePanel from './LivePanel.jsx'
 import { usePreview, endTour } from '../rentals/preview.js'
 import { screenForZone, unlockCinema } from '../cinema/cinema.js'
 import { useMusic } from '../music/engine.js'
 import { useDriving, vehicleActions } from '../vehicles/vehicles.js'
+import { OUTFITS } from '../config/outfits.js'
+import CineOverlay from './CineOverlay.jsx'
+import { useCine } from '../state/cine.js'
 
-const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access'])
+const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access', 'npcs'])
 
 export default function UI() {
   const phase = useStore((s) => s.phase)
@@ -39,19 +60,24 @@ export default function UI() {
   const admin = useBackend((s) => s.admin)
   // owner panels never render for visitors (the backend also refuses their writes)
   const ok = !ADMIN_PANELS.has(panel?.type) || admin
+  const film = useCine((s) => s.active)
   return (
     <>
+      <CineOverlay />
+      <UnderwaterTint />
+      <BreathBar />
       {!ready && <Loading />}
       {ready && phase === 'start' && <StartScreen />}
-      {phase === 'playing' && <HUD />}
-      {phase === 'playing' && <TouchControls />}
-      {phase === 'playing' && <MusicPlayer />}
+      {phase === 'playing' && !film && <HUD />}
+      {phase === 'playing' && !film && <TouchControls />}
+      {phase === 'playing' && !film && <MusicPlayer />}
       {phase === 'playing' && <DecorPanel />}
       {ok && panel?.type === 'music' && <MusicAdmin />}
       {ok && panel?.type === 'admin' && <AdminHub />}
       {ok && panel?.type === 'world' && <WorldAdmin />}
       {ok && panel?.type === 'media' && <MediaAdmin />}
       {ok && panel?.type === 'access' && <AdminAccess />}
+      {ok && panel?.type === 'npcs' && <NpcShiftsAdmin />}
       {panel?.type === 'records' && <RecordsPanel />}
       {panel?.type === 'cinema' && <CinemaPanel screenId={panel.screenId} />}
       {panel?.type === 'elevator' && <ElevatorPanel />}
@@ -59,6 +85,16 @@ export default function UI() {
       {ok && panel?.type === 'rentals' && <RentalAdmin />}
       {panel?.type === 'content' && <ContentPanel id={panel.id} />}
       {panel?.type === 'assets' && <AssetPanel />}
+      {panel?.type === 'lights' && <LightsPanel />}
+      {panel?.type === 'guide' && <GuidePanel />}
+      {panel?.type === 'justice' && <JusticePanel />}
+      {panel?.type === 'jobs' && <JobsPanel tab={panel.tab} />}
+      {panel?.type === 'atm' && <AtmPanel />}
+      {panel?.type === 'live' && <LivePanel spaceId={panel.spaceId} spaceName={panel.spaceName} />}
+      {panel?.type === 'library' && <LibraryPanel />}
+      {panel?.type === 'exhibit' && <ExhibitPanel />}
+      <WorkoutHud />
+      {panel?.type === 'car' && <CarPanel id={panel.id} />}
       {panel?.type === 'settings' && <SettingsPanel />}
       {panel?.type === 'help' && <HelpPanel />}
       <Toast />
@@ -176,6 +212,34 @@ function StartScreen() {
   )
 }
 
+
+/** Small district map for the Places panel: the original map on the right, the West End on the left, you as a dot. */
+function PlacesMap() {
+  const [pos, setPos] = useState([playerState.position.x, playerState.position.z])
+  useEffect(() => { const t = setInterval(() => setPos([playerState.position.x, playerState.position.z]), 400); return () => clearInterval(t) }, [])
+  const L = (x, z, t, size = 7, anchor = 'middle', fill = '#e9e6f2') => <text x={x} y={z} fontSize={size} textAnchor={anchor} fill={fill} fontWeight="700">{t}</text>
+  const names = { ne: 'MEADOWBROOK', se: 'MAPLE COURT (P4)', nm: 'FOOTBALL', sm: 'REC COURTS', nw: 'CEDAR WORKS', sw: 'LANDFILL + RECYCLING' }
+  const built = { ne: true, nm: true, sm: true, nw: true, sw: true }
+  return (
+    <svg viewBox="-405 -135 540 270" className="places-map" role="img" aria-label="District map">
+      <rect x="-400" y="-130" width="530" height="260" fill="#26262e" />
+      <rect x="-130" y="-130" width="260" height="260" fill="#2e2e38" />
+      <rect x="-120" y="-120" width="240" height="134" fill="#4b4b57" /><rect x="-120" y="26" width="240" height="94" fill="#4b4b57" />
+      {Object.entries(BLOCKS).map(([id, [x0, x1, z0, z1]]) => <rect key={id} x={x0} y={z0} width={x1 - x0} height={z1 - z0} fill={built[id] ? '#496b57' : '#5b5560'} stroke={built[id] ? '#7bd1a0' : '#8a8494'} strokeWidth="1" strokeDasharray={built[id] ? '' : '4 3'} />)}
+      <rect x={PARK.x0} y={PARK.z0} width={PARK.x1 - PARK.x0} height={PARK.z1 - PARK.z0} fill="#3f8a55" opacity=".9" />
+      {Object.entries(BLOCKS).map(([id, [x0, x1, z0, z1]]) => <g key={id}>{L((x0 + x1) / 2, (z0 + z1) / 2 + (id === 'ne' ? -62 : 0), names[id], 9)}</g>)}
+      {[[PARADE.laundromat, '#ff3fae'], [PARADE.cleaners, '#25e6d3']].map(([r, c], i) => <rect key={i} x={r.x0} y={r.z0} width={r.x1 - r.x0} height={r.z1 - r.z0} fill={c} opacity=".85" />)}
+      {L((PARADE.laundromat.x0 + PARADE.cleaners.x1) / 2, 52, 'HARBOR PARADE', 6, 'middle', '#ffb3dc')}
+      {L((PARK.x0 + PARK.x1) / 2, (PARK.z0 + PARK.z1) / 2, 'PARK', 9)}
+      {L(-265, 24, 'HARBOR BLVD', 8, 'middle', '#ffd66b')}
+      {L(-208, -122, 'MAPLE AVE', 6, 'middle', '#ffd66b')}
+      {L(-312, -122, 'CEDAR AVE', 6, 'middle', '#ffd66b')}
+      {L(0, 24, 'DOWNTOWN', 14, 'middle', '#ffffff')}
+      <circle cx={pos[0]} cy={pos[1]} r="5" fill="#ff4fa3" stroke="#fff" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
 // ---------- In-game HUD ----------
 function HUD() {
   const mode = useStore((s) => s.mode)
@@ -190,10 +254,13 @@ function HUD() {
   const admin = useBackend((s) => s.admin)
   const zoneId = useMusic((s) => s.zoneId)
   const [menu, setMenu] = useState(false)
+  const [places, setPlaces] = useState(false)
   const [spaceId, setSpaceId] = useState(null)
+  const [spaceName, setSpaceName] = useState(null)
   const decorOpen = useDecor((s) => s.open)
   const tour = usePreview((s) => s.tour)
-  useEffect(() => { const t = setInterval(() => setSpaceId(spaceAt(playerState.position)?.id || null), 500); return () => clearInterval(t) }, [])
+  const liveSpaceId = useSocial((s) => s.liveSpaceId)
+  useEffect(() => { const t = setInterval(() => { const sp = spaceAt(playerState.position); setSpaceId(sp?.id || null); setSpaceName(sp?.name || null) }, 500); return () => clearInterval(t) }, [])
 
   const exit = () => {
     net.disconnect()
@@ -204,10 +271,14 @@ function HUD() {
   const buttons = [
     admin && ['owner', 'Owner tools', () => openPanel({ type: 'admin' }), 'Media library, music, rentals, time & weather'],
     spaceId && !decorOpen && !tour && ['decorate', 'Decorate', () => openDecorator(spaceId), 'Furniture, lighting, flooring, walls and doors for this room'],
+    (spaceId || liveSpaceId) && !tour && ['live', liveSpaceId ? 'Vision Live · on air' : 'Go Live', () => openPanel({ type: 'live', spaceId, spaceName }), 'Stream from a space you own or rent; grow followers and unlock sponsorships'],
     zoneId === 'records' && ['albums', 'Browse albums', () => openPanel({ type: 'records' })],
     screenForZone(zoneId) && ['screen', 'Screen & sound', () => { unlockCinema(); openPanel({ type: 'cinema', screenId: screenForZone(zoneId).id }) }],
     ['rent', 'Rent a space', () => openPanel({ type: 'rent' })],
     ['assets', 'My avatar', () => openPanel({ type: 'assets' }), 'Import your own 3D avatar (stays on this device)'],
+    ['lights', 'Lights', () => openPanel({ type: 'lights' }), 'Switch rooms off and see what the lights are costing'],
+    ['guide', 'TV guide', () => openPanel({ type: 'guide' }), 'What every screen shows, and when; the owner schedules music videos and movies'],
+    ['places', 'Places', () => setPlaces((v) => !v), 'Travel to a district: downtown, Meadowbrook Park, the West End'],
     ['settings', 'Settings', () => openPanel({ type: 'settings' })],
     ['help', 'Help', () => openPanel({ type: 'help' })],
     ['unstuck', 'Unstuck', () => { playerState.unstuck = true }, 'Stuck in something? Moves you to the nearest clear spot'],
@@ -225,6 +296,8 @@ function HUD() {
             {mode === 'multi' && <em>{transport === 'tabs' ? 'tabs' : 'server'}</em>}
           </span>
           <Clock />
+          <PowerChip />
+          <JobsChip />
         </div>
         {isTouch ? (
           <nav className="hud-right hud-menu">
@@ -242,6 +315,16 @@ function HUD() {
         )}
         {!tour && <div className="hud-objective"><Objective /></div>}
       </div>
+      {places && (
+        <div className="places-list" role="menu" aria-label="Places">
+          <b>Places</b>
+          <PlacesMap />
+          {[['downtown', 'Downtown avenue (start)', [0, 0.3, 10]], ...SPAWNS.map(([id, name, pos]) => [id, name, pos])].map(([id, name, pos]) => (
+            <button key={id} id={'place-' + id} role="menuitem" onClick={() => { playerState.teleport = pos; setPlaces(false); setMenu(false) }}>{name}</button>
+          ))}
+          <small>Phases 1 to 3 of the West End are built (apartments and park, football and recreation grounds, landfill, recycling and industrial row). Harbor Parade (Velvet Suds Laundromat and The Ironing Station) is built on the boulevard frontage of the south-east block. Phase 4, Maple Court, is not built yet and sits behind it.</small>
+        </div>
+      )}
 
       {media.audio && (
         <div className="now-playing">
@@ -258,6 +341,7 @@ function HUD() {
       )}
 
       {mode === 'multi' && <Chat />}
+      <ShiftHud />
       <DriveHud />
       {tour && (
         <div className="tour-bar" role="status">
@@ -297,15 +381,17 @@ function DriveHud() {
   const driving = useStore((s) => s.driving)
   const speed = useDriving((s) => s.speed)
   const gear = useDriving((s) => s.gear)
+  const alt = useDriving((s) => s.alt)
   if (!driving) return null
   const act = (k) => { const a = vehicleActions.get(useDriving.getState().vehicleId); a?.[k]() }
   return (
     <div className="drive-hud" aria-live="off">
       <b>{Math.round(speed * 2.237)}</b><small>mph</small>
       <span className="gear">{gear}</span>
+      {alt != null && <span className="gear" id="veh-alt">ALT {alt} m</span>}
       <em>{driving}</em>
-      <button className="btn small" id="veh-flip" onClick={() => act('flip')} title="Turn the vehicle upright (F)">Flip vehicle</button>
-      <button className="btn ghost small" id="veh-reset" onClick={() => act('reset')} title="Move the vehicle to the nearest road (R)">Reset vehicle</button>
+      <button className="btn small" id="veh-flip" onClick={() => act('flip')} title={alt != null ? 'Level the jet (F)' : 'Turn the vehicle upright (F)'}>{alt != null ? 'Level jet' : 'Flip vehicle'}</button>
+      <button className="btn ghost small" id="veh-reset" onClick={() => act('reset')} title={alt != null ? 'Return the jet to its pad (R)' : 'Move the vehicle to the nearest road (R)'}>{alt != null ? 'Return to pad' : 'Reset vehicle'}</button>
     </div>
   )
 }
@@ -417,16 +503,50 @@ function SettingsPanel() {
           <button className={settings.quality === 'low' ? 'on' : ''} onClick={() => setSetting('quality', 'low')}>Low</button>
         </div>
       </div>
+      <div className="row">
+        <span><b>Draw distance</b><small>Near hides far-off streets in a thicker haze, which cuts the work a lot on phones and in long straight views.</small></span>
+        <div className="seg small">
+          <button className={settings.drawDist !== 'near' ? 'on' : ''} onClick={() => setSetting('drawDist', 'far')}>Far</button>
+          <button className={settings.drawDist === 'near' ? 'on' : ''} onClick={() => setSetting('drawDist', 'near')}>Near</button>
+        </div>
+      </div>
       <Toggle k="bloom" label="Light glow" desc="Soft bloom around lamps, signs and screens." />
       <Toggle k="rain" label="Rain effects" desc="Show falling rain when the weather is rainy." />
+      {ttsSupported
+        ? <Toggle k="npcVoice" label="NPC voices" desc="Read townspeople and staff dialogue aloud with your browser's built-in voice when you talk to them." />
+        : <p className="hint">NPC voices: not supported in this browser.</p>}
       <div className="row">
-        <span><b>Street traffic</b><small>Cars driving on the cross street. Light or Off runs better on phones.</small></span>
+        <span><b>Street traffic</b><small>Cars driving on the cross street. Heavy adds a rush-hour jam; Light or Off runs better on phones.</small></span>
         <div className="seg small">
-          {[['off', 'Off'], ['light', 'Light'], ['normal', 'Normal']].map(([k, l]) => <button key={k} id={'traffic-' + k} className={settings.traffic === k ? 'on' : ''} onClick={() => setSetting('traffic', k)}>{l}</button>)}
+          {[['off', 'Off'], ['light', 'Light'], ['normal', 'Normal'], ['heavy', 'Heavy']].map(([k, l]) => <button key={k} id={'traffic-' + k} className={settings.traffic === k ? 'on' : ''} onClick={() => setSetting('traffic', k)}>{l}</button>)}
         </div>
       </div>
       <Toggle k="aircraft" label="Air traffic" desc="Airliners, private jets and a helicopter crossing the sky." />
       <Toggle k="aircraftSound" label="Aircraft sound" desc="Engine sound that gets louder as aircraft pass overhead." />
+      <div className="row">
+        <span><b>Avatar style</b><small>Classic is the neon robot look. Social has human proportions, a styled face, hair and fashion.</small></span>
+        <div className="seg small">
+          <button id="avatar-classic" className={settings.avatarStyle !== 'social' ? 'on' : ''} onClick={() => setSetting('avatarStyle', 'classic')}>Classic</button>
+          <button id="avatar-social" className={settings.avatarStyle === 'social' ? 'on' : ''} onClick={() => setSetting('avatarStyle', 'social')}>Social</button>
+        </div>
+      </div>
+      {settings.avatarStyle === 'social' && (
+        <div className="row">
+          <span><b>Body &amp; hair</b><small>Feminine adds a gown-ready figure and long hair; masculine adds a broader frame and short hair.</small></span>
+          <div className="seg small">
+            <button id="build-f" className={profile.build === 'f' ? 'on' : ''} onClick={() => setProfile({ build: 'f' })}>Feminine</button>
+            <button id="build-m" className={profile.build !== 'f' ? 'on' : ''} onClick={() => setProfile({ build: 'm' })}>Masculine</button>
+          </div>
+        </div>
+      )}
+      {settings.avatarStyle === 'social' && (
+        <div className="row">
+          <span><b>Outfit</b><small>Doctor, CEO suit, animal-print top, tank and leggings, or a camel overcoat.</small></span>
+          <div className="seg small" style={{ flexWrap: 'wrap' }}>
+            {OUTFITS.map((o) => <button key={o.id} id={'outfit-' + o.id} className={(profile.preset || 'default') === o.id ? 'on' : ''} onClick={() => setProfile({ preset: o.id })}>{o.label}</button>)}
+          </div>
+        </div>
+      )}
       <div className="row">
         <span><b>Accent color</b><small>Your avatar's accent lights.</small></span>
         <div className="swatches">
@@ -500,6 +620,9 @@ function HelpPanel() {
       <p className="hint">On a phone: left thumb on the joystick (push to the edge to run), drag anywhere else to look, tap the prompt to interact.</p>
       <p className="hint">Driving: walk up to the driver's door of the black SUV on the lot behind the Plaza and press E (or tap). W/S or the joystick to drive and reverse, A/D to steer, Space (Brake on phones) to brake, E to get out.</p>
       <p className="hint"><button className="btn ghost small" id="objective-restart" onClick={restartObjective}>Start the cinema guide again</button></p>
+      <p className="hint">Reign Estate: the mansion north of Vision Motors. Walk up and the front doors open. Press E in the foyer or at the gate to watch the “Stay” duet (cinematic; Esc or Skip ends it).</p>
+      <p className="hint">Vision Motors &amp; Skyport: on the east side past the Employment District (drive in from the cross street, or walk). Seven cars, two three-wheel roadsters and four motorcycles stand in the bays; press E at any of them. Bikes lean into turns. The two VTOL jets are on the beach pads: W/S thrust, A/D turn, Space climb, Shift descend, land and stop to press E. F levels the jet, R returns it to its pad.</p>
+      <p className="hint">Jobs: the Employment District is on the cross street, east of the avenue past the Vision Music Lounge (look for the banner). Hire on at the Job Center, buy your uniform in its shop, clock in at the time clock, then follow the gold beacon and press E at each stop. Pay arrives on your pay schedule; the credits chip at the top shows your wallet. The two car washes charge 12 credits.</p>
       <p className="hint">The Vision Cinema is on the left of the avenue: walk into an auditorium, take a recliner, and open Screen &amp; sound.</p>
       <p className="hint">The Reign Gallery is at the end of the avenue, straight ahead from where you start. Vision Storms Energy Exchanges Plaza is behind you on the left, past the crossroads: take the stairs or the elevator to its three floors.</p>
     </Panel>

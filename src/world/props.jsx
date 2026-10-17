@@ -5,119 +5,16 @@ import * as THREE from 'three'
 import { getMaterials, surface } from './materials.js'
 import { nightLit, registerLightAnchor } from '../state/environment.js'
 import { useSeats } from '../state/seats.js'
+import { canvasTexture } from './canvasText.js'
+import { registerInteractable } from '../state/runtime.js'
+import { useStore } from '../state/store.js'
+export { Trees, FlowerBed, Planter, Lawn } from './flora/Plants.jsx'
 
 // Street furniture and landscaping shared by the city and buildings. Repeated things
 // (trees, shrubs, flowers) are instanced so hundreds of them cost a handful of draw calls.
 
 const rot = (yaw, x, z) => [x * Math.cos(yaw) + z * Math.sin(yaw), -x * Math.sin(yaw) + z * Math.cos(yaw)]
 function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s) }
-
-// ---------------- Trees ----------------
-/** @param {{ trees: [number, number, number, number?][] }} props  [x, y, z, scale] */
-export function Trees({ trees }) {
-  const trunk = useRef(), crown = useRef()
-  const trunkMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5a4636', roughness: 0.95 }), [])
-  const leafMat = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.9 }), [])
-  const crownGeo = useMemo(() => { const g = new THREE.IcosahedronGeometry(1, 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const k = 1 + (Math.sin(p.getX(i) * 9.1) * Math.cos(p.getZ(i) * 7.3) + Math.sin(p.getY(i) * 11.7)) * 0.07; p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k) } g.computeVertexNormals(); return g }, [])
-  const blobs = 6
-  useEffect(() => {
-    const d = new THREE.Object3D(), c = new THREE.Color()
-    trees.forEach(([x, y, z, s = 1], i) => {
-      d.position.set(x, y + 1.6 * s, z); d.rotation.set(0, hash(i) * 6, 0); d.scale.set(s, s, s); d.updateMatrix()
-      trunk.current.setMatrixAt(i, d.matrix)
-      for (let b = 0; b < blobs; b++) {
-        const a = (b / blobs) * Math.PI * 2 + hash(i + b) * 2
-        // one central mass, an upper crown and a ring of smaller lower clusters for a fuller silhouette
-        const r = b === 0 || b === 5 ? 0.15 * s : (1.0 + hash(i + b * 3) * 0.35) * s
-        const hY = b === 0 ? 4.6 : b === 5 ? 5.6 : 3.5 + hash(i * 3 + b) * 0.9
-        d.position.set(x + Math.cos(a) * r, y + hY * s, z + Math.sin(a) * r)
-        const k = (b === 0 ? 1.85 : b === 5 ? 1.25 : 1.05 + hash(i + b * 7) * 0.4) * s
-        d.scale.set(k, k * 0.85, k); d.rotation.set(hash(b) * 3, hash(i) * 3, 0); d.updateMatrix()
-        crown.current.setMatrixAt(i * blobs + b, d.matrix)
-        // lower clusters sit in shade; the top catches light
-        c.setHSL(0.24 + hash(i * 5 + b) * 0.07, 0.36 + hash(i + 9) * 0.2, (b === 5 ? 0.21 : b === 0 ? 0.17 : 0.14) + hash(i * 2 + b) * 0.07)
-        crown.current.setColorAt(i * blobs + b, c)
-      }
-    })
-    trunk.current.instanceMatrix.needsUpdate = true
-    crown.current.instanceMatrix.needsUpdate = true
-    crown.current.instanceColor.needsUpdate = true
-  }, [trees])
-  return (
-    <>
-      <instancedMesh ref={trunk} args={[null, null, trees.length]} material={trunkMat} castShadow>
-        <cylinderGeometry args={[0.13, 0.22, 3.2, 8]} />
-      </instancedMesh>
-      <instancedMesh ref={crown} args={[crownGeo, leafMat, trees.length * blobs]} castShadow receiveShadow />
-      <RigidBody type="fixed" colliders={false}>
-        {trees.map(([x, y, z, s = 1], i) => <CylinderCollider key={i} args={[1.5 * s, 0.25 * s]} position={[x, y + 1.5 * s, z]} />)}
-      </RigidBody>
-    </>
-  )
-}
-
-// ---------------- Flower bed ----------------
-const FLOWER_COLORS = ['#d6223a', '#f2c230', '#8e4fc9', '#ef6aa8', '#fbfbf5', '#f07a2a', '#3d6fd1']
-/** Raised bed with stone curb, mulch, shrubs and flowers. Walkable around, colliders on the curb only. */
-export function FlowerBed({ x, z, w, d, y = 0.15, seed = 1, shrubs = true, palette = FLOWER_COLORS }) {
-  const flowers = useRef(), leaves = useRef(), bushes = useRef()
-  const curb = surface('limestone', 1, 0.2)
-  const soil = surface('soil', w / 2, d / 2)
-  const area = w * d
-  const nF = Math.min(420, Math.floor(area * 9)), nL = Math.floor(nF * 0.7), nB = shrubs ? Math.max(2, Math.floor(area / 4)) : 0
-  const petal = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.7 }), [])
-  const leaf = useMemo(() => new THREE.MeshStandardMaterial({ color: '#3f6a2a', roughness: 0.9 }), [])
-  const bushMat = useMemo(() => new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), [])
-  useEffect(() => {
-    const o = new THREE.Object3D(), c = new THREE.Color()
-    const rnd = (i, k) => hash(seed * 1000 + i * 13 + k)
-    for (let i = 0; i < nF; i++) {
-      // flowers grouped into drifts of one colour
-      const drift = Math.floor(rnd(i, 1) * 5)
-      o.position.set(x + (rnd(i, 2) - 0.5) * (w - 0.5), y + 0.32 + rnd(i, 3) * 0.18, z + (rnd(i, 4) - 0.5) * (d - 0.5))
-      const s = 0.06 + rnd(i, 5) * 0.05
-      o.scale.set(s, s * 0.7, s); o.updateMatrix()
-      flowers.current.setMatrixAt(i, o.matrix)
-      c.set(palette[(drift + Math.floor(o.position.x * 0.7 + o.position.z * 0.4) + seed) % palette.length])
-      flowers.current.setColorAt(i, c)
-    }
-    for (let i = 0; i < nL; i++) {
-      o.position.set(x + (rnd(i, 6) - 0.5) * (w - 0.4), y + 0.24, z + (rnd(i, 7) - 0.5) * (d - 0.4))
-      o.scale.set(0.12, 0.1 + rnd(i, 8) * 0.1, 0.12); o.rotation.set(0, rnd(i, 9) * 3, 0); o.updateMatrix()
-      leaves.current.setMatrixAt(i, o.matrix)
-    }
-    for (let i = 0; i < nB; i++) {
-      const s = 0.35 + rnd(i, 10) * 0.3
-      o.position.set(x + (rnd(i, 11) - 0.5) * (w - 1), y + 0.3 + s * 0.6, z + (rnd(i, 12) - 0.5) * (d - 1))
-      o.scale.set(s, s * 0.85, s); o.updateMatrix()
-      bushes.current.setMatrixAt(i, o.matrix)
-      c.setHSL(0.27 + rnd(i, 13) * 0.06, 0.45, 0.2 + rnd(i, 14) * 0.08)
-      bushes.current.setColorAt(i, c)
-    }
-    flowers.current.instanceMatrix.needsUpdate = true
-    flowers.current.instanceColor.needsUpdate = true
-    leaves.current.instanceMatrix.needsUpdate = true
-    if (nB) { bushes.current.instanceMatrix.needsUpdate = true; bushes.current.instanceColor.needsUpdate = true }
-  }, [x, z, w, d, y, seed, nF, nL, nB, palette])
-  const t = 0.18, h = 0.32
-  return (
-    <group>
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[w / 2, h / 2, t / 2]} position={[x, y + h / 2, z - d / 2 + t / 2]} />
-        <CuboidCollider args={[w / 2, h / 2, t / 2]} position={[x, y + h / 2, z + d / 2 - t / 2]} />
-        <CuboidCollider args={[t / 2, h / 2, d / 2]} position={[x - w / 2 + t / 2, y + h / 2, z]} />
-        <CuboidCollider args={[t / 2, h / 2, d / 2]} position={[x + w / 2 - t / 2, y + h / 2, z]} />
-      </RigidBody>
-      {[[0, -d / 2 + t / 2, w, t], [0, d / 2 - t / 2, w, t], [-w / 2 + t / 2, 0, t, d], [w / 2 - t / 2, 0, t, d]].map(([ox, oz, sx, sz], i) => (
-        <mesh key={i} position={[x + ox, y + h / 2, z + oz]} material={curb} castShadow receiveShadow><boxGeometry args={[sx, h, sz]} /></mesh>
-      ))}
-      <mesh position={[x, y + 0.22, z]} rotation={[-Math.PI / 2, 0, 0]} material={soil} receiveShadow><planeGeometry args={[w - t * 2, d - t * 2]} /></mesh>
-      <instancedMesh ref={leaves} args={[null, leaf, nL]} receiveShadow><coneGeometry args={[1, 1, 5]} /></instancedMesh>
-      <instancedMesh ref={flowers} args={[null, petal, nF]}><icosahedronGeometry args={[1, 0]} /></instancedMesh>
-      {nB > 0 && <instancedMesh ref={bushes} args={[null, bushMat, nB]} castShadow><icosahedronGeometry args={[1, 1]} /></instancedMesh>}
-    </group>
-  )
-}
 
 // ---------------- Bench ----------------
 export function Bench({ position, yaw = 0, length = 2 }) {
@@ -192,6 +89,48 @@ export function Bollard({ position }) {
       <CylinderCollider args={[0.45, 0.1]} position={[0, 0.45, 0]} />
       <mesh position={[0, 0.4, 0]} material={m.blackSteel}><cylinderGeometry args={[0.09, 0.1, 0.8, 10]} /></mesh>
       <mesh position={[0, 0.72, 0]} material={glow}><cylinderGeometry args={[0.092, 0.092, 0.1, 10]} /></mesh>
+    </RigidBody>
+  )
+}
+
+// ---------------- ATM ----------------
+let atmTex = null
+function atmScreen() {
+  if (atmTex) return atmTex
+  atmTex = canvasTexture(256, 320, (ctx, w, h) => {
+    ctx.fillStyle = '#071018'; ctx.fillRect(0, 0, w, h)
+    ctx.strokeStyle = '#2fd0c4'; ctx.lineWidth = 3; ctx.strokeRect(10, 10, w - 20, h - 20)
+    ctx.fillStyle = '#2fd0c4'; ctx.textAlign = 'center'; ctx.font = '700 22px system-ui'
+    ctx.fillText('VSE', w / 2, 70)
+    ctx.font = '600 16px system-ui'
+    ctx.fillText('ATM', w / 2, 96)
+    ctx.fillStyle = '#9fb4c4'; ctx.font = '400 13px system-ui'
+    ctx.fillText('Deposit · Withdraw', w / 2, h - 40)
+    ctx.fillText('Press E', w / 2, h - 20)
+  })
+  return atmTex
+}
+/** A real working ATM: press E to open a panel that moves credits between cash (wallet) and the
+ * bank (safe). Give each instance a unique `id`. */
+export function Atm({ position, yaw = 0, id }) {
+  const m = getMaterials()
+  const screenMat = useMemo(() => new THREE.MeshBasicMaterial({ map: atmScreen(), toneMapped: false }), [])
+  useEffect(() => {
+    if (!id) return
+    return registerInteractable(id, {
+      position: new THREE.Vector3(position[0], position[1] + 1.0, position[2]),
+      radius: 1.6,
+      label: 'Use ATM',
+      onInteract: () => useStore.getState().openPanel({ type: 'atm', id }),
+    })
+  }, [id, position]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <RigidBody type="fixed" colliders={false} position={position} rotation={[0, yaw, 0]}>
+      <CuboidCollider args={[0.28, 0.75, 0.22]} position={[0, 0.75, 0]} />
+      <mesh position={[0, 0.75, 0]} material={m.blackSteel} castShadow><boxGeometry args={[0.56, 1.5, 0.42]} /></mesh>
+      <mesh position={[0, 1.05, 0.215]} material={screenMat}><planeGeometry args={[0.34, 0.42]} /></mesh>
+      <mesh position={[0, 0.65, 0.215]} material={m.chrome}><boxGeometry args={[0.3, 0.14, 0.012]} /></mesh>
+      <mesh position={[0, 0.45, 0.215]} material={m.darkMetal || m.blackSteel}><boxGeometry args={[0.2, 0.06, 0.02]} /></mesh>
     </RigidBody>
   )
 }
@@ -298,29 +237,6 @@ export function ParkingLot({ x0, x1, z0, z1, y = 0.15 }) {
       {cars.map(([x, z, yaw, color], i) => <Car key={i} position={[x, y, z]} yaw={yaw} color={color} />)}
       {[x0 + w * 0.25, x0 + w * 0.75].map((x) => <StreetLamp key={x} position={[x, y, cz]} yaw={0} double height={8} />)}
     </group>
-  )
-}
-
-// ---------------- Planter box with shrub ----------------
-export function Planter({ position, size = [1.2, 0.6, 1.2] }) {
-  const stone = surface('concrete', 0.5, 0.3)
-  const bush = getMaterials().shared('planterBush', () => new THREE.MeshStandardMaterial({ color: '#36592a', roughness: 0.9 }))
-  return (
-    <RigidBody type="fixed" colliders={false} position={position}>
-      <CuboidCollider args={[size[0] / 2, size[1] / 2, size[2] / 2]} position={[0, size[1] / 2, 0]} />
-      <mesh position={[0, size[1] / 2, 0]} material={stone} castShadow receiveShadow><boxGeometry args={size} /></mesh>
-      <mesh position={[0, size[1] + 0.35, 0]} material={bush} castShadow><icosahedronGeometry args={[Math.min(size[0], size[2]) * 0.48, 1]} /></mesh>
-    </RigidBody>
-  )
-}
-
-// ---------------- Grass lawn (walkable) ----------------
-export function Lawn({ x0, x1, z0, z1, y = 0.15 }) {
-  const w = x1 - x0, d = z1 - z0
-  return (
-    <mesh position={[(x0 + x1) / 2, y + 0.004, (z0 + z1) / 2]} rotation={[-Math.PI / 2, 0, 0]} material={surface('grass', w / 5, d / 5)} receiveShadow>
-      <planeGeometry args={[w, d]} />
-    </mesh>
   )
 }
 

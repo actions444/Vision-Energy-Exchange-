@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CapsuleCollider, useRapier } from '@react-three/rapier'
 import * as THREE from 'three'
@@ -7,10 +7,15 @@ import { playerState, cameraState, SPAWN, findNearestInteractable } from '../sta
 import { useStore } from '../state/store.js'
 import { useAssets, registry } from '../assets/assetStore.js'
 import Avatar from './Avatar.jsx'
+import { outfit } from '../state/jobs.js'
+import { outfitLook } from '../config/outfits.js'
 import { ImportedAvatar } from '../assets/PlacedAssets.jsx'
 import { net, peerData } from '../net/netManager.js'
 import { elevator } from '../world/elevator.js'
+import { findRidingCar } from '../world/cars.js'
 import { ZONES } from '../config/rooms.js'
+import { waterAt, addRipple, addSplash } from '../state/water.js'
+import { sfx } from '../audio/sfx.js'
 
 const WALK = 2.6
 const RUN = 6.2
@@ -18,6 +23,17 @@ const JUMP = 6.4
 const GRAVITY = 22
 const CAPSULE_HALF = 0.5
 const CAPSULE_R = 0.35
+// Water: you wade until the water is deeper than SWIM_DEPTH, then swim with your shoulders at the surface.
+const SWIM = 2.0
+const SWIM_FAST = 3.5
+const SWIM_DEPTH = 1.5 // start swimming at this depth …
+const WADE_DEPTH = 1.3 // … and go back to wading below this one (hysteresis, so the edge of the ramp doesn't flicker)
+const FLOAT = 1.36 // feet this far under the surface while swimming (shoulders just above the water)
+const REACH = 1.45 // how close to the pool wall you must be to climb out
+const EYE = 1.5 // the head is under water when the feet are this far below the surface
+const BREATH_SECS = 22 // seconds you can stay under on one breath; a lifeguard brings you out at zero
+const DIVE_V = 1.7 // swim-down speed (m/s)
+const UP_V = 1.9 // swim-up speed (m/s)
 
 // Third-person character: Rapier kinematic character controller (slopes, steps/curbs,
 // snap-to-ground, sliding along walls) plus camera-relative movement.
@@ -81,6 +97,49 @@ function freeSpotNear(p, world, rapier, col) {
   return null
 }
 
+
+/** Y of the first solid thing under (x, y, z), or null. */
+function floorBelow(world, rapier, x, y, z, col, maxd = 8) {
+  const hit = world.castRay(new rapier.Ray({ x, y, z }, { x: 0, y: -1, z: 0 }), maxd, true, undefined, undefined, undefined, undefined, (c) => c.handle !== col.handle && !c.isSensor())
+  return hit ? y - hit.timeOfImpact : null
+}
+
+/**
+ * Where a swimmer at `p` can climb out of water volume `v`: the nearest wall (or ladder) within REACH,
+ * with a landing spot on the deck beyond the coping that the avatar's capsule fits in. Null if none.
+ */
+function climbTarget(v, p, world, rapier, col, reach = REACH) {
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x))
+  const out = v.rim + 0.75
+  const zc = clamp(p.z, v.z0 + 0.6, v.z1 - 0.6), xc = clamp(p.x, v.x0 + 0.6, v.x1 - 0.6)
+  const cands = [
+    { d: p.x - v.x0, hold: [v.x0 + 0.42, p.z], to: [v.x0 - out, zc], yaw: -Math.PI / 2 },
+    { d: v.x1 - p.x, hold: [v.x1 - 0.42, p.z], to: [v.x1 + out, zc], yaw: Math.PI / 2 },
+    { d: p.z - v.z0, hold: [p.x, v.z0 + 0.42], to: [xc, v.z0 - out], yaw: Math.PI },
+    { d: v.z1 - p.z, hold: [p.x, v.z1 - 0.42], to: [xc, v.z1 + out], yaw: 0 },
+  ]
+  for (const l of v.ladders || []) {
+    const d = Math.hypot(p.x - l.x, p.z - l.z) * 0.6 // a ladder within ~2.4 m wins over the bare wall
+    cands.push({ d, hold: [l.x, l.z], to: [l.x, l.z + (l.z < (v.z0 + v.z1) / 2 ? -out : out)], yaw: l.z < (v.z0 + v.z1) / 2 ? Math.PI : 0, ladder: true })
+  }
+  cands.sort((a, b) => a.d - b.d)
+  const shape = new rapier.Capsule(CAPSULE_HALF, CAPSULE_R)
+  const rot = { x: 0, y: 0, z: 0, w: 1 }
+  for (const c of cands) {
+    if (c.d > reach) break
+    const center = { x: c.to[0], y: v.deck + 0.06 + CAPSULE_HALF + CAPSULE_R, z: c.to[1] }
+    const hit = world.intersectionWithShape(center, rot, shape, undefined, undefined, undefined, undefined, (o) => o.handle !== col.handle && !o.isSensor())
+    if (!hit) return { hold: c.hold, to: c.to, yaw: c.yaw, ladder: !!c.ladder }
+  }
+  return null
+}
+
+/** The unit direction pointing away from the pool wall if one is within `d` metres of the swimmer's centre, else null. */
+function wallPush(v, p, d = 0.7) {
+  const a = [[p.x - v.x0, 1, 0], [v.x1 - p.x, -1, 0], [p.z - v.z0, 0, 1], [v.z1 - p.z, 0, -1]].sort((m, n) => m[0] - n[0])[0]
+  return a[0] < d ? [a[1], a[2]] : null
+}
+
 export default function Player() {
   const body = useRef()
   const collider = useRef()
@@ -90,6 +149,8 @@ export default function Player() {
   const sitAnim = useRef(null)
   const lastSafe = useRef(SPAWN.clone())
   const profile = useStore((s) => s.profile)
+  const avatarStyle = useStore((s) => s.settings.avatarStyle)
+  const socialLook = useMemo(() => (avatarStyle === 'social' ? { social: true, build: profile.build || 'm', longHair: (profile.build || 'm') === 'f', hair: profile.hair || '#14090d', eyes: profile.eyes || '#4a2f1c', noVisor: true, ...outfitLook(profile.preset, profile.build || 'm') } : null), [avatarStyle, profile.build, profile.hair, profile.eyes, profile.preset])
   const phase = useStore((s) => s.phase)
   const avatarCfg = useAssets((s) => s.avatar)
   const v = useRef(new THREE.Vector3())
@@ -147,15 +208,18 @@ export default function Player() {
         playerState.seated = seat
         const p0 = b.translation()
         sitAnim.current = { from: { x: p0.x, y: p0.y, z: p0.z }, t: 0 }
-        playerState.sit = 1
+        playerState.sit = seat.noSit ? 0 : 1
         playerState.sitHeight = seat.height
+        playerState.workout = seat.workout || null
         playerState.emote = null
         v.current.set(0, 0, 0)
       }
     }
     if (playerState.seated) {
       const seat = playerState.seated
-      const wantStand = input.interact && !panelOpen
+      // a workout station can also be left with Space or by walking away (after the glide into position)
+      const moveOut = seat.workout && sitAnim.current && sitAnim.current.t >= 1 && Math.hypot(input.move.x, input.move.y) > 0.6
+      const wantStand = (input.interact || (seat.workout && input.jump) || moveOut) && !panelOpen
       input.interact = false
       input.jump = false
       if (wantStand || playerState.respawn || playerState.teleport) {
@@ -163,6 +227,7 @@ export default function Player() {
         seat.occupiedBy = null
         playerState.seated = null
         playerState.sit = 0
+        playerState.workout = null
         const out = safeStandSpot(seat, world, rapier, col)
         if (!playerState.respawn && !playerState.teleport) { b.setNextKinematicTranslation(out); playerState.position.set(out.x, out.y, out.z) }
         useStore.getState().setPrompt(null)
@@ -191,11 +256,105 @@ export default function Player() {
         if (visual.current) visual.current.rotation.y = playerState.yaw
         if (lastPrompt.current !== 'stand') {
           lastPrompt.current = 'stand'
-          useStore.getState().setPrompt({ id: 'stand', label: 'Stand up' })
+          useStore.getState().setPrompt({ id: 'stand', label: seat.workout ? 'Stop workout' : 'Stand up' })
         }
         return
       }
     }
+
+    // ---------- climbing out of the water: swim to the wall, haul up over the coping, step onto the deck ----------
+    if (playerState.climb) {
+      const cl = playerState.climb
+      if (playerState.respawn || playerState.teleport) { playerState.climb = null }
+      else {
+        cl.t = Math.min(1, cl.t + dt / cl.dur)
+        const S = (x) => x * x * (3 - 2 * x)
+        const t = cl.t
+        const deckY = cl.deck
+        let x, y, z
+        if (t < 0.3) { const e = S(t / 0.3); x = cl.from.x + (cl.hold[0] - cl.from.x) * e; z = cl.from.z + (cl.hold[1] - cl.from.z) * e; y = cl.from.y + 0.1 * e }
+        else if (t < 0.75) { const e = S((t - 0.3) / 0.45); x = cl.hold[0]; z = cl.hold[1]; y = cl.from.y + 0.1 + (deckY - cl.from.y - 0.1) * e }
+        else { const e = S((t - 0.75) / 0.25); x = cl.hold[0] + (cl.to[0] - cl.hold[0]) * e; z = cl.hold[1] + (cl.to[1] - cl.hold[1]) * e; y = deckY }
+        b.setNextKinematicTranslation({ x, y, z })
+        playerState.position.set(x, y, z)
+        playerState.speed = 0
+        playerState.grounded = false
+        playerState.swim = 'swim'
+        let d = cl.yaw - playerState.yaw
+        d = Math.atan2(Math.sin(d), Math.cos(d))
+        playerState.yaw += d * (1 - Math.exp(-10 * dt))
+        if (visual.current) visual.current.rotation.y = playerState.yaw
+        input.jump = false; input.interact = false
+        if (t >= 1) {
+          playerState.climb = null; playerState.swim = null; playerState.grounded = true; playerState.vy = -1
+          v.current.set(0, 0, 0)
+          addRipple(cl.hold[0], cl.hold[1], state.clock.elapsedTime, 0.04)
+        }
+        if (lastPrompt.current) { lastPrompt.current = null; useStore.getState().setPrompt(null) }
+        return
+      }
+    }
+
+    // ---------- water: wade in the shallows, swim in the deep ----------
+    let mode = null
+    let water = null
+    if (!playerState.vehicle) {
+      const pw = b.translation()
+      water = waterAt(pw.x, pw.z)
+      if (water) {
+        const surf = water.surf
+        const fy = floorBelow(world, rapier, pw.x, surf + 0.3, pw.z, col)
+        const depth = surf - (fy ?? surf - 6)
+        playerState.waterDepth = depth
+        if (pw.y < surf - 0.04) mode = (playerState.swim === 'swim' ? depth >= WADE_DEPTH : depth >= SWIM_DEPTH) ? 'swim' : 'wade'
+        if (mode && !playerState.swim && playerState.vy < -1.5) {
+          const power = Math.min(1, -playerState.vy / 9 + (playerState.diveAir ? 0.25 : 0))
+          addSplash(pw.x, surf, pw.z, state.clock.elapsedTime, power)
+          sfx.splash(power)
+        } else if (mode && !playerState.swim) addRipple(pw.x, pw.z, state.clock.elapsedTime, 0.03)
+        if (mode) playerState.diveAir = false
+      }
+    }
+    playerState.swim = mode
+    // ---------- breath: the head under the surface uses it up, coming up refills it; at zero a lifeguard helps you out ----------
+    {
+      const pw = b.translation()
+      const hu = mode === 'swim' && !!water && pw.y + EYE < water.surf
+      if (hu !== playerState.headUnder) {
+        if (hu) sfx.bubbles()
+        else if (playerState.breath < 0.65) sfx.gasp()
+        playerState.headUnder = hu
+      }
+      if (hu) {
+        playerState.breath = Math.max(0, playerState.breath - dt / BREATH_SECS)
+        playerState._bubT = (playerState._bubT || 0) + dt
+        if (playerState._bubT > 2.2) { playerState._bubT = 0; sfx.bubbles() }
+        if (playerState.breath <= 0 && !playerState.climb) {
+          const rescue = climbTarget(water, pw, world, rapier, col, 99)
+          const to = rescue ? rescue.to : [water.x0 - 1.2, water.z0 + (water.z1 - water.z0) / 2]
+          playerState.teleport = [to[0], water.deck + 0.05, to[1]]
+          playerState.breath = 1
+          playerState.rescuedAt = state.clock.elapsedTime
+          sfx.whistle()
+          addSplash(pw.x, water.surf, pw.z, state.clock.elapsedTime, 0.5)
+          useStore.getState().showToast('Whistle! The lifeguard pulled you out of the water. Catch your breath, then dive again when you are ready.')
+        }
+      } else playerState.breath = Math.min(1, playerState.breath + dt * (mode === 'swim' ? 0.5 : 1))
+    }
+    // leaping head-first: C / Ctrl in the air; the diving board's launch also lands here
+    if (playerState.launch) {
+      const L = playerState.launch
+      playerState.launch = null
+      v.current.set(L.vx, 0, L.vz)
+      playerState.vy = L.vy
+      playerState.grounded = false
+      playerState.yaw = L.yaw
+      playerState.diveAir = true
+      playerState.emote = null
+    }
+    if (!mode && !playerState.grounded && playing && input.dive && !playerState.vehicle) playerState.diveAir = true
+    if (playerState.grounded && !mode) playerState.diveAir = false
+    if (!mode && playerState.vy < 0 && !playerState.grounded && water) playerState.vy = Math.max(playerState.vy, -12)
 
     // --- desired horizontal velocity, relative to camera yaw ---
     const yaw = cameraState.yaw
@@ -204,36 +363,81 @@ export default function Player() {
     let mx = 0, my = 0
     if (playing && !panelOpen) { mx = input.move.x; my = input.move.y }
     const mag = Math.min(1, Math.hypot(mx, my))
-    const speed = (input.run ? RUN : WALK) * (input.joystick.active ? Math.min(1, mag * 1.15) : mag)
+    const baseSpeed = mode === 'swim' ? (input.run ? SWIM_FAST : SWIM) : mode === 'wade' ? (input.run ? RUN * 0.55 : WALK * 0.72) : (input.run ? RUN : WALK)
+    const speed = baseSpeed * (input.joystick.active ? Math.min(1, mag * 1.15) : mag)
     let dx = fx * my + rx * mx
     let dz = fz * my + rz * mx
     const dl = Math.hypot(dx, dz)
     if (dl > 0) { dx /= dl; dz /= dl }
     const target = new THREE.Vector3(dx * speed, 0, dz * speed)
-    const accel = playerState.grounded ? 14 : 4
+    const accel = mode === 'swim' ? 5 : playerState.grounded ? 14 : playerState.diveAir ? 0.7 : 4
     v.current.x += (target.x - v.current.x) * (1 - Math.exp(-accel * dt))
     v.current.z += (target.z - v.current.z) * (1 - Math.exp(-accel * dt))
 
     // --- vertical ---
-    if (playerState.grounded) {
+    // climb-out check: near a wall at the surface, Space or E hauls you out (the prompt appears too). Underwater next to a
+    // wall, Space is a push-off instead: a kick away from the wall, like a tumble turn.
+    let climb = null
+    let nearSurface = false
+    if (mode === 'swim') {
+      const pw = b.translation()
+      nearSurface = pw.y > water.surf - FLOAT - 0.45
+      if (playing && !panelOpen && nearSurface) {
+        climb = climbTarget(water, pw, world, rapier, col)
+        if (climb && (input.jump || input.interact)) {
+          input.jump = false; input.interact = false
+          playerState.climb = { t: 0, dur: 1.35, from: { x: pw.x, y: pw.y, z: pw.z }, hold: climb.hold, to: climb.to, yaw: climb.yaw, deck: water.deck }
+          v.current.set(0, 0, 0)
+          return
+        }
+      }
+      if (playing && !panelOpen && !nearSurface && input.jump) {
+        const dir = wallPush(water, pw)
+        if (dir) { v.current.x = dir[0] * 4.2; v.current.z = dir[1] * 4.2; sfx.splash(0.25); addRipple(pw.x, pw.z, state.clock.elapsedTime, 0.03) }
+      }
+    }
+    if (mode === 'swim') {
+      // 3D swimming: hold Space to rise, C / Ctrl to dive; let go underwater and buoyancy carries you up. A plunge from a
+      // jump or dive keeps its downward momentum and fades over about a second.
+      const pw = b.translation()
+      const surfY = water.surf - FLOAT
+      const bob = Math.sin(state.clock.elapsedTime * 1.7) * 0.025
+      const down = playing && !panelOpen && input.dive
+      const up = playing && !panelOpen && input.up
+      const atSurface = pw.y >= surfY - 0.02
+      let vt
+      if (down) vt = -DIVE_V
+      else if (atSurface) vt = (surfY + bob - pw.y) * 5
+      else if (up) vt = UP_V
+      else vt = Math.min(0.9, 0.35 + (surfY - pw.y) * 1.4)
+      playerState.vy += (vt - playerState.vy) * (1 - Math.exp(-3.5 * dt))
+      playerState.vy = THREE.MathUtils.clamp(playerState.vy, -9, 4)
+      playerState.vdir = down ? 1 : (!atSurface && playerState.vy > 0.5 ? -1 : 0)
+      playerState.grounded = false
+      input.jump = false
+    } else if (playerState.grounded) {
+      playerState.vdir = 0
       playerState.vy = -1
-      if (playing && !panelOpen && input.jump) { playerState.vy = JUMP; playerState.grounded = false; input.jump = false }
+      if (playing && !panelOpen && input.jump) { playerState.vy = mode === 'wade' ? JUMP * 0.7 : JUMP; playerState.grounded = false; input.jump = false }
     } else {
-      playerState.vy -= GRAVITY * dt
+      playerState.vdir = 0
+      playerState.vy -= GRAVITY * (mode === 'wade' ? 0.6 : 1) * dt
     }
 
     // riding the elevator: the car carries you; its floor is excluded from the collision query
-    const riding = elevator.contains(playerState.position)
+    // (the Plaza has its own car; every other elevator is a generic car from world/cars.js)
+    const ridingCar = elevator.contains(playerState.position) ? elevator : findRidingCar(playerState.position)
+    const riding = !!ridingCar
     if (riding) { playerState.vy = 0; input.jump = false }
     const desired = { x: v.current.x * dt, y: riding ? 0 : playerState.vy * dt, z: v.current.z * dt }
-    c.computeColliderMovement(col, desired, undefined, undefined, riding ? (other) => !elevator.carHandles.has(other.handle) : undefined)
+    c.computeColliderMovement(col, desired, undefined, undefined, riding ? (other) => !ridingCar.carHandles.has(other.handle) : undefined)
     const m = c.computedMovement()
     const grounded = riding || c.computedGrounded()
     const p = b.translation()
-    const next = { x: p.x + m.x, y: riding ? elevator.y : p.y + m.y, z: p.z + m.z }
+    const next = { x: p.x + m.x, y: riding ? ridingCar.y : p.y + m.y, z: p.z + m.z }
     // hit head on ceiling
     if (playerState.vy > 0 && m.y < desired.y * 0.5) playerState.vy = 0
-    playerState.grounded = grounded && playerState.vy <= 0.01
+    playerState.grounded = mode === 'swim' ? false : grounded && playerState.vy <= 0.01
 
     // remember the last safe place we stood (recovery checkpoint)
     if (grounded && next.y > -1 && Math.abs(next.x) < 126 && Math.abs(next.z) < 126) lastSafe.current.set(next.x, next.y, next.z)
@@ -245,7 +449,7 @@ export default function Player() {
     }
     if (playerState.respawn) {
       playerState.respawn = false
-      next.x = SPAWN.x; next.y = SPAWN.y + 1; next.z = SPAWN.z; v.current.set(0, 0, 0)
+      next.x = SPAWN.x; next.y = SPAWN.y + 1; next.z = SPAWN.z; v.current.set(0, 0, 0); playerState.swim = null; playerState.breath = 1; playerState.headUnder = false; playerState.diveAir = false
     }
     // "Unstuck": the nearest free spot around you, else the nearest checkpoint
     if (playerState.unstuck) {
@@ -265,6 +469,10 @@ export default function Player() {
     const actual = Math.hypot(m.x, m.z) / Math.max(dt, 1e-4)
     playerState.speed = THREE.MathUtils.lerp(playerState.speed, actual, 0.35)
     playerState.position.set(next.x, next.y, next.z)
+    if (mode && actual > 0.5) {
+      const nowT = state.clock.elapsedTime
+      if (nowT - (playerState.rippleT || 0) > (mode === 'swim' ? 0.28 : 0.4)) { playerState.rippleT = nowT; if (mode === 'swim' && Math.random() < 0.3) sfx.stroke(); addRipple(next.x, next.z, nowT, mode === 'swim' ? 0.028 : 0.018) }
+    }
 
     // face movement direction
     if (target.lengthSq() > 0.01) {
@@ -285,7 +493,7 @@ export default function Player() {
     if (playerState.emote && (state.clock.elapsedTime > playerState.emoteUntil || playerState.speed > 1)) playerState.emote = null
 
     // interactions
-    const near = playing ? findNearestInteractable(playerState.position) : null
+    const near = climb ? { id: 'climb-out', def: { label: climb.ladder ? 'Climb the ladder out' : 'Climb out of the pool', onInteract: () => {} } } : playing ? findNearestInteractable(playerState.position, !!mode) : null
     const label = near ? (typeof near.def.label === 'function' ? near.def.label() : near.def.label) : null
     const key = near ? near.id + label : null
     if (key !== lastPrompt.current) {
@@ -306,7 +514,7 @@ export default function Player() {
         {useImported ? (
           <ImportedAvatar assetId={avatarCfg.assetId} facing={avatarCfg.facing} state={playerState} />
         ) : (
-          <Avatar state={playerState} accent={profile.accent} skin={profile.skin} />
+          <Avatar state={playerState} accent={profile.accent} skin={profile.skin} outfit={outfit} look={socialLook} />
         )}
       </group>
     </RigidBody>

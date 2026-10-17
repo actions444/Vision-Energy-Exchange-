@@ -322,8 +322,9 @@ function ListingEditor({ draft, setDraft }) {
     try {
       const added = []
       for (const f of files) {
-        if (!/^image\/(png|jpeg|webp)$/.test(f.type)) throw new Error('Photos must be JPG, PNG or WebP.')
-        const up = await backend().upload(f, f.type)
+        const { imageToWeb } = await import('../media/convert.js') // any photo format: HEIC, GIF, AVIF, BMP, SVG ... becomes JPEG/WebP
+        const img = await imageToWeb(f)
+        const up = await backend().upload(img.blob, img.type)
         added.push({ url: up.url || backend().url(up.ref), caption: f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ') })
       }
       setDraft({ ...draft, photos: [...(draft.photos || []), ...added].slice(0, 12) })
@@ -352,7 +353,7 @@ function ListingEditor({ draft, setDraft }) {
           ))}
         </div>
         {canUpload ? (
-          <label className="btn file">{busy ? 'Uploading…' : 'Upload photos'}<input type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => { upload([...e.target.files]); e.target.value = '' }} /></label>
+          <label className="btn file">{busy ? 'Uploading…' : 'Upload photos'}<input type="file" multiple accept="image/*,.heic,.heif,.avif,.tif,.tiff,.bmp,.svg" disabled={busy} onChange={(e) => { upload([...e.target.files]); e.target.value = '' }} /></label>
         ) : <small className="hint">Photo uploads need the owner to be signed in to the shared storage (hosted page or your server).</small>}
         {err && <p className="error">{err}</p>}
       </div>

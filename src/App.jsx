@@ -1,9 +1,11 @@
 import Traffic, { signalState, trafficState } from './vehicles/Traffic.jsx'
 import AirTraffic, { airState } from './world/AirTraffic.jsx'
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, Vignette, DepthOfField, ToneMapping, Noise, HueSaturation, BrightnessContrast, ChromaticAberration } from '@react-three/postprocessing'
+import { BlendFunction, ToneMappingMode } from 'postprocessing'
+import { Exposure } from './world/exposureEffect.js'
 import * as THREE from 'three'
 import City from './world/City.jsx'
 import Gallery from './world/Gallery.jsx'
@@ -18,6 +20,9 @@ import { installKeyboard, attachLook, input } from './input/input.js'
 import { playerState, cameraState } from './state/runtime.js'
 import UI from './ui/UI.jsx'
 import Vehicles from './vehicles/Vehicle.jsx'
+import Jets from './vehicles/Jet.jsx'
+import CineStage, { CineFocus } from './world/CineStage.jsx'
+import { useCine, cine, startCine, stopCine } from './state/cine.js'
 import DecorLayer from './decor/DecorLayer.jsx'
 import PhotoBooth from './rentals/PhotoBooth.jsx'
 import { usePreview, useRentDraft, startTour } from './rentals/preview.js'
@@ -27,11 +32,17 @@ import { elevator, useElevatorUI } from './world/elevator.js'
 import MusicZones from './music/MusicZones.jsx'
 import { useMusicLibrary, resolveTrackSource } from './music/library.js'
 import { musicEngine, useMusic } from './music/engine.js'
+import { useLights, power } from './state/power.js'
 import { useEnv } from './state/environment.js'
+import { getCar, allCars } from './world/cars.js'
+import { useJobs, washes, startWash } from './state/jobs.js'
 import { useRentals, rentalAccess } from './rentals/client.js'
 import { detectBackend, useBackend, backend } from './backend/backend.js'
 import { startMedia, useMedia } from './media/media.js'
 import { startCinema, runCinema, useCinema, cinemaVideo } from './cinema/cinema.js'
+import { startGuide, useGuide, programFor, registry as guideRegistry } from './guide/guide.js'
+import { runGuide } from './guide/guidePlayer.js'
+import { useSocial, FOLLOWER_GATE } from './state/social.js'
 
 function Ready() {
   useEffect(() => { useStore.setState({ ready: true }) }, [])
@@ -49,8 +60,10 @@ export default function App() {
       startMedia()
       useMusicLibrary.getState().init()
       startCinema()
+      startGuide()
       startDecor()
       runCinema()
+      runGuide()
     })
     return installKeyboard({
       onKey: (e) => {
@@ -69,6 +82,8 @@ export default function App() {
   }, [])
 
   const high = settings.quality === 'high'
+  const cineOn = useCine((s) => s.active)
+  const dofRef = useRef()
   return (
     <div className="app">
       <Canvas
@@ -77,7 +92,8 @@ export default function App() {
         dpr={high ? [1, 2] : [0.75, 1.25]}
         gl={{ antialias: !settings.bloom, powerPreference: 'high-performance' }}
         camera={{ fov: 55, near: 0.1, far: 1200, position: [20, 12, 10] }}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, scene, camera }) => {
+          window.__vswScene = scene; window.__vswCam = camera
           gl.toneMapping = THREE.ACESFilmicToneMapping
           gl.toneMappingExposure = 1.05
           attachLook(gl.domElement)
@@ -94,6 +110,8 @@ export default function App() {
             <Player />
             <RemotePlayers />
             <Vehicles />
+            <Jets />
+            <CineStage />
             <Traffic />
             <DecorLayer />
             <CameraRig />
@@ -102,12 +120,20 @@ export default function App() {
           {settings.aircraft !== false && <AirTraffic />}
           <MusicZones />
           <PhotoBooth />
-          {settings.bloom && (
+          {(settings.bloom || cineOn) && (
             <EffectComposer multisampling={high ? 4 : 0}>
-              <Bloom mipmapBlur intensity={high ? 0.55 : 0.45} luminanceThreshold={0.92} luminanceSmoothing={0.15} />
-              <Vignette offset={0.3} darkness={0.45} />
+              <Exposure />
+              <Bloom mipmapBlur intensity={cineOn ? 0.75 : high ? 0.55 : 0.45} luminanceThreshold={cineOn ? 0.86 : 0.92} luminanceSmoothing={0.2} />
+              <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+              {cineOn && high ? <DepthOfField ref={dofRef} worldFocusDistance={3} worldFocusRange={1.6} bokehScale={3.2} /> : null}
+              {cineOn ? <HueSaturation saturation={0.06} /> : null}
+              {cineOn ? <BrightnessContrast brightness={-0.02} contrast={0.16} /> : null}
+              {cineOn ? <ChromaticAberration offset={[0.0006, 0.0006]} radialModulation modulationOffset={0.4} /> : null}
+              {cineOn ? <Noise premultiply blendFunction={BlendFunction.SOFT_LIGHT} opacity={0.14} /> : null}
+              <Vignette offset={cineOn ? 0.15 : 0.3} darkness={cineOn ? 0.75 : 0.45} />
             </EffectComposer>
           )}
+          <CineFocus dofRef={dofRef} />
           <Ready />
         </Suspense>
       </Canvas>
@@ -117,4 +143,4 @@ export default function App() {
 }
 
 // expose for debugging in the console
-if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, vehicleActions, signalState, trafficState, airState, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor, usePreview, useRentDraft, startTour }
+if (typeof window !== 'undefined') window.__vsw = { input, useStore, useAssets, playerState, cameraState, musicEngine, useMusic, useMusicLibrary, resolveTrackSource, useEnv, useRentals, rentalAccess, useBackend, backend, useMedia, useCinema, cinemaVideo, useDriving, vehicleBodies, vehicleActions, signalState, trafficState, airState, useElevatorUI, elevatorCall: (f) => elevator.call(f), useDecor, usePreview, useRentDraft, startTour, useLights, power, getCar, allCars, useJobs, washes, startWash, useCine, cine, startCine, stopCine, useGuide, programFor, guideRegistry, useSocial, FOLLOWER_GATE }

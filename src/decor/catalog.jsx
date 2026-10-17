@@ -3,14 +3,15 @@ import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier
 import * as THREE from 'three'
 import { Sofa, Chair, Table, DiningSet, Rug, Plant, Shelf, Speaker, ClothingRack, Mannequin, Stool } from '../world/furniture.jsx'
 import { Bench, Planter } from '../world/props.jsx'
-import { getMaterials, surface, blackMarble } from '../world/materials.js'
+import { getMaterials, surface, blackMarble, signatureMarble } from '../world/materials.js'
 import { registerLightAnchor } from '../state/environment.js'
 import { canvasTexture } from '../world/canvasText.js'
 
 // What can be placed or applied when decorating. Items are data + a render function, so new
 // products (including uploaded GLB furniture, later) slot in without new editor code.
-// The "Starter collection" below is free for anyone allowed to decorate a space; marketplace
-// products will add owned items to the same lists.
+// Most of the collection below is free for anyone allowed to decorate a space. A `price` (VSE
+// credits) marks a premium piece: it must be bought once (useJobs.buyDecorItem, same wallet as
+// everything else) before it can be placed, after which it's owned for good, IMVU/Sims style.
 
 export const CATEGORIES = [
   ['furniture', 'Furniture'],
@@ -29,24 +30,24 @@ export const CATEGORIES = [
 // ---- placeable objects: size = footprint [width (local x), height, depth (local z)] ----
 export const ITEMS = [
   { id: 'sofa-charcoal', cat: 'furniture', name: 'Three-seat sofa · charcoal', size: [2.2, 0.9, 0.9], render: (p, y) => <Sofa position={p} yaw={y} length={2.2} color="#3a3d44" /> },
-  { id: 'sofa-plum', cat: 'furniture', name: 'Three-seat sofa · plum velvet', size: [2.2, 0.9, 0.9], render: (p, y) => <Sofa position={p} yaw={y} length={2.2} color="#4a2a44" /> },
+  { id: 'sofa-plum', cat: 'furniture', name: 'Three-seat sofa · plum velvet', price: 55, size: [2.2, 0.9, 0.9], render: (p, y) => <Sofa position={p} yaw={y} length={2.2} color="#4a2a44" /> },
   { id: 'loveseat-teal', cat: 'furniture', name: 'Loveseat · deep teal', size: [1.5, 0.9, 0.9], render: (p, y) => <Sofa position={p} yaw={y} length={1.5} color="#1f4a4a" /> },
   { id: 'chair-dining', cat: 'furniture', name: 'Dining chair', size: [0.5, 0.9, 0.5], render: (p, y) => <Chair position={p} yaw={y} color="#3b3f46" /> },
-  { id: 'chair-gold', cat: 'furniture', name: 'Accent chair · gold', size: [0.5, 0.9, 0.5], render: (p, y) => <Chair position={p} yaw={y} color="#8a6d3b" /> },
+  { id: 'chair-gold', cat: 'furniture', name: 'Accent chair · gold', price: 30, size: [0.5, 0.9, 0.5], render: (p, y) => <Chair position={p} yaw={y} color="#8a6d3b" /> },
   { id: 'stool-bar', cat: 'furniture', name: 'Bar stool', size: [0.42, 0.8, 0.42], render: (p) => <Stool position={p} /> },
   { id: 'table-coffee', cat: 'furniture', name: 'Coffee table · walnut', size: [1.2, 0.45, 0.6], render: (p, y) => <Table position={p} yaw={y} size={[1.2, 0.6]} height={0.45} /> },
-  { id: 'table-marble', cat: 'furniture', name: 'Dining table · marble', size: [1.8, 0.75, 0.9], render: (p, y) => <Table position={p} yaw={y} size={[1.8, 0.9]} top="marble" /> },
-  { id: 'dining-round', cat: 'furniture', name: 'Round dining set (4 chairs)', size: [2.0, 0.9, 2.0], render: (p) => <DiningSet position={p} chairs={4} size={1.0} color="#5b4636" /> },
+  { id: 'table-marble', cat: 'furniture', name: 'Dining table · marble', price: 65, size: [1.8, 0.75, 0.9], render: (p, y) => <Table position={p} yaw={y} size={[1.8, 0.9]} top="marble" /> },
+  { id: 'dining-round', cat: 'furniture', name: 'Round dining set (4 chairs)', price: 90, size: [2.0, 0.9, 2.0], render: (p) => <DiningSet position={p} chairs={4} size={1.0} color="#5b4636" /> },
   { id: 'shelf-books', cat: 'furniture', name: 'Bookshelf', size: [2, 2.2, 0.4], render: (p, y) => <Shelf position={p} yaw={y} width={2} height={2.2} /> },
   { id: 'lamp-floor', cat: 'lighting', name: 'Floor lamp · brass', size: [0.4, 1.7, 0.4], render: (p) => <FloorLamp position={p} /> },
   { id: 'lamp-floor-cool', cat: 'lighting', name: 'Floor lamp · cool white', size: [0.4, 1.7, 0.4], render: (p) => <FloorLamp position={p} color="#e6efff" /> },
-  { id: 'lamp-arc', cat: 'lighting', name: 'Arc lamp · teal glow', size: [1.2, 2.0, 0.5], render: (p, y) => <ArcLamp position={p} yaw={y} /> },
+  { id: 'lamp-arc', cat: 'lighting', name: 'Arc lamp · teal glow', price: 35, size: [1.2, 2.0, 0.5], render: (p, y) => <ArcLamp position={p} yaw={y} /> },
   { id: 'rug-plum', cat: 'decorations', name: 'Area rug · plum', size: [3, 0.02, 2], flat: true, render: (p, y) => <Rug position={p} yaw={y} size={[3, 2]} color="#4a2a44" /> },
   { id: 'rug-sand', cat: 'decorations', name: 'Area rug · sand', size: [3, 0.02, 2], flat: true, render: (p, y) => <Rug position={p} yaw={y} size={[3, 2]} color="#b8a58a" /> },
   { id: 'plant-tall', cat: 'decorations', name: 'Potted plant', size: [0.6, 1.4, 0.6], render: (p) => <Plant position={p} scale={1.1} /> },
-  { id: 'speaker', cat: 'decorations', name: 'Floor speaker', size: [0.5, 1.0, 0.5], render: (p, y) => <Speaker position={p} yaw={y} scale={1.2} /> },
-  { id: 'rack-clothes', cat: 'decorations', name: 'Clothing rack', size: [1.6, 1.6, 0.6], render: (p, y) => <ClothingRack position={p} yaw={y} seed={3} /> },
-  { id: 'mannequin', cat: 'decorations', name: 'Display mannequin', size: [0.6, 1.9, 0.6], render: (p, y) => <Mannequin position={p} yaw={y} color="#4a2a44" /> },
+  { id: 'speaker', cat: 'decorations', name: 'Floor speaker', price: 25, size: [0.5, 1.0, 0.5], render: (p, y) => <Speaker position={p} yaw={y} scale={1.2} /> },
+  { id: 'rack-clothes', cat: 'decorations', name: 'Clothing rack', price: 20, size: [1.6, 1.6, 0.6], render: (p, y) => <ClothingRack position={p} yaw={y} seed={3} /> },
+  { id: 'mannequin', cat: 'decorations', name: 'Display mannequin', price: 20, size: [0.6, 1.9, 0.6], render: (p, y) => <Mannequin position={p} yaw={y} color="#4a2a44" /> },
   { id: 'bench-park', cat: 'outdoor', name: 'Park bench', size: [2, 0.9, 0.7], render: (p, y) => <Bench position={p} yaw={y} /> },
   { id: 'planter', cat: 'outdoor', name: 'Planter box', size: [1.2, 0.6, 1.2], render: (p) => <Planter position={p} /> },
 ]
@@ -56,17 +57,19 @@ export const itemById = (id) => ITEMS.find((x) => x.id === id)
 const plain = (color, roughness = 0.9) => new THREE.MeshStandardMaterial({ color, roughness })
 const flooringCache = new Map()
 export const FLOORS = [
+  { id: 'marble-signature', name: 'Black marble · pink, purple & teal veins', price: 120, make: (w, d) => signatureMarble(Math.max(1, Math.round(w / 4)), Math.max(1, Math.round(d / 4))) },
   { id: 'oak', name: 'Light oak', make: (w, d) => surface('wood', w / 2, d / 2, { color: '#c8a77f' }) },
   { id: 'walnut', name: 'Walnut', make: (w, d) => surface('wood', w / 2, d / 2, { color: '#6b4a33' }) },
-  { id: 'marble-white', name: 'White marble', make: (w, d) => getMaterials().marbleFloor(w / 3, d / 3) },
-  { id: 'marble-black-gold', name: 'Black marble · gold veins', make: (w, d) => blackMarble('#c9a96a', w / 4, d / 4) },
-  { id: 'marble-black-purple', name: 'Black marble · purple veins', make: (w, d) => blackMarble('#8f4bd6', w / 4, d / 4) },
-  { id: 'marble-black-teal', name: 'Black marble · teal veins', make: (w, d) => blackMarble('#2fb8ad', w / 4, d / 4) },
-  { id: 'marble-black-pink', name: 'Black marble · pink veins', make: (w, d) => blackMarble('#d14f93', w / 4, d / 4) },
+  { id: 'marble-white', name: 'White marble', price: 70, make: (w, d) => getMaterials().marbleFloor(w / 3, d / 3) },
+  { id: 'marble-black-gold', name: 'Black marble · gold veins', price: 90, make: (w, d) => blackMarble('#c9a96a', w / 4, d / 4) },
+  { id: 'marble-black-purple', name: 'Black marble · purple veins', price: 90, make: (w, d) => blackMarble('#8f4bd6', w / 4, d / 4) },
+  { id: 'marble-black-teal', name: 'Black marble · teal veins', price: 90, make: (w, d) => blackMarble('#2fb8ad', w / 4, d / 4) },
+  { id: 'marble-black-pink', name: 'Black marble · pink veins', price: 90, make: (w, d) => blackMarble('#d14f93', w / 4, d / 4) },
   { id: 'carpet-charcoal', name: 'Carpet · charcoal', make: (w, d) => surface('carpet', w / 2, d / 2, { color: '#3a3b40' }) },
   { id: 'carpet-plum', name: 'Carpet · plum', make: (w, d) => surface('carpet', w / 2, d / 2, { color: '#4a2a44' }) },
   { id: 'tile-stone', name: 'Stone tile', make: (w, d) => surface('tile', w / 1.5, d / 1.5, { color: '#cfc8bb' }) },
 ]
+export const floorById = (id) => FLOORS.find((x) => x.id === id)
 export function floorMaterial(id, w, d) {
   const f = FLOORS.find((x) => x.id === id)
   if (!f) return null
@@ -86,11 +89,12 @@ export const WALL_COLORS = [
   { id: 'champagne', name: 'Champagne gold', color: '#c9b089' },
 ]
 export const WALLPAPERS = [
-  { id: 'damask-gold', name: 'Damask · gold on black', bg: '#141317', fg: '#b8955a', pattern: 'damask' },
+  { id: 'damask-gold', name: 'Damask · gold on black', price: 45, bg: '#141317', fg: '#b8955a', pattern: 'damask' },
   { id: 'stripe-plum', name: 'Pinstripe · plum', bg: '#3b2238', fg: '#5b3a57', pattern: 'stripe' },
-  { id: 'deco-teal', name: 'Art deco · teal & gold', bg: '#123a3d', fg: '#c9a96a', pattern: 'deco' },
+  { id: 'deco-teal', name: 'Art deco · teal & gold', price: 45, bg: '#123a3d', fg: '#c9a96a', pattern: 'deco' },
   { id: 'linen', name: 'Linen texture', bg: '#ddd5c8', fg: '#c8bfb1', pattern: 'linen' },
 ]
+export const wallpaperById = (id) => WALLPAPERS.find((x) => x.id === id)
 const wallCache = new Map()
 export function wallMaterial(kind, id, length, height) {
   const key = kind + id + '|' + Math.round(length * 2) + '|' + Math.round(height * 2)
@@ -147,9 +151,10 @@ export const LIGHT_PRESETS = [
 
 export const DOOR_STYLES = [
   { id: 'wood', name: 'Walnut door' },
-  { id: 'glass', name: 'Glass & aluminium door' },
-  { id: 'black', name: 'Black lacquer door' },
+  { id: 'glass', name: 'Glass & aluminium door', price: 40 },
+  { id: 'black', name: 'Black lacquer door', price: 25 },
 ]
+export const doorById = (id) => DOOR_STYLES.find((x) => x.id === id)
 
 // ---- small furniture pieces only used by decorating ----
 export function FloorLamp({ position, color = '#ffd9a8' }) {

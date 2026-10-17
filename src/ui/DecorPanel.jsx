@@ -4,6 +4,14 @@ import { spaceById } from '../decor/spaces.js'
 import { CATEGORIES, ITEMS, itemById, FLOORS, WALL_COLORS, WALLPAPERS, LIGHT_PRESETS, DOOR_STYLES } from '../decor/catalog.jsx'
 import { useStore } from '../state/store.js'
 import { playerState } from '../state/runtime.js'
+import { useJobs } from '../state/jobs.js'
+
+/** Small price/owned tag shown on a premium (priced) catalog entry. Free entries render nothing. */
+function PriceTag({ item }) {
+  const owned = useJobs((s) => item.price && s.ownedDecor.includes(item.id))
+  if (!item.price) return null
+  return <small className={'price-tag' + (owned ? ' owned' : '')}>{owned ? 'Owned' : `${item.price} cr`}</small>
+}
 
 const Q = Math.PI / 4
 
@@ -66,11 +74,12 @@ export default function DecorPanel() {
                     </div>
                   </div>
                 )}
-                <p className="hint small">Starter collection · included for owners and renters</p>
+                <p className="hint small">Starter collection is free · pieces marked with a price are bought once, then yours for good</p>
                 <div className="item-grid">
                   {ITEMS.filter((i) => i.cat === cat).map((i) => (
                     <button key={i.id} className="item-card" id={'decor-' + i.id} onClick={() => beginPlace(i.id, null, start())}>
                       <b>{i.name}</b><small>{i.size[0]} × {i.size[2]} m</small>
+                      <PriceTag item={i} />
                     </button>
                   ))}
                 </div>
@@ -79,7 +88,7 @@ export default function DecorPanel() {
             {cat === 'flooring' && (
               <div className="swatches wrap">
                 <button className={'sw-pill' + (!st.draft.floor ? ' on' : '')} onClick={() => setFloor(null)}>Original</button>
-                {FLOORS.map((f) => <button key={f.id} id={'floor-' + f.id} className={'sw-pill' + (st.draft.floor === f.id ? ' on' : '')} onClick={() => setFloor(f.id)}>{f.name}</button>)}
+                {FLOORS.map((f) => <button key={f.id} id={'floor-' + f.id} className={'sw-pill' + (st.draft.floor === f.id ? ' on' : '')} onClick={() => setFloor(f.id)}>{f.name}<PriceTag item={f} /></button>)}
               </div>
             )}
             {cat === 'walls' && (
@@ -91,12 +100,12 @@ export default function DecorPanel() {
             {cat === 'wallpaper' && (
               <div className="swatches wrap">
                 <button className={'sw-pill' + (!st.draft.wall ? ' on' : '')} onClick={() => setWall('paper', null)}>No wallpaper</button>
-                {WALLPAPERS.map((w) => <button key={w.id} className={'sw-pill' + (st.draft.wall?.kind === 'paper' && st.draft.wall.id === w.id ? ' on' : '')} onClick={() => setWall('paper', w.id)}><i style={{ background: `repeating-linear-gradient(90deg, ${w.bg} 0 6px, ${w.fg} 6px 8px)` }} />{w.name}</button>)}
+                {WALLPAPERS.map((w) => <button key={w.id} className={'sw-pill' + (st.draft.wall?.kind === 'paper' && st.draft.wall.id === w.id ? ' on' : '')} onClick={() => setWall('paper', w.id)}><i style={{ background: `repeating-linear-gradient(90deg, ${w.bg} 0 6px, ${w.fg} 6px 8px)` }} />{w.name}<PriceTag item={w} /></button>)}
               </div>
             )}
             {cat === 'doors' && (
               <div className="swatches wrap">
-                {DOOR_STYLES.map((d) => <button key={d.id} className={'sw-pill' + ((st.draft.door || 'wood') === d.id ? ' on' : '')} onClick={() => setDoor(d.id === 'wood' ? null : d.id)}>{d.name}</button>)}
+                {DOOR_STYLES.map((d) => <button key={d.id} className={'sw-pill' + ((st.draft.door || 'wood') === d.id ? ' on' : '')} onClick={() => setDoor(d.id === 'wood' ? null : d.id)}>{d.name}<PriceTag item={d} /></button>)}
               </div>
             )}
             {cat === 'windows' && <p className="hint">This building's windows are part of its glass facade, so they can't be swapped. Window packs will work in homes built for them.</p>}

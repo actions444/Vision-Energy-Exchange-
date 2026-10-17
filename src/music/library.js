@@ -331,9 +331,10 @@ export const useMusicLibrary = create((set, get) => ({
     try {
       if (backend() && useBackend.getState().admin) {
         set({ busy: `Uploading ${files.length} file${files.length === 1 ? '' : 's'} to the media library…` })
-        const items = await uploadMedia(files, { kind: 'song', publish: true })
+        const all = await uploadMedia(files, { kind: 'song', publish: true })
+        const items = all.filter((m) => m.kind === 'song') // anything this browser can't decode as audio was stored as a plain file instead
         const failed = useMedia.getState().jobs.filter((j) => j.error)
-        if (!items.length) throw new Error(failed[0]?.error || 'Choose MP3 or M4A audio files.')
+        if (!items.length) throw new Error(failed[0]?.error || (all.length ? "This browser couldn't decode that audio; it was saved under Media library → Other files." : 'Choose audio files.'))
         added.push(...items.map((m) => ({ id: 'media:' + m.id })))
         if (playlistId) get().addToPlaylist(playlistId, added.map((t) => t.id))
         set({ busy: null, error: failed.length ? `${failed.length} file(s) failed: ${failed[0].error}` : null })
@@ -378,7 +379,9 @@ export const useMusicLibrary = create((set, get) => ({
     if (api && useBackend.getState().admin) {
       set({ busy: 'Uploading artwork…' })
       try {
-        const up = await api.upload(file, ['image/png', 'image/webp', 'image/jpeg'].includes(file.type) ? file.type : 'image/jpeg')
+        const { imageToWeb } = await import('../media/convert.js')
+        const img = await imageToWeb(file)
+        const up = await api.upload(img.blob, img.type)
         if (kind === 'track') {
           const t = get().tracks.find((x) => x.id === id)
           if (t?.source === 'media') {

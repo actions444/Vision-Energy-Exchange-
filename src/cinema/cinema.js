@@ -13,12 +13,28 @@ import { backend, useBackend } from '../backend/backend.js'
 import { useMedia, fileUrl } from '../media/media.js'
 import { audioCore } from '../audio/core.js'
 import { useMusic } from '../music/engine.js'
+import { programFor } from '../guide/guide.js'
 
+const TOWER_ROOMS = [
+  ['cinema-3', 'The Royal Reserve'], ['cinema-4', 'Emerald Room'], ['cinema-5', 'Onyx Room'],
+  ['cinema-6', 'Blue Steel'], ['cinema-7', 'Rosewood Room'], ['cinema-8', 'Teal Lounge'],
+  ['cinema-9', 'Burgundy Room'], ['cinema-10', 'Graphite Room'], ['cinema-11', 'Lavender Room'],
+  ['cinema-12', 'Navy Room'], ['cinema-13', 'Copper Room'], ['cinema-14', 'Jade Room'], ['cinema-15', 'Blush Room'],
+  ['cinema-16', 'Crimson Room'], ['cinema-17', 'Slate Room'], ['cinema-18', 'Lilac Room'],
+  ['cinema-19', 'Amber Room'], ['cinema-20', 'Forest Room'], ['cinema-21', 'Sapphire Room'], ['cinema-22', 'Orchid Room'],
+]
+// Most auditoriums are free to watch (the same original-content library plays everywhere).
+// A handful of premium rooms charge a ticket - paid per private viewing you start there, same
+// VSE-credits wallet as the rest of the economy (see CinemaPanel.jsx's "Watch privately").
+// A shared screening the owner starts for everyone is never gated: the owner decides who it's for.
+const TICKET_PRICES = { 'cinema-3': 25, 'VSP-201': 15 }
 export const SCREENS = {
   'cinema-1': { id: 'cinema-1', name: 'Auditorium 1', venue: 'Vision Cinema', zone: 'cinema-1' },
   'cinema-2': { id: 'cinema-2', name: 'Auditorium 2', venue: 'Vision Cinema', zone: 'cinema-2' },
+  ...Object.fromEntries(TOWER_ROOMS.map(([id, name]) => [id, { id, name, venue: 'Vision Cinema', zone: id }])),
   'VSP-201': { id: 'VSP-201', name: 'Screening Room', venue: 'Vision Storms Energy Exchanges Plaza', zone: 'VSP-201' },
 }
+for (const [id, price] of Object.entries(TICKET_PRICES)) if (SCREENS[id]) SCREENS[id].price = price
 export const screenForZone = (zoneId) => Object.values(SCREENS).find((s) => s.zone === zoneId) || null
 
 const PREF = 'vsw-movie-audio'
@@ -39,7 +55,7 @@ export const useCinema = create(() => ({
 
 /** Movies and music videos visitors can watch (published only). */
 export function watchable(items = useMedia.getState().items) {
-  return items.filter((m) => (m.kind === 'movie' || m.kind === 'video') && m.published)
+  return items.filter((m) => (m.kind === 'movie' || m.kind === 'video') && m.published && m.playable !== false)
 }
 export const now = () => Date.now() + useCinema.getState().clockOffset
 
@@ -52,6 +68,9 @@ export function sessionFor(screenId, st = useCinema.getState()) {
   }
   const s = st.shared[screenId]
   if (s && s.state !== 'stopped' && s.movieId && !over(s)) return { ...s, shared: true }
+  // then whatever the TV guide has scheduled for this auditorium (a daily or one-off slot)
+  const g = programFor(screenId)
+  if (g) return { movieId: g.media.id, title: g.media.title, duration: g.media.duration || null, state: 'playing', startedAt: g.start, position: 0, shared: true, scheduled: true }
   const l = st.local[screenId]
   if (l && l.state !== 'stopped' && !over(l)) return { ...l, shared: false }
   return null

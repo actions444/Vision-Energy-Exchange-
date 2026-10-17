@@ -5,8 +5,8 @@ export const GALLERY = {
   height: 9,
   wall: 0.5,
   floorY: 0.15,
-  doorHalf: 1.8, // half width of the double doorway
-  doorHeight: 4.4,
+  doorHalf: 1.4, // half width of the double doorway (2.8 m pair)
+  doorHeight: 3.0,
 }
 
 export function insideGallery(p, pad = 0) {

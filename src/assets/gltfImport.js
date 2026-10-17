@@ -154,17 +154,22 @@ export async function filesToGLBs(fileList) {
   const files = [...fileList]
   const out = []
   const side = new Map()
+  const { MODEL_EXT, modelToGLB } = await import('./convert3d.js')
   for (const f of files) {
     const ext = f.name.split('.').pop().toLowerCase()
-    if (ext !== 'glb' && ext !== 'gltf') side.set(f.name, await f.arrayBuffer())
+    if (ext !== 'glb' && ext !== 'gltf' && !MODEL_EXT.includes(ext)) side.set(f.name, await f.arrayBuffer())
   }
+  const errors = []
   for (const f of files) {
     const ext = f.name.split('.').pop().toLowerCase()
-    const name = f.name.replace(/\.(glb|gltf)$/i, '')
-    if (ext === 'glb') out.push({ name, bytes: await f.arrayBuffer() })
-    if (ext === 'gltf') out.push({ name, bytes: packGLTF(await f.text(), side) })
+    const name = f.name.replace(/\.[^.]+$/, '')
+    try {
+      if (ext === 'glb') out.push({ name, bytes: await f.arrayBuffer() })
+      else if (ext === 'gltf') out.push({ name, bytes: packGLTF(await f.text(), side) })
+      else if (MODEL_EXT.includes(ext)) out.push({ name, bytes: await modelToGLB(f, side) })
+    } catch (e) { errors.push(`${f.name}: ${e.message || e}`) }
   }
-  if (!out.length) throw new Error('Choose a .glb or .gltf file. Tripo 3D and Meshy AI can both export GLB.')
+  if (!out.length) throw new Error(errors.length ? errors.join(' · ') : 'Choose a 3D model: GLB, GLTF, OBJ (with its MTL and textures), FBX, STL, PLY, DAE, 3MF or WRL. Blender (.blend) and other native formats must be exported to one of these first.')
   return out
 }
 

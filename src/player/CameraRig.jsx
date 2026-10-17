@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { input } from '../input/input.js'
 import { cameraState, playerState } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
+import { waterAt, waterFx } from '../state/water.js'
 
 const MIN_D = 1.6
 const MAX_D = 10
@@ -12,6 +13,9 @@ const MAX_D = 10
 // Orbit-style third-person camera with collision: a ray from the head toward the camera
 // pulls the camera in front of any wall so it never clips into buildings.
 // On the title screen it flies a slow cinematic orbit over the gallery plaza instead.
+/** Flag whether the camera is below a water surface (the UI tints the screen). */
+const checkUnder = (cam) => { const w = waterAt(cam.position.x, cam.position.z); waterFx.under = !!w && cam.position.y < w.surf }
+
 export default function CameraRig() {
   const { camera } = useThree()
   const { world, rapier } = useRapier()
@@ -38,6 +42,7 @@ export default function CameraRig() {
       const o = cameraState.override
       camera.position.set(...o.pos)
       camera.lookAt(...o.look)
+      checkUnder(camera)
       input.look.dx = input.look.dy = 0
       return
     }
@@ -68,6 +73,7 @@ export default function CameraRig() {
 
     camera.position.copy(origin).addScaledVector(dir, smoothD.current)
     camera.lookAt(origin)
+    checkUnder(camera)
   })
   return null
 }

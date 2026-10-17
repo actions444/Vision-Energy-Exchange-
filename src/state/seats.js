@@ -31,7 +31,8 @@ export function registerSeat(def) {
   seats.set(id, seat)
   const off = registerInteractable(id, {
     position: new THREE.Vector3(seat.position[0], seat.floorY, seat.position[2]),
-    radius: 1.3,
+    radius: def.radius || 1.3,
+    water: !!seat.water,
     label: () => (seat.occupiedBy || takenByPeer(seat) ? 'Seat taken' : seat.label),
     onInteract: () => { if (!seat.occupiedBy && !takenByPeer(seat)) playerState.sitRequest = seat },
   })

@@ -6,28 +6,25 @@ import { create } from 'zustand'
 import { backend, useBackend } from '../backend/backend.js'
 import { packMp3 } from './mp3mp4.js'
 import { parseID3 } from '../music/id3.js'
+import { detectKind, audioToMp3, imageToWeb, probeVideo, videoMime, extOf } from './convert.js'
 
+// Any format can be uploaded. Audio and images in other formats are converted to MP3 / JPEG / WebP; videos are kept as
+// uploaded (and flagged if this browser can't play them); everything else is stored as a plain file.
 export const KINDS = {
-  song: { label: 'Song', plural: 'Songs', accept: '.mp3,.m4a,audio/mpeg,audio/mp4' },
-  audiobook: { label: 'Audiobook chapter', plural: 'Audiobooks', accept: '.mp3,.m4a,audio/mpeg,audio/mp4' },
-  cover: { label: 'Album cover', plural: 'Album covers', accept: 'image/jpeg,image/png,image/webp' },
-  video: { label: 'Music video', plural: 'Music videos', accept: 'video/mp4,video/webm,.mp4,.webm,.mov' },
-  movie: { label: 'Movie or short film', plural: 'Movies', accept: 'video/mp4,video/webm,.mp4,.webm,.mov' },
-  ebook: { label: 'E-book', plural: 'E-books', accept: 'application/pdf,.pdf,.txt,.md' },
+  song: { label: 'Song', plural: 'Songs', accept: 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aif,.aiff,.caf,.weba,.amr,.wma,.mka' },
+  audiobook: { label: 'Audiobook chapter', plural: 'Audiobooks', accept: 'audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aif,.aiff' },
+  cover: { label: 'Photo or album cover', plural: 'Photos & covers', accept: 'image/*,.heic,.heif,.avif,.tif,.tiff,.bmp,.svg,.gif' },
+  video: { label: 'Music video', plural: 'Music videos', accept: 'video/*,.mp4,.m4v,.webm,.mov,.mkv,.avi,.ogv,.wmv,.flv,.3gp,.mpg,.mpeg' },
+  movie: { label: 'Movie or short film', plural: 'Movies', accept: 'video/*,.mp4,.m4v,.webm,.mov,.mkv,.avi,.ogv,.wmv,.flv,.3gp,.mpg,.mpeg' },
+  ebook: { label: 'E-book or document', plural: 'E-books', accept: 'application/pdf,.pdf,.txt,.md' },
+  file: { label: 'Other file', plural: 'Other files', accept: '' },
 }
 
 const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-const ext = (name) => (name.split('.').pop() || '').toLowerCase()
+const ext = extOf
 const base = (name) => name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim()
 
-export function guessKind(file) {
-  const e = ext(file.name)
-  if (['mp3', 'm4a', 'aac'].includes(e) || file.type.startsWith('audio/')) return 'song'
-  if (['mp4', 'webm', 'mov', 'm4v'].includes(e) || file.type.startsWith('video/')) return 'video'
-  if (['pdf', 'txt', 'md'].includes(e)) return 'ebook'
-  if (file.type.startsWith('image/')) return 'cover'
-  return null
-}
+export function guessKind(file) { return detectKind(file) }
 
 export const useMedia = create(() => ({
   published: [],
@@ -142,8 +139,7 @@ export async function uploadMedia(files, opts = {}) {
     const jobId = uid()
     useMedia.setState((s) => ({ jobs: [...s.jobs, { id: jobId, name: file.name, status: 'Preparing…' }] }))
     try {
-      const kind = opts.kind && opts.kind !== 'auto' ? opts.kind : guessKind(file)
-      if (!kind) throw new Error('Unsupported file. Use MP3, M4A, MP4, WebM, PDF, TXT, JPG, PNG or WebP.')
+      let kind = opts.kind && opts.kind !== 'auto' ? opts.kind : guessKind(file)
       const e = ext(file.name)
       const item = {
         id: uid(),
@@ -158,13 +154,25 @@ export async function uploadMedia(files, opts = {}) {
       }
       let payload = file
       let type = file.type
+      let mp3Bytes = null
+
+      // audio in any other format: decode it here and make an MP3 so it plays for every visitor
+      if ((kind === 'song' || kind === 'audiobook') && !(e === 'mp3' || e === 'm4a' || e === 'mp4' || /audio\/(mpeg|mp4|x-m4a)/.test(file.type))) {
+        try {
+          const conv = await audioToMp3(file, (status) => setJob(jobId, { status }))
+          mp3Bytes = conv.bytes
+          item.duration = Math.round(conv.duration)
+          item.convertedFrom = e || file.type
+        } catch (err) {
+          kind = 'file'; item.kind = 'file'; item.note = `${err.message}; stored as a plain file (download only)`
+        }
+      }
 
       if (kind === 'song' || kind === 'audiobook') {
-        if (!['mp3', 'm4a', 'mp4'].includes(e) && !/audio\/(mpeg|mp4|x-m4a|aac)/.test(file.type)) throw new Error('Audio must be MP3 or M4A. Convert WAV, FLAC or OGG files to MP3 first.')
-        const bytes = new Uint8Array(await file.arrayBuffer())
-        if (e === 'mp3' || file.type === 'audio/mpeg') {
+        const bytes = mp3Bytes || new Uint8Array(await file.arrayBuffer())
+        if (mp3Bytes || e === 'mp3' || file.type === 'audio/mpeg') {
           setJob(jobId, { status: 'Reading tags…' })
-          const tags = parseID3(bytes.slice(0, Math.min(bytes.length, 4 * 1024 * 1024)).buffer)
+          const tags = mp3Bytes ? {} : parseID3(bytes.slice(0, Math.min(bytes.length, 4 * 1024 * 1024)).buffer)
           if (tags.title) item.title = tags.title
           if (tags.artist && !opts.artist) item.artist = tags.artist
           if (tags.album && !opts.album) item.album = tags.album
@@ -187,12 +195,17 @@ export async function uploadMedia(files, opts = {}) {
         item.mime = 'audio/mpeg'
         if (kind === 'audiobook' && !item.book) item.book = item.album || 'Untitled audiobook'
       } else if (kind === 'video' || kind === 'movie') {
-        type = e === 'webm' || file.type === 'video/webm' ? 'video/webm' : 'video/mp4'
+        type = videoMime(file)
         payload = file.type === type ? file : new Blob([file], { type })
-        setJob(jobId, { status: 'Making a poster frame…' })
-        const poster = await videoPoster(payload)
-        if (poster) item.cover = (await api.upload(poster, 'image/jpeg')).ref
-        item.duration = Math.round((await probeDuration(payload, 'video')) || 0) || null
+        setJob(jobId, { status: 'Checking playback…' })
+        const pr = await probeVideo(payload)
+        item.playable = pr.playable
+        item.duration = Math.round(pr.duration || 0) || null
+        if (pr.playable) {
+          setJob(jobId, { status: 'Making a poster frame…' })
+          const poster = await videoPoster(payload)
+          if (poster) item.cover = (await api.upload(poster, 'image/jpeg')).ref
+        } else item.note = "This browser can't play this video format (stored; it may play in other browsers or after conversion to MP4)"
         item.mime = type
       } else if (kind === 'ebook') {
         if (e === 'pdf' || file.type === 'application/pdf') {
@@ -204,14 +217,33 @@ export async function uploadMedia(files, opts = {}) {
         } else if (['txt', 'md'].includes(e)) {
           type = e === 'md' ? 'text/markdown' : 'text/plain'
           payload = new Blob([await file.text()], { type })
-        } else throw new Error('E-books must be PDF, TXT or Markdown. Convert EPUB files to PDF first.')
+        } else {
+          item.kind = 'file'; kind = 'file'
+          item.note = 'Stored as a plain file (the in-world reader opens PDF, TXT and Markdown)'
+          type = file.type || 'application/octet-stream'
+        }
         item.mime = type
-        if (!item.artist) item.artist = opts.artist || 'Trinity Reign'
+        if (kind === 'ebook' && !item.artist) item.artist = opts.artist || 'Trinity Reign'
       } else if (kind === 'cover') {
-        type = ['image/png', 'image/webp', 'image/jpeg'].includes(file.type) ? file.type : 'image/jpeg'
+        setJob(jobId, { status: 'Preparing the image…' })
+        try {
+          const img = await imageToWeb(file)
+          payload = img.blob
+          type = img.type
+          item.mime = type
+          if (img.converted) item.convertedFrom = e
+          if (!item.album) item.album = item.title
+        } catch (err) { // a format this browser can't decode (for example TIFF in Chrome): keep the original as a file
+          kind = 'file'
+          item.note = `${err.message}; stored as a plain file (download only)`
+          type = file.type || 'application/octet-stream'
+          item.mime = type
+        }
+      } else {
+        type = file.type || 'application/octet-stream'
         item.mime = type
-        if (!item.album) item.album = item.title
       }
+      item.kind = kind
 
       if (payload.size > limit) throw new Error(`This file is ${(payload.size / 1048576).toFixed(1)} MB; the limit here is ${Math.round(limit / 1048576)} MB per file.`)
       setJob(jobId, { status: `Uploading ${(payload.size / 1048576).toFixed(1)} MB…` })
@@ -276,4 +308,26 @@ export function audiobooks(items, { includeDrafts = false } = {}) {
     map.get(key).chapters.push(s)
   }
   return [...map.values()]
+}
+
+/**
+ * Fetch a direct link to a media file (for example a clip exported from Google Flow or a file you host) and
+ * upload it like any other file. Works when the host allows cross-origin downloads. Pages of social networks
+ * (YouTube, TikTok, Instagram, Facebook, X) are not files and can't be downloaded this way: save the post to your
+ * device from the app, then upload the file.
+ */
+export async function importFromUrl(url, opts = {}) {
+  let u
+  try { u = new URL(url.trim()) } catch { throw new Error('That is not a valid link.') }
+  if (/(^|\.)(youtube\.com|youtu\.be|tiktok\.com|instagram\.com|facebook\.com|fb\.watch|x\.com|twitter\.com|flow\.google|labs\.google)$/i.test(u.hostname)) {
+    throw new Error("That is a page on a social or AI-video site, not a file. Download your clip or photo from the site (save / export / download), then upload the file here.")
+  }
+  let res
+  try { res = await fetch(u.href) } catch { throw new Error("The host didn't allow this page to download the file (or it is offline). Download it to your device and upload it instead.") }
+  if (!res.ok) throw new Error(`The link answered ${res.status}.`)
+  const blob = await res.blob()
+  const name = decodeURIComponent(u.pathname.split('/').pop() || 'download') || 'download'
+  const type = blob.type || res.headers.get('content-type') || ''
+  const file = new File([blob], /\.[a-z0-9]{2,5}$/i.test(name) ? name : name + '.' + (type.split('/')[1] || 'bin').split(';')[0], { type: type.split(';')[0] })
+  return uploadMedia([file], opts)
 }

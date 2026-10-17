@@ -31,7 +31,7 @@ export default function AssetPanel() {
   }
 
   return (
-    <Panel title="Asset library" eyebrow="GLB · GLTF import" wide>
+    <Panel title="Asset library" eyebrow="3D model import · any common format" wide>
       <div className="assets">
         <div
           className={'drop' + (drag ? ' over' : '')}
@@ -41,7 +41,7 @@ export default function AssetPanel() {
         >
           <div>
             <b>Drop your Tripo 3D or Meshy AI models here</b>
-            <small>.glb, or .gltf together with its .bin and texture files. Draco and Meshopt compression supported.</small>
+            <small>GLB, or GLTF with its .bin and textures; OBJ (+ MTL and textures), FBX, STL, PLY, DAE, 3MF and WRL are converted to GLB automatically. Select a model's texture files together with it.</small>
           </div>
           <div className="drop-actions">
             <label className="field inline">
@@ -52,7 +52,7 @@ export default function AssetPanel() {
             </label>
             <label className="btn primary file">
               Choose files
-              <input id="import-files" type="file" multiple accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp" onChange={(e) => { doImport(e.target.files); e.target.value = '' }} />
+              <input id="import-files" type="file" multiple accept=".glb,.gltf,.bin,.obj,.mtl,.fbx,.stl,.ply,.dae,.3mf,.wrl,.vrml,image/*" onChange={(e) => { doImport(e.target.files); e.target.value = '' }} />
             </label>
           </div>
         </div>

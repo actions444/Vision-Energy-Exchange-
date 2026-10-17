@@ -45,7 +45,7 @@ function drawDisplay(floor, dir) {
 const mat = (color, intensity) => new THREE.MeshStandardMaterial({ color: '#1a1b1f', emissive: color, emissiveIntensity: intensity, toneMapped: false, roughness: 0.4 })
 
 /** Ding-dong (up) or single ding (down), only audible near the shaft on that floor or in the car. */
-function chime(dir) {
+export function chime(dir) {
   try {
     const core = audioCore()
     if (core.ctx.state !== 'running') return

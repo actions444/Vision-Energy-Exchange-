@@ -92,7 +92,7 @@ function PlaylistsTab() {
             <Art item={p} size={64} />
             <div className="grow fields">
               <input id="pl-name" aria-label="Playlist name" value={p.name} onChange={(e) => lib.updatePlaylist(p.id, { name: e.target.value })} />
-              <label className="btn file">Change cover<input id="pl-art" type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) lib.setArt('playlist', p.id, f); e.target.value = '' }} /></label>
+              <label className="btn file">Change cover<input id="pl-art" type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.bmp,.svg" onChange={(e) => { const f = e.target.files?.[0]; if (f) lib.setArt('playlist', p.id, f); e.target.value = '' }} /></label>
             </div>
           </div>
           {p.kind === 'tracks' ? (
@@ -123,7 +123,7 @@ function PlaylistsTab() {
                   {lib.tracks.filter((t) => !p.trackIds.includes(t.id)).map((t) => <option key={t.id} value={t.id}>{t.title} · {t.artist}</option>)}
                 </select>
                 <button className="btn" disabled={!addId} onClick={() => { lib.addToPlaylist(p.id, [addId]); setAddId('') }}>Add</button>
-                <label className="btn primary file">Upload MP3s here<input id="pl-upload" type="file" multiple accept="audio/*,.mp3,.m4a,.wav,.ogg" onChange={(e) => { lib.uploadTracks([...e.target.files], p.id); e.target.value = '' }} /></label>
+                <label className="btn primary file">Upload MP3s here<input id="pl-upload" type="file" multiple accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aif,.aiff,.weba,.amr,.wma" onChange={(e) => { lib.uploadTracks([...e.target.files], p.id); e.target.value = '' }} /></label>
               </div>
             </>
           ) : (
@@ -157,15 +157,15 @@ function TracksTab() {
     <div className="admin-list">
       <div className="drop">
         <div>
-          <b>Upload MP3s</b>
-          <small>Title, artist and embedded cover art are read from the file's tags. Edit them below.</small>
+          <b>Upload your music</b>
+          <small>Any common audio format works (MP3, WAV, FLAC, M4A, AAC, OGG, and more) — anything that isn't already MP3 or M4A is converted automatically. Title, artist and embedded cover art are read from the file's tags where available. Edit them below.</small>
         </div>
         <div className="drop-actions">
           <select id="upload-target" value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Add uploads to playlist">
             <option value="">Library only</option>
             {lib.playlists.filter((p) => p.kind === 'tracks').map((p) => <option key={p.id} value={p.id}>Add to {p.name}</option>)}
           </select>
-          <label className="btn primary file">Choose audio<input id="track-upload" type="file" multiple accept="audio/*,.mp3,.m4a,.wav,.ogg" onChange={(e) => { lib.uploadTracks([...e.target.files], target || null); e.target.value = '' }} /></label>
+          <label className="btn primary file">Choose audio<input id="track-upload" type="file" multiple accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.aif,.aiff,.weba,.amr,.wma" onChange={(e) => { lib.uploadTracks([...e.target.files], target || null); e.target.value = '' }} /></label>
         </div>
       </div>
       {lib.tracks.map((t) => (
@@ -176,7 +176,7 @@ function TracksTab() {
             <input aria-label="Artist" value={t.artist} onChange={(e) => lib.updateTrack(t.id, { artist: e.target.value })} />
           </div>
           <span className="badge">{t.source === 'generated' ? 'Demo' : t.source === 'local' ? 'Uploaded' : 'Site'}</span>
-          <label className="btn file">Art<input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) lib.setArt('track', t.id, f); e.target.value = '' }} /></label>
+          <label className="btn file">Art<input type="file" accept="image/*,.heic,.heif,.avif,.tif,.tiff,.bmp,.svg" onChange={(e) => { const f = e.target.files?.[0]; if (f) lib.setArt('track', t.id, f); e.target.value = '' }} /></label>
           <button className="btn ghost" onClick={() => lib.removeTrack(t.id)}>Delete</button>
         </div>
       ))}

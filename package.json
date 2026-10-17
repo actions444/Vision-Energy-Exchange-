@@ -11,9 +11,11 @@
     "server": "node server/index.js"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@react-three/fiber": "^9.3.0",
     "@react-three/postprocessing": "^3.0.4",
     "@react-three/rapier": "^2.1.0",
+    "heic2any": "^0.0.4",
     "pdfjs-dist": "^3.11.174",
     "postprocessing": "6.39.5",
     "react": "^19.1.1",

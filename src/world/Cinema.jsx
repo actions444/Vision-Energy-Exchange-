@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
-import { getMaterials, surface } from './materials.js'
+import { getMaterials, surface, signatureMarble } from './materials.js'
 import { canvasTexture, wrapText } from './canvasText.js'
 import { registerInteractable } from '../state/runtime.js'
 import { registerLightAnchor } from '../state/environment.js'
@@ -13,6 +13,8 @@ import { Sofa, Plant, Counter, CeilingLight, Speaker, Table } from './furniture.
 import { useCinema, sessionFor, cinemaTexture, SCREENS, watchable } from '../cinema/cinema.js'
 import { useMedia, fileUrl } from '../media/media.js'
 import { FONTS } from '../config/theme.js'
+import { CinemaTowerFloors } from './CinemaTower.jsx'
+import { Atm } from './props.jsx'
 
 // Vision Storms Cinema: a lobby with box office and concessions, and two stadium-seated
 // auditoriums with recliners, proportioned screens, aisles, sconces, exit signs and a
@@ -20,8 +22,15 @@ import { FONTS } from '../config/theme.js'
 
 export const CINEMA = { x0: -34, x1: -10, z0: -22, z1: 8, ih: 9, floor: 0.15 }
 const T = 0.4 // shell wall thickness
-const PART_X = -17 // lobby / auditorium partition
-const DIV_Z = -7 // wall between the two auditoriums
+export const PART_X = -17 // lobby / auditorium partition (same x on every floor, so the tower stacks cleanly)
+const DIV_Z = -7 // wall between the two ground-floor auditoriums
+
+// The ground floor keeps its original 9m-tall lobby + 2 auditoriums, unchanged. Above it, 4 more
+// floors (same footprint, same 9m floor-to-floor height so the proven Auditorium geometry works
+// unmodified) carry 20 more screens, reached by a real elevator — see CinemaTower.jsx.
+export const TOWER_FLOOR_H = 9
+export const TOWER_FLOORS = 5 // ground + 4 upper
+export const TOWER_IH = TOWER_FLOORS * TOWER_FLOOR_H // total shell cavity Venue() must provide
 export const AUDITORIUMS = [
   { screenId: 'cinema-1', x0: CINEMA.x0 + T, x1: PART_X - 0.15, z0: CINEMA.z0 + T, z1: DIV_Z - 0.15, entry: 'z0' },
   { screenId: 'cinema-2', x0: CINEMA.x0 + T, x1: PART_X - 0.15, z0: DIV_Z + 0.15, z1: CINEMA.z1 - T, entry: 'z1' },
@@ -135,12 +144,59 @@ function useHouseLights(screenId, anchors) {
   return level
 }
 
+// A stylized canvas-drawn gold medallion plaque (not a sculpted 3D lion — a flat procedural
+// crest, same honesty level as every other canvas-texture prop in this file).
+let lionTex = null
+function lionTexture() {
+  if (lionTex) return lionTex
+  lionTex = canvasTexture(512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#1a140a'; ctx.fillRect(0, 0, w, h)
+    const cx = w / 2, cy = h / 2
+    ctx.strokeStyle = '#c9a96a'; ctx.lineWidth = 10
+    ctx.beginPath(); ctx.arc(cx, cy, 220, 0, Math.PI * 2); ctx.stroke()
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, 195, 0, Math.PI * 2); ctx.stroke()
+    // mane: a ring of golden strokes radiating out from the head
+    ctx.strokeStyle = '#d9b876'
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * Math.PI * 2
+      const r0 = 95, r1 = 150 + (i % 3) * 14
+      ctx.lineWidth = 7
+      ctx.beginPath()
+      ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0)
+      ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1)
+      ctx.stroke()
+    }
+    // simple stylized face: muzzle, eyes, brow
+    ctx.fillStyle = '#e8cf9a'
+    ctx.beginPath(); ctx.ellipse(cx, cy + 10, 70, 60, 0, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#2a1f10'
+    ctx.beginPath(); ctx.ellipse(cx - 28, cy - 8, 11, 15, 0, 0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.ellipse(cx + 28, cy - 8, 11, 15, 0, 0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.moveTo(cx - 16, cy + 18); ctx.lineTo(cx + 16, cy + 18); ctx.lineTo(cx, cy + 34); ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = '#2a1f10'; ctx.lineWidth = 4
+    ctx.beginPath(); ctx.moveTo(cx, cy + 34); ctx.lineTo(cx, cy + 46); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(cx - 34, cy + 50); ctx.lineTo(cx, cy + 46); ctx.lineTo(cx + 34, cy + 50); ctx.stroke()
+    ctx.fillStyle = '#c9a96a'; ctx.font = `800 26px ${FONTS.display}`; ctx.textAlign = 'center'
+    ctx.fillText('VISION CINEMA', cx, cy + 250)
+  })
+  return lionTex
+}
+function LionPlaque({ position, yaw }) {
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ map: lionTexture(), emissive: '#4a3210', emissiveMap: lionTexture(), emissiveIntensity: 0.35, roughness: 0.55 }), [])
+  return (
+    <group position={position} rotation={[0, yaw, 0]}>
+      <mesh position={[0, 0, 0.02]} material={mat}><circleGeometry args={[1.35, 48]} /></mesh>
+    </group>
+  )
+}
+
 // Instanced recliners: seat bases, cushions, reclined backs, armrests between seats.
-function Recliners({ seats, color = '#5a1d24' }) {
-  const base = useRef(), back = useRef(), arm = useRef(), foot = useRef()
+function Recliners({ seats, color = '#5a1d24', cupHolders = false }) {
+  const base = useRef(), back = useRef(), arm = useRef(), foot = useRef(), cup = useRef()
   const m = getMaterials()
   const leather = m.leather(color)
   const dark = m.leather('#1d1a1c')
+  const cupMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#0e0e10', metalness: 0.6, roughness: 0.3 }), [])
   const arms = useMemo(() => {
     // one armrest each side of every seat (neighbours share)
     const out = new Map()
@@ -157,8 +213,9 @@ function Recliners({ seats, color = '#5a1d24' }) {
       o.rotation.set(0, 0, 0); o.position.set(x - 0.47, s.floorY + 0.2, z); o.scale.set(0.16, 0.3, s.spacing - 0.2); o.updateMatrix(); foot.current.setMatrixAt(i, o.matrix)
     })
     arms.forEach(([x, y, z], i) => { o.rotation.set(0, 0, 0); o.position.set(x + 0.02, y + 0.33, z); o.scale.set(0.86, 0.66, 0.13); o.updateMatrix(); arm.current.setMatrixAt(i, o.matrix) })
-    for (const r of [base, back, arm, foot]) { r.current.instanceMatrix.needsUpdate = true; r.current.computeBoundingSphere() }
-  }, [seats, arms])
+    if (cupHolders && cup.current) arms.forEach(([x, y, z], i) => { o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1); o.position.set(x + 0.3, y + 0.67, z); o.updateMatrix(); cup.current.setMatrixAt(i, o.matrix) })
+    for (const r of cupHolders ? [base, back, arm, foot, cup] : [base, back, arm, foot]) { r.current.instanceMatrix.needsUpdate = true; r.current.computeBoundingSphere() }
+  }, [seats, arms, cupHolders])
   useSeats(seats.map(({ position, yaw, height, label }) => ({ position, yaw, height, label })), [seats])
   // solid colliders that fit the recliners: one seat block and one backrest block per row,
   // leaving the leg room in front of each row free to walk along
@@ -185,6 +242,7 @@ function Recliners({ seats, color = '#5a1d24' }) {
       <instancedMesh ref={back} args={[null, leather, seats.length]} castShadow><boxGeometry /></instancedMesh>
       <instancedMesh ref={foot} args={[null, dark, seats.length]}><boxGeometry /></instancedMesh>
       <instancedMesh ref={arm} args={[null, dark, arms.length]} castShadow><boxGeometry /></instancedMesh>
+      {cupHolders && <instancedMesh ref={cup} args={[null, cupMat, arms.length]}><cylinderGeometry args={[0.06, 0.06, 0.1, 10]} /></instancedMesh>}
     </group>
   )
 }
@@ -212,11 +270,14 @@ function ControlPanel({ position, yaw, screenId }) {
  * Screen on the x0 wall (facing +x), rows rise toward x1. A floor-level corridor runs along the
  * entry side to the door in the x1 wall; a stepped aisle on the far side reaches every row.
  */
-export function Auditorium({ screenId, x0, x1, z0, z1, entry, floorY, height, rows = 6, rowDepth = 1.75, tier = 0.35, spacing = 1.1, firstRow = 6.4, corridor = 1.5, aisle = 1.2, screenH, seatColor, title, backExit = true }) {
+export function Auditorium({ screenId, x0, x1, z0, z1, entry, floorY, height, rows = 6, rowDepth = 1.75, tier = 0.35, spacing = 1.1, firstRow = 6.4, corridor = 1.5, aisle = 1.2, screenH, seatColor, title, backExit = true, wallColor, cupHolders = false, artKind }) {
   const m = getMaterials()
-  const carpet = surface('carpet', (x1 - x0) / 2, (z1 - z0) / 2, { color: '#2c2230' })
+  const carpet = signatureMarble(4, 4) // floor and step treads: signature black marble
   const riser = surface('carpet', 4, 0.4, { color: '#241c27' })
-  const wallFabric = m.fabric('#2a2326')
+  // Realism upgrade demo: one room (The Royal Reserve) gets a real quilted normal map on its
+  // walls instead of the flat tinted fabric every other auditorium uses, to preview the pass
+  // before it's rolled out to the rest of the tower.
+  const wallFabric = screenId === 'cinema-3' ? m.fabricHD(wallColor || '#2a2326') : m.fabric(wallColor || '#2a2326')
   const sconceMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f6e3c4', emissive: '#ffcf8f', emissiveIntensity: 1.4, toneMapped: false }), [])
   const stepLight = useMemo(() => new THREE.MeshBasicMaterial({ color: '#ffb766', toneMapped: false }), [])
   const zc = (lo, hi) => (lo + hi) / 2
@@ -303,7 +364,7 @@ export function Auditorium({ screenId, x0, x1, z0, z1, entry, floorY, height, ro
         </group>
       ))}
 
-      <Recliners seats={seats} color={seatColor} />
+      <Recliners seats={seats} color={seatColor} cupHolders={cupHolders} />
 
       {/* screen, stage, speakers */}
       <mesh position={[x0 + 0.6, floorY + 0.3, zc(z0, z1)]} material={m.blackSteel}><boxGeometry args={[1.2, 0.6, z1 - z0 - 1.2]} /></mesh>
@@ -322,6 +383,9 @@ export function Auditorium({ screenId, x0, x1, z0, z1, entry, floorY, height, ro
         </mesh>
       )))}
       <mesh position={[zc(x0, x1), floorY + height - 0.02, zc(z0, z1)]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[x1 - x0, z1 - z0]} /><meshStandardMaterial color="#141217" roughness={1} /></mesh>
+
+      {artKind === 'lion' && <LionPlaque position={[zc(x0, x1), floorY + height * 0.55, z0 + 0.03]} yaw={0} />}
+      {artKind === 'lion' && <LionPlaque position={[zc(x0, x1), floorY + height * 0.55, z1 - 0.03]} yaw={Math.PI} />}
 
       {/* exit signs over the entrance and at the front by the screen */}
       {backExit && <ExitSign position={[x1 - 0.06, floorY + 2.95, zEntry + sgn * corridor / 2]} yaw={-Math.PI / 2} />}
@@ -426,7 +490,7 @@ export function CinemaInterior() {
   const m = getMaterials()
   const { x1, z0, z1, ih, floor } = CINEMA
   const plaster = surface('plaster', 4, 2, { color: '#2a2428' })
-  const lobbyCarpet = surface('carpet', 4, 10, { color: '#4a2430' })
+  const lobbyCarpet = signatureMarble(3, 6)
   const wallH = ih
   // partition with two auditorium doorways, and the dividing wall
   const doors = AUDITORIUMS.map((a) => ({ z: a.entry === 'z0' ? a.z0 + 0.75 : a.z1 - 0.75, a }))
@@ -467,10 +531,12 @@ export function CinemaInterior() {
       {[-18, -12, -2, 4].map((z) => <CeilingLight key={z} position={[-13.5, floor + 5.6, z]} size={[1.4, 1.4]} intensity={10} color="#ffe2bf" />)}
       <mesh position={[(PART_X + x1) / 2, floor + 5.8, (z0 + z1) / 2]} rotation={[Math.PI / 2, 0, 0]}><planeGeometry args={[x1 - PART_X, z1 - z0]} /><meshStandardMaterial color="#1b171c" roughness={0.9} /></mesh>
       <ExitSign position={[x1 - 0.42, floor + 3.9, -7]} yaw={-Math.PI / 2} />
+      <Atm id="atm-cinema-lobby" position={[x1 - 0.7, floor, 1.0]} yaw={-Math.PI / 2} />
 
       {AUDITORIUMS.map((a, i) => (
         <Auditorium key={a.screenId} {...a} floorY={floor} height={ih} title={SCREENS[a.screenId].name} seatColor={i ? '#24304a' : '#5a1d24'} />
       ))}
+      <CinemaTowerFloors />
     </group>
   )
 }

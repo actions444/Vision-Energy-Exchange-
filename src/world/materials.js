@@ -23,9 +23,10 @@ function fbm(x, y, p, oct = 5) {
   return s
 }
 
+export const texUtil = { get hash() { return hash }, get canvas() { return canvas }, get mottle() { return mottle }, get grain() { return grain }, get toTex() { return toTex }, get fbm() { return fbm }, get repeated() { return repeated }, get tex() { return tex } }
 const hexToRgb = (h) => { const c = new THREE.Color(h); return [c.r * 255, c.g * 255, c.b * 255] }
 
-function makeMarble(size, { base, vein, gold, scale = 4, veinSharp = 14, tint = null }) {
+function makeMarble(size, { base, vein, gold, scale = 4, veinSharp = 14, tint = null, mask = null }) {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = size
   const ctx = canvas.getContext('2d')
@@ -45,6 +46,7 @@ function makeMarble(size, { base, vein, gold, scale = 4, veinSharp = 14, tint = 
       r += (V[0] - r) * vein1 * 0.7 + (G[0] - r) * vein2
       g += (V[1] - g) * vein1 * 0.7 + (G[1] - g) * vein2
       b += (V[2] - b) * vein1 * 0.7 + (G[2] - b) * vein2
+      if (mask) mask[y * size + x] = Math.min(1, vein1 * 0.9 + vein2 * 1.6)
       if (T) { const t = Math.max(0, n2 - 0.55) * 0.6; r += (T[0] - r) * t; g += (T[1] - g) * t; b += (T[2] - b) * t }
       const i = (y * size + x) * 4
       img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = 255
@@ -98,6 +100,38 @@ function toTex(c, srgb = true) {
   if (srgb) t.colorSpace = THREE.SRGBColorSpace
   t.wrapS = t.wrapT = THREE.RepeatWrapping
   t.anisotropy = 8
+  return t
+}
+
+// ---------- realism upgrade demo: procedural normal maps from a surface's own luminance ----------
+// Converts an existing canvas texture's brightness into a tangent-space normal map (a cheap
+// Sobel-style height-from-luminance pass), so raking light catches real relief - grout lines,
+// paver edges, fabric weave - instead of a flat tint. No new assets: derived from the same canvas.
+function heightToNormal(srcCanvas, strength = 1.4) {
+  const s = srcCanvas.width
+  const sctx = srcCanvas.getContext('2d')
+  const src = sctx.getImageData(0, 0, s, s).data
+  const h = (x, y) => { x = ((x % s) + s) % s; y = ((y % s) + s) % s; const i = (y * s + x) * 4; return (src[i] + src[i + 1] + src[i + 2]) / 765 } // 0..1 luminance
+  const out = document.createElement('canvas')
+  out.width = out.height = s
+  const octx = out.getContext('2d')
+  const img = octx.createImageData(s, s)
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      const dx = (h(x - 1, y) - h(x + 1, y)) * strength
+      const dy = (h(x, y - 1) - h(x, y + 1)) * strength
+      const nz = 1
+      const len = Math.sqrt(dx * dx + dy * dy + nz * nz)
+      const i = (y * s + x) * 4
+      img.data[i] = ((dx / len) * 0.5 + 0.5) * 255
+      img.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255
+      img.data[i + 2] = ((nz / len) * 0.5 + 0.5) * 255
+      img.data[i + 3] = 255
+    }
+  }
+  octx.putImageData(img, 0, 0)
+  const t = new THREE.CanvasTexture(out)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
   return t
 }
 
@@ -223,6 +257,23 @@ const TEX = {
     for (let y = 0; y < s; y += 2) { ctx.fillStyle = `rgba(0,0,0,${0.04 + (y % 4 ? 0.03 : 0)})`; ctx.fillRect(0, y, s, 1) }
     grain(ctx, s, 20, 23)
   })),
+  // channel-tufted velvet: diagonal diamond seams with a soft highlight on each pillow - built as
+  // pure luminance so heightToNormal() turns it into a believable quilted normal map.
+  weave: () => toTex(canvas(256, (ctx, s) => {
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, s, s)
+    const cell = 64
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 3
+    for (let d = -s; d < s * 2; d += cell) {
+      ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + s, s); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(d, s); ctx.lineTo(d + s, 0); ctx.stroke()
+    }
+    for (let y = -cell; y < s + cell; y += cell) for (let x = -cell; x < s + cell; x += cell) {
+      const g = ctx.createRadialGradient(x, y, 2, x, y, cell * 0.6)
+      g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, cell * 0.6, 0, Math.PI * 2); ctx.fill()
+    }
+    grain(ctx, s, 8, 41)
+  }), false),
   curtain: (seed) => {
     // glass curtain wall: 4x4 panes per tile, aluminium mullions; separate night window map
     const color = canvas(256, (ctx, s) => {
@@ -288,26 +339,65 @@ export function surface(kind, rx = 1, ry = 1, opts = {}) {
   return m
 }
 
+// ---------- realism upgrade demo: an "HD" variant of `surface()` with a derived normal map ----------
+// Same cached textures as `surface()`, plus real relief under angled light (paver edges, grout,
+// brick courses). Deliberately a separate function so it only lands where it's opted into (one
+// city block, one interior) rather than silently changing every surface in the city at once.
+const matCacheHD = new Map()
+const normalCache = new Map()
+function normalFor(kind, strength) {
+  const key = kind + '|' + strength
+  if (!normalCache.has(key)) normalCache.set(key, heightToNormal(tex(kind).image, strength))
+  return normalCache.get(key)
+}
+const NORMAL_STRENGTH = { concrete: 1.1, pavers: 2.2, brick: 2.0, wood: 1.3, limestone: 1.4 }
+export function surfaceHD(kind, rx = 1, ry = 1, opts = {}) {
+  const key = `${kind}|${rx.toFixed(2)}|${ry.toFixed(2)}|${JSON.stringify(opts)}`
+  if (matCacheHD.has(key)) return matCacheHD.get(key)
+  const base = surface(kind, rx, ry, opts) // reuse the normal map/diffuse/roughness already set up
+  const strength = NORMAL_STRENGTH[kind] ?? 1.2
+  const m = base.clone()
+  m.normalMap = repeated(normalFor(kind, strength), rx, ry)
+  m.normalScale = new THREE.Vector2(1, 1)
+  matCacheHD.set(key, m)
+  return m
+}
+
 /**
  * Polished black marble with fine veins that glow faintly in a brand accent colour
  * (purple, pink, teal or gold). The veins are an emissive map, so they read as subtly
  * illuminated in low light without lighting the room.
  */
 const blackMarbleCache = new Map()
+/** Signature floor: polished black marble with veins glowing pink, purple and teal (turquoise). */
+export const SIGNATURE_VEINS = ['#e0559f', '#9b4fe0', '#2fd0c4']
+export const signatureMarble = (rx = 2, ry = 2) => blackMarble(SIGNATURE_VEINS, rx, ry)
 export function blackMarble(accent = '#c9a96a', rx = 2, ry = 2) {
-  const key = accent + '|' + rx + '|' + ry
+  const multi = Array.isArray(accent)
+  const key = (multi ? accent.join(',') : accent) + '|' + rx + '|' + ry
   if (blackMarbleCache.has(key)) return blackMarbleCache.get(key)
   const size = 512
-  const base = makeMarble(size, { base: '#0b0b0e', vein: '#3a3842', gold: accent, scale: 3, veinSharp: 26 })
-  // emissive: only the brightest accent veins
+  const mask = multi ? new Float32Array(size * size) : null
+  const base = makeMarble(size, { base: '#0b0b0e', vein: '#3a3842', gold: multi ? '#8d86a0' : accent, scale: 3, veinSharp: 26, mask })
+  // emissive: only the brightest accent veins. With several accents, the vein colour drifts
+  // smoothly between them across the slab (seamless: built from whole-period sines).
   const c = document.createElement('canvas')
   c.width = c.height = size
   const src = base.image.getContext('2d').getImageData(0, 0, size, size)
   const out = c.getContext('2d').createImageData(size, size)
-  const A = hexToRgb(accent)
+  const cols = (multi ? accent : [accent]).map(hexToRgb)
+  const TAU = Math.PI * 2
   for (let i = 0; i < src.data.length; i += 4) {
     const l = (src.data[i] + src.data[i + 1] + src.data[i + 2]) / 3
-    const k = Math.max(0, Math.min(1, (l - 34) / 50)) ** 1.5
+    const k = multi ? Math.min(1, mask[i >> 2] * 1.3) ** 0.9 : Math.max(0, Math.min(1, (l - 34) / 50)) ** 1.5
+    let A = cols[0]
+    if (cols.length > 1) {
+      const px = ((i >> 2) % size) / size, py = Math.floor((i >> 2) / size) / size
+      const n = 0.5 + 0.25 * Math.sin(TAU * (px * 2 + py)) + 0.25 * Math.sin(TAU * (py * 3 - px) + 1.7) // 0..1
+      const f = Math.min(cols.length - 1.0001, n * cols.length * 0.999)
+      const j = Math.floor(f), t = f - j, a = cols[j], b = cols[Math.min(j + 1, cols.length - 1)]
+      A = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+    }
     out.data[i] = A[0] * k; out.data[i + 1] = A[1] * k; out.data[i + 2] = A[2] * k; out.data[i + 3] = 255
   }
   c.getContext('2d').putImageData(out, 0, 0)
@@ -315,7 +405,7 @@ export function blackMarble(accent = '#c9a96a', rx = 2, ry = 2) {
   em.colorSpace = THREE.SRGBColorSpace
   em.wrapS = em.wrapT = THREE.RepeatWrapping
   for (const t of [base, em]) t.repeat.set(rx, ry)
-  const m = new THREE.MeshPhysicalMaterial({ map: base, emissive: '#ffffff', emissiveMap: em, emissiveIntensity: 0.55, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1 })
+  const m = new THREE.MeshPhysicalMaterial({ map: base, emissive: '#ffffff', emissiveMap: em, emissiveIntensity: multi ? 0.9 : 0.55, roughness: 0.12, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: multi ? 0.55 : 1 })
   blackMarbleCache.set(key, m)
   return m
 }
@@ -360,6 +450,10 @@ export function getMaterials() {
     water: new THREE.MeshStandardMaterial({ color: '#3d6f84', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.82, envMapIntensity: 1.5 }),
     leather: (color = '#3b2a20') => once('leather' + color, () => new THREE.MeshStandardMaterial({ color, roughness: 0.55 })),
     fabric: (color = '#5b6470') => once('fabric' + color, () => new THREE.MeshStandardMaterial({ color, map: tex('fabric'), roughness: 0.95 })),
+    /** Realism upgrade demo: channel-tufted velvet with a real quilted normal map, instead of
+     * the flat tinted weave `fabric()` gives everywhere else. Used for one room (Cinema.jsx,
+     * The Royal Reserve) until this pass is rolled out further. */
+    fabricHD: (color = '#5b6470') => once('fabricHD' + color, () => new THREE.MeshStandardMaterial({ color, map: repeated(tex('fabric'), 3, 1), normalMap: repeated(heightToNormal(tex('weave').image, 1.0), 3, 1), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.75 })),
     shared: once,
   }
   return cache

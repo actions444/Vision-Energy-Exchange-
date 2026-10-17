@@ -26,7 +26,7 @@ const STOP = 10.2 // stop lines at x = -10.2 (eastbound) and x = +10.2 (westboun
 const V_MAX = 11 // m/s (~25 mph)
 /** Live NPC car list (debugging and tests). */
 export const trafficState = { cars: [] }
-export const TRAFFIC_DENSITY = { off: 0, light: 5, normal: 10 }
+export const TRAFFIC_DENSITY = { off: 0, light: 5, normal: 10, heavy: 22 }
 
 // ---------------- signals ----------------
 // One 32-second cycle: cross street green 13 s, amber 3 s, all red 1 s; avenue green 12 s,
