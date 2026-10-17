@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, TrimeshCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -10,13 +10,21 @@ import { useSeats } from '../state/seats.js'
 // Renders every placed imported model with a physics collider so the avatar can walk on,
 // into and around it. 'trimesh' gives exact collision (walkable interiors, stairs, ramps);
 // 'box' is a cheap bounding box; 'none' is decoration only.
+//
+// Distance culling: imported models can be the heaviest things in the scene (real triangle
+// counts, real textures), so each one's visual hides itself past CULL_DIST from the camera -
+// a cheap, big win once more than a handful are placed. Buildings/venues (tall, meant to be
+// seen from across the city) get a longer leash than small props. Physics colliders stay
+// active regardless of distance so nothing falls through a wall that scrolled off-screen;
+// Three's own per-mesh frustum culling (on by default here) handles the rest.
+const CULL_DIST = { building: 420, venue: 420, vehicle: 160, landscaping: 140, furniture: 90, prop: 110, character: 160 }
 export default function PlacedAssets() {
   const placed = useAssets((s) => s.placed)
   const library = useAssets((s) => s.library)
   const selected = useAssets((s) => s.selected)
-  const ids = new Set(library.map((a) => a.id))
-  return placed.filter((p) => ids.has(p.assetId) && registry.has(p.assetId)).map((inst) => (
-    <PlacedAsset key={inst.iid} inst={inst} selected={selected === inst.iid} />
+  const byId = new Map(library.map((a) => [a.id, a]))
+  return placed.filter((p) => byId.has(p.assetId) && registry.has(p.assetId)).map((inst) => (
+    <PlacedAsset key={inst.iid} inst={inst} kind={byId.get(inst.assetId).kind} selected={selected === inst.iid} />
   ))
 }
 
@@ -44,12 +52,25 @@ function buildTrimesh(info, scale) {
   return [new Float32Array(verts), new Uint32Array(idx)]
 }
 
-function PlacedAsset({ inst, selected }) {
+function PlacedAsset({ inst, kind, selected }) {
   const info = registry.get(inst.assetId)
   const obj = useMemo(() => skeletonClone(info.scene), [info])
   const { position, rotationY, scale, collider } = inst
   const size = info.size
   const trimesh = useMemo(() => (collider === 'trimesh' ? buildTrimesh(info, scale) : null), [info, scale, collider])
+
+  // distance culling: hide the visual (not the collider) once far enough from the camera that
+  // it wouldn't be noticed missing; a little hysteresis stops it flicking at the boundary
+  const cullDist = CULL_DIST[kind] ?? 140
+  const camera = useThree((s) => s.camera)
+  const visGroup = useRef()
+  const posVec = useMemo(() => new THREE.Vector3(...position), [position])
+  useFrame(() => {
+    if (!visGroup.current) return
+    const d = camera.position.distanceTo(posVec)
+    const want = d < (visGroup.current.visible ? cullDist * 1.08 : cullDist)
+    if (want !== visGroup.current.visible) visGroup.current.visible = want
+  })
 
   // play the first animation clip of animated props (e.g. a spinning sign)
   const mixer = useMemo(() => (info.animations.length && !info.skinned ? new THREE.AnimationMixer(obj) : null), [obj, info])
@@ -72,7 +93,7 @@ function PlacedAsset({ inst, selected }) {
   useSeats(seatList, [seatList])
   return (
     <>
-      <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
+      <group ref={visGroup} position={position} rotation={[0, rotationY, 0]} scale={scale}>
         <group position={info.offset}>
           <primitive object={obj} />
         </group>

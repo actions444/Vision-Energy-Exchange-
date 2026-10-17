@@ -197,6 +197,11 @@ function Editor({ inst }) {
           const p = playerState.position, yaw = playerState.yaw
           a.updatePlaced(inst.iid, { position: [p.x + Math.sin(yaw) * 3, p.y, p.z + Math.cos(yaw) * 3].map((v) => +v.toFixed(2)) })
         }}>Bring in front of me</button>
+        <button className="btn" onClick={() => {
+          const offset = Math.max(2, (asset ? Math.max(asset.size[0], asset.size[2]) * inst.scale : 2) * 0.7)
+          const copy = a.place(inst.assetId, [inst.position[0] + offset, inst.position[1], inst.position[2]], inst.rotationY)
+          if (copy) a.updatePlaced(copy.iid, { scale: inst.scale, collider: inst.collider, ...(inst.seats ? { seats: { ...inst.seats } } : {}) })
+        }}>Duplicate</button>
         <button className="btn ghost" onClick={() => a.removePlaced(inst.iid)}>Delete</button>
       </div>
     </div>

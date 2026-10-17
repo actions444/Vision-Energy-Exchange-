@@ -13,7 +13,9 @@ export const registry = new Map() // id -> { scene, animations, offset, size, ..
 export const KINDS = {
   building: { label: 'Building', height: 14 },
   venue: { label: 'Venue / theater', height: 10 },
+  vehicle: { label: 'Vehicle', height: 1.6 },
   furniture: { label: 'Furniture', height: 0.9 },
+  landscaping: { label: 'Tree / landscaping', height: 4 },
   prop: { label: 'Prop', height: 1.2 },
   character: { label: 'Character', height: 1.8 },
 }
