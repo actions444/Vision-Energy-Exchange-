@@ -28,6 +28,7 @@ import JobDistrict, { DISTRICT, WASH_B } from './JobDistrict.jsx'
 import MotorCourt, { MOTORS } from './MotorCourt.jsx'
 import Island from './Island.jsx'
 import Mansion from './Mansion.jsx'
+import ResidenceTower from './assets/residence/ResidenceTower.jsx'
 import Library from './Library.jsx'
 import LibraryPeople from './LibraryPeople.jsx'
 import Museum from './museum/Museum.jsx'
@@ -185,6 +186,7 @@ export default function City() {
       <WestEnd />
       <MotorCourt />
       <Mansion />
+      <ResidenceTower />
       <Island />
       <Library />
       <Museum />

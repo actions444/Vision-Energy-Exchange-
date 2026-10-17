@@ -84,12 +84,22 @@ export default function AssetPanel() {
                   ) : (
                     <button className="btn" onClick={() => a.setAvatar(m.id, 0)}>Use as avatar</button>
                   )}
+                  {m.furniture?.drivable ? (
+                    <button className="btn on" onClick={() => a.setDrivableDefault(m.id, false)}>Drivable vehicle ✓</button>
+                  ) : (
+                    <button className="btn" onClick={() => a.setDrivableDefault(m.id, true)}>Use as drivable vehicle</button>
+                  )}
                   <button className="btn ghost" onClick={() => a.removeAsset(m.id)}>Remove</button>
                 </div>
               </li>
             ))}
           </ul>
         )}
+        <p className="hint">
+          <b>Drivable vehicles:</b> click “Use as drivable vehicle” on a model above to add it to the driving fleet — it's
+          switched to the Vehicle type and every copy you place is drivable right away (get in with the usual vehicle
+          key), with physics scaled from its size. Already-placed copies of that model switch over immediately too.
+        </p>
 
         {a.avatar && (
           <div className="row">

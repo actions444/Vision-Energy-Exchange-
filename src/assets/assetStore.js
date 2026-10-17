@@ -79,6 +79,21 @@ export const useAssets = create((set, get) => ({
     db.get('files', id).then((rec) => rec && db.put('files', id, { ...rec, furniture })).catch(() => {})
   },
 
+  /**
+   * Mark a library model as a drivable vehicle: sets its kind to "vehicle" and records a
+   * default so every future placement of it is added to the driving fleet right away (no need
+   * to place it, select it, then flip "Make drivable" by hand). Also updates any copies already
+   * placed in the world, so turning this on takes effect immediately.
+   */
+  setDrivableDefault(id, drivable) {
+    set((s) => ({
+      library: s.library.map((a) => (a.id === id ? { ...a, kind: 'vehicle', furniture: { ...a.furniture, drivable } } : a)),
+      placed: drivable ? s.placed.map((p) => (p.assetId === id ? { ...p, drivable: true, collider: 'none' } : p)) : s.placed,
+    }))
+    db.get('files', id).then((rec) => rec && db.put('files', id, { ...rec, kind: 'vehicle', furniture: { ...rec.furniture, drivable } })).catch(() => {})
+    scheduleSave()
+  },
+
   removeAsset(id) {
     registry.delete(id)
     set((s) => ({
@@ -102,8 +117,9 @@ export const useAssets = create((set, get) => ({
       position: position.map((v) => +v.toFixed(2)),
       rotationY,
       scale,
-      collider: asset.furniture?.collider || (asset.kind === 'building' || asset.kind === 'venue' ? 'trimesh' : 'box'),
+      collider: asset.furniture?.drivable ? 'none' : asset.furniture?.collider || (asset.kind === 'building' || asset.kind === 'venue' ? 'trimesh' : 'box'),
       ...(asset.furniture?.seats ? { seats: { ...asset.furniture.seats } } : {}),
+      ...(asset.furniture?.drivable ? { drivable: true } : {}),
     }
     set((s) => ({ placed: [...s.placed, inst], selected: inst.iid }))
     scheduleSave()

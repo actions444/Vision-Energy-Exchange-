@@ -1,5 +1,7 @@
 import { PLAZA, P, PLAZA_ROOMS, ELEVATOR, roomBounds } from './plaza.js'
 import { CARS, carTop, carHallPoint } from './elevators.js'
+import { TOWER as RESIDENCE_TOWER, UNIT as RESIDENCE_UNIT, Y as residenceY } from './residenceTower.js'
+import { BUILT_RESIDENTS } from './residences.js'
 
 // Cinema tower geometry, duplicated here (not imported) on purpose: world/Cinema.jsx and
 // world/CinemaTower.jsx already import each other, and this config module is itself imported
@@ -289,3 +291,27 @@ ZONES.push({
   spawn: [99, 1.1, -63],
   yaw: Math.PI,
 })
+
+// Reign Residences tower: a lobby zone (ground floor) plus one zone per built resident's suite,
+// so each floor gets the right ambient playlist instead of inheriting the city-streets default.
+ZONES.push({
+  id: 'residence-lobby',
+  name: 'Reign Residences · Lobby',
+  kind: 'Residence lobby',
+  bounds: [[RESIDENCE_TOWER.x0, RESIDENCE_TOWER.base - 1, RESIDENCE_TOWER.z0], [RESIDENCE_TOWER.x1, residenceY(1) - 0.3, RESIDENCE_TOWER.z1]],
+  playlist: 'pl-lobby',
+  spawn: [(RESIDENCE_TOWER.x0 + RESIDENCE_TOWER.x1) / 2, RESIDENCE_TOWER.base + 0.3, RESIDENCE_TOWER.z1 - 2],
+  yaw: Math.PI,
+})
+for (const r of BUILT_RESIDENTS) {
+  const y0 = residenceY(r.floor)
+  ZONES.push({
+    id: `residence-${r.id}`,
+    name: `${r.name}'s Residence`,
+    kind: 'Private residence',
+    bounds: [[RESIDENCE_UNIT.x0, y0 - 0.5, RESIDENCE_UNIT.z0], [RESIDENCE_UNIT.x1, y0 + 3.3, RESIDENCE_UNIT.z1]],
+    playlist: 'pl-suite',
+    spawn: [RESIDENCE_UNIT.x0 + 4, y0 + 0.3, RESIDENCE_UNIT.z0 + 4],
+    yaw: Math.PI,
+  })
+}

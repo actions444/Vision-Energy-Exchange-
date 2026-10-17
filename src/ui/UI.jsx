@@ -1,4 +1,5 @@
 import { SPAWNS, BLOCKS, PARK, PARADE } from '../config/westend.js'
+import { TOWER as RESIDENCE_TOWER } from '../config/residenceTower.js'
 import Objective, { restartObjective } from './Objective.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
@@ -333,7 +334,11 @@ function HUD() {
         <div className="places-list" role="menu" aria-label="Places">
           <b>Places</b>
           <PlacesMap />
-          {[['downtown', 'Downtown avenue (start)', [0, 0.3, 10]], ...SPAWNS.map(([id, name, pos]) => [id, name, pos])].map(([id, name, pos]) => (
+          {[
+            ['downtown', 'Downtown avenue (start)', [0, 0.3, 10]],
+            ['residences', 'Reign Residences', [(RESIDENCE_TOWER.x0 + RESIDENCE_TOWER.x1) / 2, 0.3, RESIDENCE_TOWER.z1 + 3]],
+            ...SPAWNS.map(([id, name, pos]) => [id, name, pos]),
+          ].map(([id, name, pos]) => (
             <button key={id} id={'place-' + id} role="menuitem" onClick={() => { playerState.teleport = pos; setPlaces(false); setMenu(false) }}>{name}</button>
           ))}
           <small>Phases 1 to 3 of the West End are built (apartments and park, football and recreation grounds, landfill, recycling and industrial row). Harbor Parade (Velvet Suds Laundromat and The Ironing Station) is built on the boulevard frontage of the south-east block. Phase 4, Maple Court, is not built yet and sits behind it.</small>
