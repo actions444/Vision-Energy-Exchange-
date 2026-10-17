@@ -20,6 +20,7 @@ import { StaticBatch } from './batch.jsx'
 import { Window, TV, LightSwitch, Bathroom, Mirror } from './Interior.jsx'
 import { Chandelier } from './Chandelier.jsx'
 import { PottedPlant } from './Vegetation.jsx'
+import SkylineSuiteSet from './SkylineSuiteSet.jsx'
 
 // Furnishings for the six Plaza rooms. Every chair, stool and sofa is sittable; every room has
 // glazed windows onto the world outside, a working TV, a chandelier, a light switch by the door
@@ -313,11 +314,9 @@ function Suite() {
       <RoomSwitch f={f} side="north" zone={Z} />
       {/* accent wall the renter can recolour */}
       <mesh position={at(16, f, N1 - 0.02, CEIL / 2)} rotation={[0, Math.PI, 0]} material={accent}><planeGeometry args={[5.8, CEIL]} /></mesh>
-      <Rug position={at(16, f, 23.5)} size={[6, 4]} color="#7d6a58" />
-      <Sofa position={at(16, f, 21.2)} yaw={0} length={2.8} color="#d3c7b6" />
-      <Sofa position={at(16, f, 25.9)} yaw={Math.PI} length={2.8} color="#d3c7b6" />
-      <Table position={at(16, f, 23.5)} size={[1.6, 0.8]} height={0.4} top="marble" />
-      <Sofa position={at(19.4, f, 23.5)} yaw={-Math.PI / 2} length={1} color="#6f5b4b" label="Sit in armchair" />
+      {/* living room furniture: an imported model (the second imported art asset in this
+          project, alongside the Stormline Parking Garage) in place of a hand-built set */}
+      <SkylineSuiteSet position={at(16, f, 23.5)} yaw={0} />
       <WallScreen position={at(27.64, f, 23.5, 1.7)} yaw={-Math.PI / 2} size={[3, 1.7]} material={screen} />
       {/* the suite's own TV faces the sofas */}
       <TV position={at(16, f, N1 - 0.06, 1.8)} yaw={Math.PI} size={[2.4, 1.35]} id="tv-suite" zone={Z} channel={3} />
