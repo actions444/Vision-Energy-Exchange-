@@ -328,6 +328,43 @@ export function AdventureRoom({ P, colors, zone }) {
   )
 }
 
+export function DenRoom({ P, colors, zone }) {
+  // Eugene: upscale contemporary residence - a warm den with a home-theater corner and a bar
+  return (
+    <group>
+      <Rug position={P(7, 9, 0)} size={[6, 8]} color={colors.dark} />
+      <Sofa position={P(4.0, 12.6)} yaw={0} length={3.0} color={colors.primary} />
+      <Table position={P(4.0, 10.4)} yaw={0} size={[1.5, 0.8]} height={0.4} top="wood" />
+      <WallScreen position={P(13.8, 0, 12.6)} yaw={-Math.PI / 2} size={[2.8, 1.6]} id="eugene-den-tv" zone={zone} name="Eugene's screen" />
+      <Counter position={P(2.2, 2.4)} yaw={0} length={3.0} height={1.0} depth={0.7} top="marble" face={colors.dark} />
+      <Stool position={P(1.4, 3.6)} color={colors.gold} />
+      <Stool position={P(3.0, 3.6)} color={colors.gold} />
+      <Shelf position={P(0.1, 6.6)} yaw={Math.PI / 2} width={2.8} height={2.2} />
+      <Plant position={P(1.0, 16.4)} scale={1.2} kind="fiddle" />
+      <PendantLight position={P(4.0, 0, 10.4)} color={colors.gold} zone={zone} />
+      <CeilingLight position={P(2.2, 0, 2.4)} size={[1.1, 0.7]} color={colors.gold} zone={zone} intensity={14} distance={7} />
+    </group>
+  )
+}
+
+export function TechRoom({ P, colors, zone }) {
+  // Zaybian: contemporary luxury residence - a sleek tech/gaming lounge with electric-blue accents
+  return (
+    <group>
+      <Rug position={P(7, 9, 0)} size={[6, 8]} color={colors.dark} />
+      <Counter position={P(3.4, 2.2)} yaw={0} length={3.6} height={0.95} depth={0.8} top="marble" face={colors.dark} />
+      <Stool position={P(3.4, 3.5)} color={colors.accent} />
+      <WallScreen position={P(0.1, 0, 2.2)} yaw={Math.PI / 2} size={[2.2, 1.3]} id="zaybian-tech-mon" zone={zone} name="Zaybian's display" />
+      <Sofa position={P(9.6, 13.2)} yaw={-Math.PI / 2} length={2.8} color={colors.primary} />
+      <WallScreen position={P(13.8, 0, 13.2)} yaw={-Math.PI / 2} size={[2.8, 1.6]} id="zaybian-tech-tv" zone={zone} name="Zaybian's screen" />
+      <Shelf position={P(0.1, 8.0)} yaw={Math.PI / 2} width={2.6} height={2.0} books={false} />
+      <Plant position={P(12.8, 1.4)} scale={1.1} kind="snake" />
+      <PendantLight position={P(3.4, 0, 2.2)} color={colors.accent} zone={zone} />
+      <CeilingLight position={P(9.6, 0, 13.2)} size={[1.2, 0.8]} color={colors.accent} zone={zone} intensity={16} distance={8} />
+    </group>
+  )
+}
+
 export const SIGNATURE_ROOMS = {
   studio: StudioRoom,
   office: OfficeRoom,
@@ -344,4 +381,6 @@ export const SIGNATURE_ROOMS = {
   elegant: ElegantRoom,
   modern: ModernRoom,
   adventure: AdventureRoom,
+  den: DenRoom,
+  tech: TechRoom,
 }

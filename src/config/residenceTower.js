@@ -11,7 +11,7 @@ export const TOWER = {
   z0: -100, z1: -70, // 30 m deep
   base: CURB,
   floorH: 3.6,
-  floors: 17, // 0 = lobby, 1..16 = the sixteen built residences (4 family members still to come)
+  floors: 19, // 0 = lobby, 1..18 = the eighteen built residences (4 family members still to come)
 }
 
 // vertical circulation core: a corridor along the west edge of the building, full depth, with the
