@@ -28,7 +28,19 @@ import { HOSP } from '../config/jobs.js'
 // ============================================================================
 
 export const HOSPITAL = HOSP
-const STAIR = { x0: 100.4, x1: 103.8, zA: 116, zB: 123.4, landing: 1.6 }
+// Layout: a central corridor (x79..91, stairs + elevator + reception/nurses/lounge) flanked by a
+// west wing (x64.6..79: imaging+pharmacy, two patient rooms, two doctors' offices) and an east wing
+// (x91..106: the ER, two more patient rooms, two operating rooms) - every floor shares the same
+// corridor footprint so the stairwell and elevator shaft line up top to bottom, and no room wall
+// ever runs through the circulation space. Each wing splits into two full-width bands along z
+// (114.6..122 and 122..129.6) rather than being carved into several small boxes, so every room ends
+// up noticeably bigger than a standard closet-sized stand-in - and every fixture is kept well off
+// the straight line from its door into the room.
+const CORR = { x0: 79, x1: 91 }
+const WING_W = { x0: 64.6, x1: 79 }
+const WING_E = { x0: 91, x1: 106 }
+const BAND = { z0: 114.6, zMid: 122, z1: 129.6 }
+const STAIR = { x0: 79.2, x1: 82.6, zA: 114.6, zB: 122, landing: 1.6 }
 
 // ---------------------------------------------------------------------------
 // Medical equipment primitives (kept local: specific enough to this one building that they don't
@@ -208,16 +220,25 @@ export default function Hospital() {
     <CeilingLight key={zone + i} position={[lx, y + FH - 0.3, lz]} size={[1.5, 1.5]} intensity={18} distance={12} zone={zone} watts={56} color="#f4f8fc" />
   ))
 
-  const patientRoom = (idRoot, a, b, doorAt, label, bedYaw = 0) => (
-    <group key={idRoot}>
-      <BoxRoom id={idRoot} x0={a} x1={b} z0={114.6} z1={120.6} y={y2} h={FH} doorSide="north" doorAt={doorAt} label="patient room" doorStyle="glass" glassSide="west" />
-      <RoomSign text={label} position={[doorAt, y2 + 3.2, 120.7]} width={2.2} color="#0e2a3a" glow="#8fd6ff" />
-      <HospitalBed position={[doorAt, y2, 116.4]} yaw={bedYaw} />
-      <IVStand position={[doorAt - 0.7, y2, 116.2]} />
-      <VitalsMonitor position={[doorAt - 0.7, y2, 117.0]} yaw={Math.PI / 2} />
-      <Chair position={[doorAt + 0.9, y2, 117.6]} yaw={-Math.PI / 2} color="#5a7a8a" label="Sit with the patient" />
-    </group>
-  )
+  // Every patient room is a full-width half of a wing's band (roughly 14.4 x 7.6 m), with its only
+  // door opening onto the corridor and the bed/monitor pushed to the far wall, well clear of the door.
+  const patientRoom = (idRoot, wing, side, zA, zB, label, bedYaw = 0) => {
+    const doorAt = (zA + zB) / 2
+    const depth = wing.x1 - wing.x0
+    const bedX = side === 'east' ? wing.x0 + depth * 0.32 : wing.x0 + depth * 0.68
+    const bedZ = zA + (zB - zA) * 0.5
+    const chairX = side === 'east' ? bedX + 1.3 : bedX - 1.3
+    return (
+      <group key={idRoot}>
+        <BoxRoom id={idRoot} x0={wing.x0} x1={wing.x1} z0={zA} z1={zB} y={y2} h={FH} doorSide={side} doorAt={doorAt} label="patient room" doorStyle="glass" glassSide="south" />
+        <RoomSign text={label} position={[side === 'east' ? wing.x1 - 0.1 : wing.x0 + 0.1, y2 + 3.2, doorAt]} rotation={[0, side === 'east' ? Math.PI / 2 : -Math.PI / 2, 0]} width={2.2} color="#0e2a3a" glow="#8fd6ff" />
+        <HospitalBed position={[bedX, y2, bedZ]} yaw={bedYaw} />
+        <IVStand position={[bedX, y2, bedZ - 1.2]} />
+        <VitalsMonitor position={[bedX, y2, bedZ - 1.8]} yaw={Math.PI / 2} />
+        <Chair position={[chairX, y2, bedZ + 1.0]} yaw={side === 'east' ? -Math.PI / 2 : Math.PI / 2} color="#5a7a8a" label="Sit with the patient" />
+      </group>
+    )
+  }
 
   return (
     <group>
@@ -239,79 +260,100 @@ export default function Hospital() {
             <Rail a={[STAIR.x0, STAIR.zB - STAIR.landing]} b={[STAIR.x1, STAIR.zB - STAIR.landing]} y={jy(k)} style="glass" h={1.0} />
           </group>
         ))}
-        <RoomSign text="STAIRS" position={[102.1, GROUND + 3.4, 123.55]} rotation={[0, Math.PI, 0]} width={2.0} />
+        <RoomSign text="STAIRS" position={[STAIR.x1, GROUND + 3.4, STAIR.zA + 0.3]} rotation={[0, -Math.PI / 2, 0]} width={2.0} />
 
-        {/* ---------------- FLOOR 1: RECEPTION, ER, PHARMACY ---------------- */}
+        {/* ---------------- FLOOR 1: RECEPTION, ER, PHARMACY & IMAGING ---------------- */}
+        {/* the main doors are on the z0 (south/front) wall, so the lobby lives in the corridor's
+            front band, clear of the stair's x79.2-82.6 footprint */}
         <HospitalKiosk />
-        <RoomSign text="RECEPTION" position={[83, GROUND + 3.6, z1 - 0.28]} rotation={[0, Math.PI, 0]} width={3.4} color="#0e2a3a" glow="#8fd6ff" />
-        <Counter position={[83, GROUND, 126.2]} yaw={Math.PI} length={6} height={1.1} depth={0.9} top="marble" face="#1c2a2a" />
-        <TimeClock position={[81.5, GROUND, 127.4]} />
-        <Sofa position={[79, GROUND, 116.6]} yaw={0} length={3.0} color="#5a7a8a" />
-        <Sofa position={[87.5, GROUND, 116.6]} yaw={0} length={3.0} color="#5a7a8a" />
-        {[80, 83, 86].map((x) => <Chair key={x} position={[x, GROUND, 118.6]} yaw={Math.PI} color="#5a7a8a" label="Sit in the waiting room" />)}
-        <Plant position={[65.4, GROUND, 116.4]} scale={1.2} />
-        <Plant position={[104.4, GROUND, 116.4]} scale={1.2} />
-        <RoomSign text="ELEVATOR" position={[77.35, GROUND + 3.4, 121.9]} rotation={[0, Math.PI, 0]} width={2.2} />
+        <RoomSign text="RECEPTION" position={[85, GROUND + 3.6, z0 + 0.28]} width={3.4} color="#0e2a3a" glow="#8fd6ff" />
+        <Counter position={[85, GROUND, 118.0]} yaw={Math.PI} length={6} height={1.1} depth={0.9} top="marble" face="#1c2a2a" />
+        <TimeClock position={[88.0, GROUND, 121.0]} />
+        <Sofa position={[84, GROUND, 117.0]} yaw={0} length={3.0} color="#5a7a8a" />
+        <Sofa position={[89, GROUND, 117.0]} yaw={0} length={2.4} color="#5a7a8a" />
+        {[85, 88, 90.5].map((x) => <Chair key={x} position={[x, GROUND, 120.0]} yaw={Math.PI} color="#5a7a8a" label="Sit in the waiting room" />)}
+        <Plant position={[83.2, GROUND, 115.6]} scale={1.2} />
+        <Plant position={[90.0, GROUND, 115.6]} scale={1.2} />
+        <RoomSign text="ELEVATOR" position={[(car.x0 + car.x1) / 2, GROUND + 3.4, car.z1 + 0.3]} rotation={[0, Math.PI, 0]} width={2.2} />
 
-        <BoxRoom id="hosp-er" x0={89} x1={106} z0={114.6} z1={125} y={GROUND} h={FH} doorSide="west" doorAt={120.4} label="emergency department" doorStyle="glass" glassSide="south" />
-        <RoomSign text="EMERGENCY" position={[89.1, GROUND + 3.3, 120.4]} rotation={[0, -Math.PI / 2, 0]} width={3.0} color="#3a0e0e" glow="#ff9a8f" />
-        {[[95, 118], [95, 121.4], [99.5, 118], [99.5, 121.4]].map(([x, z], i) => (
+        <BoxRoom id="hosp-er" x0={91} x1={106} z0={114.6} z1={129.6} y={GROUND} h={FH} doorSide="west" doorAt={122} label="emergency department" doorStyle="glass" glassSide="south" />
+        <RoomSign text="EMERGENCY" position={[91.1, GROUND + 3.3, 122]} rotation={[0, -Math.PI / 2, 0]} width={3.0} color="#3a0e0e" glow="#ff9a8f" />
+        {[[97, 118], [97, 126], [102.5, 118], [102.5, 126]].map(([x, z], i) => (
           <group key={i}>
             <HospitalBed position={[x, GROUND, z]} yaw={Math.PI / 2} />
             <IVStand position={[x - 0.9, GROUND, z]} />
             <VitalsMonitor position={[x - 0.9, GROUND, z + 0.6]} yaw={Math.PI / 2} />
           </group>
         ))}
-        <Counter position={[102.5, GROUND, 124.2]} yaw={Math.PI} length={5} height={1.0} depth={0.7} top="marble" face="#1c2a2a" />
+        <Counter position={[104.5, GROUND, 122]} yaw={-Math.PI / 2} length={5} height={1.0} depth={0.7} top="marble" face="#1c2a2a" />
 
-        <BoxRoom id="hosp-pharmacy" x0={64.6} x1={79} z0={114.6} z1={125} y={GROUND} h={FH} doorSide="east" doorAt={120.4} label="pharmacy" doorStyle="glass" glassSide="south" />
-        <RoomSign text="PHARMACY" position={[78.9, GROUND + 3.3, 120.4]} rotation={[0, Math.PI / 2, 0]} width={2.8} color="#0e3a2a" glow="#8fffd6" />
-        <Counter position={[70, GROUND, 123.4]} yaw={Math.PI} length={6} height={1.05} depth={0.8} top="marble" face="#1c2a2a" />
-        {[67, 70, 73].map((x) => <Shelf key={x} position={[x, GROUND, 116]} yaw={0} width={2.6} height={2.0} />)}
-        <BoxRoom id="hosp-imaging" x0={64.6} x1={72} z0={114.6} z1={116.6} y={GROUND} h={FH} doorSide="east" doorAt={115.6} label="imaging room" doorStyle="glass" glassSide="south" />
+        {/* pharmacy and imaging each take a full band of the west wing - full-width rooms instead
+            of cramped boxes, with every fixture kept off the door's sightline. Pharmacy sits in the
+            front band (nearer the z0 entrance, for walk-up traffic); imaging is in the back band. */}
+        <BoxRoom id="hosp-pharmacy" x0={64.6} x1={79} z0={BAND.z0} z1={BAND.zMid} y={GROUND} h={FH} doorSide="east" doorAt={118.3} label="pharmacy" doorStyle="glass" glassSide="south" />
+        <RoomSign text="PHARMACY" position={[78.9, GROUND + 3.3, 118.3]} rotation={[0, Math.PI / 2, 0]} width={2.8} color="#0e3a2a" glow="#8fffd6" />
+        <Counter position={[70, GROUND, 117.0]} yaw={Math.PI} length={6} height={1.05} depth={0.8} top="marble" face="#1c2a2a" />
+        {[67, 76].map((x) => <Shelf key={x} position={[x, GROUND, 115.8]} yaw={0} width={2.6} height={2.0} />)}
+
+        <BoxRoom id="hosp-imaging" x0={64.6} x1={79} z0={BAND.zMid} z1={BAND.z1} y={GROUND} h={FH} doorSide="east" doorAt={125.8} label="imaging room" doorStyle="glass" glassSide="south" />
+        <RoomSign text="IMAGING" position={[78.9, GROUND + 3.3, 125.8]} rotation={[0, Math.PI / 2, 0]} width={2.4} color="#1d1830" glow="#c98fff" />
+        <VitalsMonitor position={[70, GROUND, 124.0]} yaw={0} />
+        <group position={[70, GROUND, 128.2]}>
+          <mesh position={[0, 0.9, 0]} castShadow><boxGeometry args={[1.0, 1.8, 2.0]} /><meshStandardMaterial color="#e7ebee" roughness={0.4} metalness={0.3} /></mesh>
+          <mesh position={[0, 0.74, 0]} rotation={[-Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.45, 0.45, 0.3, 24]} /><meshStandardMaterial color="#cfd8df" roughness={0.3} metalness={0.5} /></mesh>
+        </group>
 
         {/* ---------------- FLOOR 2: NURSES' STATION & PATIENT ROOMS ---------------- */}
-        <RoomSign text="FLOOR 2 · PATIENT CARE" position={[x0 + 0.65, y2 + 3.3, 122]} rotation={[0, Math.PI / 2, 0]} width={4.2} color="#0e2a3a" glow="#8fd6ff" />
-        <RoomSign text="STAIRS" position={[102.1, y2 + 3.4, 123.55]} rotation={[0, Math.PI, 0]} width={2.0} />
-        <Counter position={[85, y2, 121.6]} yaw={0} length={6} height={1.1} depth={0.8} top="marble" face="#1c2a2a" />
-        <RoomSign text="NURSES' STATION" position={[85, y2 + 3.2, 121.5]} width={3.2} color="#0e2a3a" glow="#8fd6ff" />
-        <VitalsMonitor position={[82, y2, 122.2]} yaw={0} />
-        <Chair position={[85, y2, 123.0]} yaw={0} color="#2a2f38" />
-        {[[66, 72, 68.4], [73, 79, 75.4], [91, 97, 94.4], [98, 104, 101.4]].map(([a, b, doorAt], i) =>
-          patientRoom(`hosp-patient-${i}`, a, b, doorAt, `ROOM ${201 + i}`, i % 2 ? Math.PI : 0))}
+        <RoomSign text="FLOOR 2 · PATIENT CARE" position={[STAIR.x1, y2 + 3.3, 125.8]} rotation={[0, -Math.PI / 2, 0]} width={4.2} color="#0e2a3a" glow="#8fd6ff" />
+        <RoomSign text="STAIRS" position={[STAIR.x1, y2 + 3.4, STAIR.zA + 0.3]} rotation={[0, -Math.PI / 2, 0]} width={2.0} />
+        <Counter position={[85, y2, 127.4]} yaw={Math.PI} length={6} height={1.1} depth={0.8} top="marble" face="#1c2a2a" />
+        <RoomSign text="NURSES' STATION" position={[85, y2 + 3.2, 127.3]} width={3.2} color="#0e2a3a" glow="#8fd6ff" />
+        <VitalsMonitor position={[82, y2, 128.0]} yaw={0} />
+        <Chair position={[85, y2, 128.8]} yaw={0} color="#2a2f38" />
+        {patientRoom('hosp-patient-0', WING_W, 'east', BAND.z0, BAND.zMid, 'ROOM 201', 0)}
+        {patientRoom('hosp-patient-1', WING_W, 'east', BAND.zMid, BAND.z1, 'ROOM 202', Math.PI)}
+        {patientRoom('hosp-patient-2', WING_E, 'west', BAND.z0, BAND.zMid, 'ROOM 203', Math.PI)}
+        {patientRoom('hosp-patient-3', WING_E, 'west', BAND.zMid, BAND.z1, 'ROOM 204', 0)}
 
-        {/* ---------------- FLOOR 3: SURGERY & DOCTORS' OFFICES ---------------- */}
-        <RoomSign text="FLOOR 3 · SURGERY" position={[x0 + 0.65, y3 + 3.3, 122]} rotation={[0, Math.PI / 2, 0]} width={4.2} color="#1d1830" glow="#c98fff" />
-        <RoomSign text="STAIRS" position={[102.1, y3 + 3.4, 123.55]} rotation={[0, Math.PI, 0]} width={2.0} />
-        {[[66, 74.6, 70, 'DR. VANCE'], [74.6, 83, 78.4, 'DR. OSEI']].map(([a, b, d, t], i) => (
-          <group key={t}>
-            <BoxRoom id={'hosp-office-' + i} x0={a} x1={b} z0={114.6} z1={120} y={y3} h={FH} doorSide="north" doorAt={d} label="doctor's office" />
-            <RoomSign text={t} position={[d, y3 + 3.2, 120.1]} width={2.2} color="#0e2a3a" glow="#8fd6ff" />
-            <Table position={[d, y3, 116.4]} size={[1.4, 0.8]} height={0.75} top="wood" />
-            <Chair position={[d, y3, 115.6]} yaw={Math.PI} color="#2a2f38" />
-            <Chair position={[d, y3, 117.3]} yaw={0} color="#5a7a8a" />
-            <Shelf position={[b - 0.5, y3, 115.0]} yaw={Math.PI / 2} width={1.6} height={2.0} />
-          </group>
-        ))}
-        <BoxRoom id="hosp-or-a" x0={88} x1={97} z0={114.6} z1={125} y={y3} h={FH} doorSide="west" doorAt={120.4} label="operating room" doorStyle="glass" glassSide="south" />
-        <BoxRoom id="hosp-or-b" x0={98} x1={106} z0={114.6} z1={125} y={y3} h={FH} doorSide="west" doorAt={120.4} label="operating room" doorStyle="glass" glassSide="south" />
-        <RoomSign text="OPERATING ROOM 1" position={[87.9, y3 + 3.3, 120.4]} rotation={[0, -Math.PI / 2, 0]} width={3.0} color="#1d1830" glow="#c98fff" />
-        <RoomSign text="OPERATING ROOM 2" position={[97.9, y3 + 3.3, 120.4]} rotation={[0, -Math.PI / 2, 0]} width={3.0} color="#1d1830" glow="#c98fff" />
-        <OperatingTable position={[92.0, y3, 121.8]} yaw={0} />
-        <SurgicalLight position={[92.0, y3 + FH - 1.0, 121.8]} />
-        <OperatingTable position={[101.5, y3, 121.8]} yaw={0} />
-        <SurgicalLight position={[101.5, y3 + FH - 1.0, 121.8]} />
-        <BoxRoom id="hosp-lounge" x0={64.6} x1={74} z0={114.6} z1={125} y={y3} h={FH} doorSide="east" doorAt={120.4} label="staff lounge" doorStyle="glass" glassSide="south" />
-        <RoomSign text="STAFF LOUNGE" position={[73.9, y3 + 3.3, 120.4]} rotation={[0, Math.PI / 2, 0]} width={2.8} />
-        <Sofa position={[68, y3, 117.0]} yaw={0} length={2.6} color="#5a7a8a" />
-        <Table position={[68, y3, 123.0]} size={[1.6, 0.9]} height={0.75} top="wood" round />
-        <Chair position={[66.6, y3, 123.0]} yaw={Math.PI / 2} color="#2a2f38" />
-        <Chair position={[69.4, y3, 123.0]} yaw={-Math.PI / 2} color="#2a2f38" />
-        <WallScreen position={[68, y3 + 1.9, 114.85]} yaw={0} size={[2.2, 1.3]} id="screen-hosp-lounge" zone="hospital-3" name="Hospital staff lounge" />
+        {/* ---------------- FLOOR 3: SURGERY, DOCTORS' OFFICES & STAFF LOUNGE ---------------- */}
+        <RoomSign text="FLOOR 3 · SURGERY" position={[STAIR.x1, y3 + 3.3, 125.8]} rotation={[0, -Math.PI / 2, 0]} width={4.2} color="#1d1830" glow="#c98fff" />
+        <RoomSign text="STAIRS" position={[STAIR.x1, y3 + 3.4, STAIR.zA + 0.3]} rotation={[0, -Math.PI / 2, 0]} width={2.0} />
+        {[[BAND.z0, BAND.zMid, 'DR. VANCE'], [BAND.zMid, BAND.z1, 'DR. OSEI']].map(([za, zb, t], i) => {
+          const doorAt = (za + zb) / 2
+          const deskZ = za + (zb - za) * 0.4
+          return (
+            <group key={t}>
+              <BoxRoom id={'hosp-office-' + i} x0={64.6} x1={79} z0={za} z1={zb} y={y3} h={FH} doorSide="east" doorAt={doorAt} label="doctor's office" />
+              <RoomSign text={t} position={[78.9, y3 + 3.2, doorAt]} rotation={[0, Math.PI / 2, 0]} width={2.2} color="#0e2a3a" glow="#8fd6ff" />
+              <Table position={[70, y3, deskZ]} size={[1.4, 0.8]} height={0.75} top="wood" />
+              <Chair position={[70, y3, deskZ - 0.9]} yaw={Math.PI} color="#2a2f38" />
+              <Chair position={[70, y3, deskZ + 0.9]} yaw={0} color="#5a7a8a" />
+              <Shelf position={[65.1, y3, za + 0.5]} yaw={-Math.PI / 2} width={1.6} height={2.0} />
+            </group>
+          )
+        })}
+        {[[BAND.z0, BAND.zMid, 'OPERATING ROOM 1'], [BAND.zMid, BAND.z1, 'OPERATING ROOM 2']].map(([za, zb, t], i) => {
+          const doorAt = (za + zb) / 2
+          const tableZ = za + (zb - za) * 0.55
+          return (
+            <group key={t}>
+              <BoxRoom id={'hosp-or-' + i} x0={91} x1={106} z0={za} z1={zb} y={y3} h={FH} doorSide="west" doorAt={doorAt} label="operating room" doorStyle="glass" glassSide="south" />
+              <RoomSign text={t} position={[91.1, y3 + 3.3, doorAt]} rotation={[0, -Math.PI / 2, 0]} width={3.0} color="#1d1830" glow="#c98fff" />
+              <OperatingTable position={[99.5, y3, tableZ]} yaw={0} />
+              <SurgicalLight position={[99.5, y3 + FH - 1.0, tableZ]} />
+            </group>
+          )
+        })}
+        <Sofa position={[84, y3, 117.0]} yaw={0} length={2.6} color="#5a7a8a" />
+        <Table position={[88, y3, 117.0]} size={[1.6, 0.9]} height={0.75} top="wood" round />
+        <Chair position={[86.6, y3, 117.0]} yaw={Math.PI / 2} color="#2a2f38" />
+        <Chair position={[89.4, y3, 117.0]} yaw={-Math.PI / 2} color="#2a2f38" />
+        <RoomSign text="STAFF LOUNGE" position={[85, y3 + 3.3, 115.8]} width={2.8} />
+        <WallScreen position={[STAIR.x1 + 0.05, y3 + 1.9, 117.0]} yaw={Math.PI / 2} size={[2.2, 1.3]} id="screen-hosp-lounge" zone="hospital-3" name="Hospital staff lounge" />
 
-        {lights(GROUND, 'hospital-1', [[80, 118], [86, 118], [97, 118], [97, 123], [68, 118], [71, 123]])}
-        {lights(y2, 'hospital-2', [[85, 121.5], [69, 117], [76, 117], [94, 117], [101, 117]])}
-        {lights(y3, 'hospital-3', [[70, 117], [78, 117], [92, 121], [101, 121], [68, 120]])}
+        {lights(GROUND, 'hospital-1', [[85, 118], [85, 126], [97, 118], [97, 126], [70, 118], [70, 126]])}
+        {lights(y2, 'hospital-2', [[85, 127], [70, 118], [70, 126], [98, 118], [98, 126]])}
+        {lights(y3, 'hospital-3', [[70, 118], [70, 126], [99, 118], [99, 126], [86, 117]])}
       </JusticeBuilding>
 
       <group userData={{ noBatch: true }}>

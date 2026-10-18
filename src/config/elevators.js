@@ -47,7 +47,7 @@ export const CARS = [
   {
     id: 'hospital',
     name: 'Vision Storms General Hospital elevator',
-    x0: 76.0, x1: 78.7, z0: 122.0, z1: 125.0,
+    x0: 86.0, x1: 88.7, z0: 122.0, z1: 125.0,
     baseY: BASE, floorH: 4.6, floors: 3, hall: 'south',
     labels: ['1', '2', '3'],
     names: ['Reception · ER · Pharmacy', "Patient Rooms", 'Surgery · Doctors\' Offices'],
