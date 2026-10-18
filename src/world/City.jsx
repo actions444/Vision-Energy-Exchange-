@@ -44,6 +44,8 @@ import ResidentialMansion from './ResidentialMansion.jsx'
 import { LOT as MANSION1_LOT } from '../config/mansion1.js'
 import ApartmentsStandard from './ApartmentsStandard.jsx'
 import { LOT as APTS1_LOT } from '../config/apts1.js'
+import BikerMeetup from './BikerMeetup.jsx'
+import { LOT as CLUB_LOT } from '../config/bikerMeetup.js'
 import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 import { LIB } from '../config/library.js'
 import { groundPieces } from '../config/island.js'
@@ -206,6 +208,7 @@ export default function City() {
       <Mall />
       <ResidentialMansion />
       <ApartmentsStandard />
+      <BikerMeetup />
       <RigidBody type="fixed" colliders={false}>
         {EXTRA_COLLIDERS.map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={i} args={[hx, hy, hz]} position={[x, y, z]} />)}
       </RigidBody>
@@ -408,6 +411,7 @@ const RESERVED = [
   [MALL.x0 - 4, MALL.x1 + 4, MALL.z0 - 4, MALL.z1 + 4], // Vision Storms Exchanges mall
   [MANSION1_LOT.x0 - 2, MANSION1_LOT.x1 + 2, MANSION1_LOT.z0 - 2, MANSION1_LOT.z1 + 2], // 4821 Skyline Ridge (residential demo mansion)
   [APTS1_LOT.x0 - 2, APTS1_LOT.x1 + 2, APTS1_LOT.z0 - 2, APTS1_LOT.z1 + 2], // Maple Garden Apartments (standard-tier residential demo)
+  [CLUB_LOT.x0 - 2, CLUB_LOT.x1 + 2, CLUB_LOT.z0 - 2, CLUB_LOT.z1 + 2], // Iron Horse M.C. clubhouse lot
 ]
 function Skyline() {
   const mats = getMaterials()

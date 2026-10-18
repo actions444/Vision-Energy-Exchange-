@@ -3,6 +3,7 @@ import { TOWER as RESIDENCE_TOWER } from '../config/residenceTower.js'
 import { HOUSE as MANSION1_HOUSE, LOT as MANSION1_LOT } from '../config/mansion1.js'
 import { MALL as MALL_B } from '../config/mall.js'
 import { LOT as APTS1_LOT, WALK as APTS1_WALK } from '../config/apts1.js'
+import { LOT as CLUB_LOT, CX as CLUB_CX } from '../config/bikerMeetup.js'
 import Objective, { restartObjective } from './Objective.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
@@ -343,6 +344,7 @@ function HUD() {
             ['mansion1', '4821 Skyline Ridge (mansion)', [(MANSION1_HOUSE.x0 + MANSION1_HOUSE.x1) / 2 + 6, 0.3, MANSION1_LOT.z0]],
             ['mall', 'Vision Storms Exchanges (mall)', [(MALL_B.x0 + MALL_B.x1) / 2, 0.3, MALL_B.z0]],
             ['apts1', 'Maple Garden Apartments', [(APTS1_WALK.x0 + APTS1_WALK.x1) / 2, 0.3, APTS1_LOT.z0]],
+            ['club1', 'Iron Horse M.C. (biker meetup)', [CLUB_CX, 0.3, CLUB_LOT.z1 - 2]],
             ...SPAWNS.map(([id, name, pos]) => [id, name, pos]),
           ].map(([id, name, pos]) => (
             <button key={id} id={'place-' + id} role="menuitem" onClick={() => { playerState.teleport = pos; setPlaces(false); setMenu(false) }}>{name}</button>
