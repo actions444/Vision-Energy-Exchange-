@@ -3,6 +3,7 @@ import { useStore } from './store.js'
 import { PAY, START_WALLET, ROUTE_BONUS, STOPS, jobById, uniformById, routeFor, stopPay, routeBonus, SITES, WASH_PRICE, WASH_SECONDS, IRON_PRICE, RATING_START, ratingMultiplier, ratingTier } from '../config/jobs.js'
 import { BUSINESSES, businessById } from '../config/businesses.js'
 import { hotelTierById } from '../config/hotel.js'
+import { plotById, animalById, PLOT_ANIMAL_CAP } from '../config/ranch.js'
 
 // Jobs, uniforms, shifts and payroll.
 //
@@ -40,6 +41,8 @@ const BASE = {
   loan: 0, // credits currently owed to Vision Storms Bank (see takeLoan/repayLoan below)
   loanBorrowed: 0, // lifetime credits ever advanced - part of how the next credit line is sized
   hotelStay: null, // { tierId, bookedDay, nights } while checked into the Vision Grand Hotel, else null
+  ownedLand: [], // plot ids bought at Vision Storms Ranch (config/ranch.js)
+  livestock: {}, // plotId -> [{ id, kind, boughtDay }], only for owned plots
 }
 const PERSIST = Object.keys(BASE)
 
@@ -192,6 +195,46 @@ export const useJobs = create((set, get) => {
       const tier = hotelTierById(s.hotelStay.tierId)
       set({ hotelStay: null }); persist()
       toast(`Checked out of the ${tier?.name || 'hotel'}. Thanks for staying at Vision Grand Hotel.`)
+    },
+
+    // ---- Vision Storms Ranch: buyable land plots and the livestock you stock them with (config/ranch.js) ----
+    buyPlot: (plotId) => {
+      const plot = plotById(plotId)
+      if (!plot) return false
+      const s = get()
+      if (s.ownedLand.includes(plotId)) { toast(`You already own ${plot.name}.`); return false }
+      if (!get().spend(plot.price, 'land', `Bought land: ${plot.name}`)) return false
+      set({ ownedLand: [...get().ownedLand, plotId] }); persist()
+      toast(`Bought ${plot.name} for ${fmt(plot.price)} credits. Walk up to the sign to stock it with livestock.`)
+      return true
+    },
+    buyAnimal: (plotId, kind) => {
+      const plot = plotById(plotId)
+      const animal = animalById(kind)
+      if (!plot || !animal) return false
+      const s = get()
+      if (!s.ownedLand.includes(plotId)) { toast('You need to buy this plot before you can stock it.'); return false }
+      const herd = s.livestock[plotId] || []
+      if (herd.length >= PLOT_ANIMAL_CAP) { toast(`${plot.name} is full (max ${PLOT_ANIMAL_CAP} animals) - buy another plot for more room.`); return false }
+      if (!get().spend(animal.price, 'livestock', `Bought a ${animal.name} for ${plot.name}`)) return false
+      const id = `${kind}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+      set({ livestock: { ...get().livestock, [plotId]: [...herd, { id, kind, boughtDay: get().day }] } }); persist()
+      toast(`Added a ${animal.name} to ${plot.name} - ${fmt(animal.price)} credits.`)
+      return true
+    },
+    sellAnimal: (plotId, animalId) => {
+      const plot = plotById(plotId)
+      const s = get()
+      const herd = s.livestock[plotId] || []
+      const rec = herd.find((a) => a.id === animalId)
+      if (!rec) return false
+      const animal = animalById(rec.kind)
+      const refund = Math.round((animal?.price || 0) * 0.5)
+      set({ livestock: { ...s.livestock, [plotId]: herd.filter((a) => a.id !== animalId) } })
+      if (refund > 0) get().earn(refund, 'livestock', `Sold a ${animal?.name || 'animal'} from ${plot?.name || 'a plot'}`)
+      persist()
+      toast(`Sold the ${animal?.name || 'animal'} back for ${fmt(refund)} credits.`)
+      return true
     },
 
     hire: (jobId) => {

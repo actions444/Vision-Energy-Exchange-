@@ -45,6 +45,9 @@ import { LOT as MANSION1_LOT } from '../config/mansion1.js'
 import ApartmentsStandard from './ApartmentsStandard.jsx'
 import { LOT as APTS1_LOT } from '../config/apts1.js'
 import BikerMeetup from './BikerMeetup.jsx'
+import SteelWolves from './SteelWolves.jsx'
+import RisingVoices from './RisingVoices.jsx'
+import Ranch from './Ranch.jsx'
 import { LOT as CLUB_LOT } from '../config/bikerMeetup.js'
 import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 import { LIB } from '../config/library.js'
@@ -209,6 +212,9 @@ export default function City() {
       <ResidentialMansion />
       <ApartmentsStandard />
       <BikerMeetup />
+      <SteelWolves />
+      <RisingVoices />
+      <Ranch />
       <RigidBody type="fixed" colliders={false}>
         {EXTRA_COLLIDERS.map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={i} args={[hx, hy, hz]} position={[x, y, z]} />)}
       </RigidBody>

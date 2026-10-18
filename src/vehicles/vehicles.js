@@ -5,6 +5,7 @@ import { create } from 'zustand'
 import { CURB as MCURB, BAYS_X, BAY_Z, BIKE_Z, BIKE_X, BIKE_HEADING, PADS } from '../config/motors.js'
 import { CART_BAY, PLATFORM_Y as GOLF_Y } from '../config/parkGolf.js'
 import { BIKE_ROW_Z, BIKE_ROW_X, BIKE_HEADING as CLUB_BIKE_HEADING } from '../config/bikerMeetup.js'
+import { BIKE_ROW_Z as WOLVES_ROW_Z, BIKE_ROW_X as WOLVES_ROW_X, BIKE_HEADING as WOLVES_HEADING } from '../config/steelWolves.js'
 
 export const VEHICLE_TYPES = {
   'luxury-suv': {
@@ -352,6 +353,13 @@ VEHICLE_SPAWNS.push(
   { id: 'club-cruiser-2', type: 'cruiser-bike', position: [BIKE_ROW_X[3], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#2b4a3a', accent: '#f2c94c' },
   { id: 'club-razor-1', type: 'sport-bike', position: [BIKE_ROW_X[4], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#e8461e', accent: '#15161a' },
   { id: 'club-dirt-1', type: 'dirt-bike', position: [BIKE_ROW_X[5], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#ffb400', accent: '#1b1b1f' },
+  // Steel Wolves M.C. clubhouse lot: a second, cooler-toned row of bikes against its backdrop.
+  { id: 'wolves-chopper-1', type: 'chopper-bike', position: [WOLVES_ROW_X[0], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#1c2733', accent: '#8fd0ff' },
+  { id: 'wolves-cruiser-1', type: 'cruiser-bike', position: [WOLVES_ROW_X[1], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#2a3a4a', accent: '#c9ccd2' },
+  { id: 'wolves-razor-1', type: 'sport-bike', position: [WOLVES_ROW_X[2], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#17395e', accent: '#e9eef5' },
+  { id: 'wolves-chopper-2', type: 'chopper-bike', position: [WOLVES_ROW_X[3], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#0f1114', accent: '#2fd3c3' },
+  { id: 'wolves-cruiser-2', type: 'cruiser-bike', position: [WOLVES_ROW_X[4], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#3a4a5a', accent: '#8fd0ff' },
+  { id: 'wolves-dirt-1', type: 'dirt-bike', position: [WOLVES_ROW_X[5], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#17395e', accent: '#e8e2cf' },
   // Emerald Links: a row of golf carts parked outside the clubhouse, free to drive.
   ...[['#f4f1ea', '#2f5a3c'], ['#f4f1ea', '#1f2f5c'], ['#e8e2cf', '#2f5a3c'], ['#f4f1ea', '#c9a24a']].map(([paint, accent], i) => (
     { id: 'cart-' + (i + 1), type: 'golf-cart', position: [CART_BAY.x + i * 2.2, GOLF_Y + 0.55, CART_BAY.z], heading: Math.PI / 2, paint, accent }

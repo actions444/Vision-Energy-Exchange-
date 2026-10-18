@@ -65,6 +65,10 @@ import ActionsPanel from './ActionsPanel.jsx'
 import MallPanel from './MallPanel.jsx'
 import HotelPanel from './HotelPanel.jsx'
 import { HOTEL } from '../config/hotel.js'
+import LandPanel from './LandPanel.jsx'
+import { RANCH } from '../config/ranch.js'
+import { LOT as WOLVES_LOT, CX as WOLVES_CX } from '../config/steelWolves.js'
+import { LOT as VOICES_LOT, CX as VOICES_CX } from '../config/risingVoices.js'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access', 'npcs'])
 
@@ -117,6 +121,7 @@ export default function UI() {
       {panel?.type === 'performance' && <PerformancePanel />}
       {panel?.type === 'actions' && <ActionsPanel />}
       {panel?.type === 'hotel' && <HotelPanel />}
+      {panel?.type === 'land' && <LandPanel plotId={panel.plotId} />}
       {panel?.type === 'mall' && <MallPanel storeId={panel.storeId} />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
@@ -435,11 +440,14 @@ function HUD() {
             ['apts1', 'Maple Garden Apartments', [(APTS1_WALK.x0 + APTS1_WALK.x1) / 2, 0.3, APTS1_LOT.z0]],
             ['club1', 'Iron Horse M.C. (biker meetup)', [CLUB_CX, 0.3, CLUB_LOT.z1 - 2]],
             ['hotel', 'Vision Grand Hotel (Isla Serena)', [(HOTEL.building.x0 + HOTEL.building.x1) / 2, 0.6, HOTEL.building.z0 - 3]],
+            ['ranch', 'Vision Storms Ranch (land + livestock)', [(RANCH.x0 + RANCH.x1) / 2, 0.3, RANCH.z0 - 1]],
+            ['club2', 'Steel Wolves M.C. (biker meetup)', [WOLVES_CX, 0.3, WOLVES_LOT.z0 + 2]],
+            ['activist', 'Rising Voices (community club)', [VOICES_CX, 0.3, VOICES_LOT.z0 + 2]],
             ...SPAWNS.map(([id, name, pos]) => [id, name, pos]),
           ].map(([id, name, pos]) => (
             <button key={id} id={'place-' + id} role="menuitem" onClick={() => { playerState.teleport = pos; setPlaces(false); setMenu(false) }}>{name}</button>
           ))}
-          <small>Phases 1 to 3 of the West End are built (apartments and park, football and recreation grounds, landfill, recycling and industrial row). Harbor Parade (Velvet Suds Laundromat and The Ironing Station) is built on the boulevard frontage of the south-east block. Phase 4, Maple Court, is not built yet and sits behind it.</small>
+          <small>Phases 1 to 3 of the West End are built (apartments and park, football and recreation grounds, landfill, recycling and industrial row). Harbor Parade (Velvet Suds Laundromat and The Ironing Station) fronts the boulevard on the south-east block, and Phase 4, Maple Court, behind it now holds the Vision Storms Ranch land plots and two more clubs (Steel Wolves M.C. and Rising Voices).</small>
         </div>
       )}
 
