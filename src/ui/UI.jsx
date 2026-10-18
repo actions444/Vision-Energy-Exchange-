@@ -65,7 +65,9 @@ export default function UI() {
   const phase = useStore((s) => s.phase)
   const ready = useStore((s) => s.ready)
   const panel = useStore((s) => s.panel)
-  const admin = useBackend((s) => s.admin) || useDevAdmin((s) => s.on)
+  const backendAdmin = useBackend((s) => s.admin)
+  const devAdmin = useDevAdmin((s) => s.on)
+  const admin = backendAdmin || devAdmin
   // owner panels never render for visitors (the backend also refuses their writes)
   const ok = !ADMIN_PANELS.has(panel?.type) || admin
   const film = useCine((s) => s.active)
@@ -265,7 +267,9 @@ function HUD() {
   const peers = usePeers((s) => s.peers)
   const status = usePeers((s) => s.status)
   const transport = usePeers((s) => s.transport)
-  const admin = useBackend((s) => s.admin) || useDevAdmin((s) => s.on)
+  const backendAdmin2 = useBackend((s) => s.admin)
+  const devAdmin2 = useDevAdmin((s) => s.on)
+  const admin = backendAdmin2 || devAdmin2
   const zoneId = useMusic((s) => s.zoneId)
   const [menu, setMenu] = useState(false)
   const [places, setPlaces] = useState(false)
