@@ -1,4 +1,5 @@
 import Traffic, { signalState, trafficState } from './vehicles/Traffic.jsx'
+import Taxis from './vehicles/Taxi.jsx'
 import AirTraffic, { airState } from './world/AirTraffic.jsx'
 import { Suspense, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
@@ -113,6 +114,7 @@ export default function App() {
             <Jets />
             <CineStage />
             <Traffic />
+            <Taxis />
             <DecorLayer />
             <CameraRig />
           </Physics>

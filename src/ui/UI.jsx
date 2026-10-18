@@ -35,6 +35,7 @@ import { ttsSupported } from '../audio/tts.js'
 import { useLocale, LOCALES } from '../state/locale.js'
 import JusticePanel from './JusticePanel.jsx'
 import CarPanel from './CarPanel.jsx'
+import TaxiPanel from './TaxiPanel.jsx'
 import { PowerChip } from './PowerChip.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import AtmPanel from './AtmPanel.jsx'
@@ -111,6 +112,7 @@ export default function UI() {
       {panel?.type === 'actions' && <ActionsPanel />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
+      {panel?.type === 'taxi' && <TaxiPanel standId={panel.standId} />}
       {panel?.type === 'settings' && <SettingsPanel />}
       {panel?.type === 'help' && <HelpPanel />}
       <Toast />
