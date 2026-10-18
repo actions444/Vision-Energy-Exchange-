@@ -150,6 +150,14 @@ export default function JobCenter() {
           <RoomSign text="PAYROLL & CREDIT" position={[75.55, CURB + 3.0, 40.5]} rotation={[0, -Math.PI / 2, 0]} width={3.2} color="#0e3a2a" glow="#8fffd6" />
           <Plant position={[67.0, CURB, 31.2]} scale={1.1} />
           <Plant position={[75.0, CURB, 31.2]} scale={1.1} />
+
+          {/* ---- call center bank ---- */}
+          <RoomSign text="CALL CENTER" position={[68, CURB + 3.0, 40.5]} rotation={[0, 0, 0]} width={2.6} color="#3a1d4a" glow="#c98fff" />
+          <Table position={[67, CURB, 37]} size={[1.4, 0.8]} />
+          <Chair position={[67, CURB, 37.9]} yaw={Math.PI} color="#3a1d4a" />
+          <Table position={[69, CURB, 37]} size={[1.4, 0.8]} />
+          <Chair position={[69, CURB, 37.9]} yaw={Math.PI} color="#3a1d4a" />
+          <Block position={[68, CURB + 1.1, 39]} size={[1.0, 0.7, 0.1]} material={m.chrome} />
         </group>
       </Gate>
     </group>

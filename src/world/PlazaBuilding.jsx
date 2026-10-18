@@ -23,6 +23,7 @@ import { Chandelier } from './Chandelier.jsx'
 import { TV, LightSwitch, Window } from './Interior.jsx'
 import { registerLoad } from '../state/power.js'
 import { RenovatedShell, EntranceDressing } from './facade/Renovated.jsx'
+import { TimeClock } from './JobCenter.jsx'
 
 export { PLAZA }
 
@@ -469,6 +470,8 @@ function Lobby() {
     <group>
       <Counter position={[P.X(24), y, P.Z(16.9)]} yaw={Math.PI} length={3.4} />
       <Chair position={[P.X(24), y, P.Z(17.6)]} yaw={Math.PI} color="#2c2f36" />
+      {/* front desk staff clock in here; the key cabinet is just behind the counter */}
+      <TimeClock position={[P.X(22.2), y, P.Z(17.4)]} label="Front desk time clock" />
       <Sofa position={[P.X(23.5), y, P.Z(10.8)]} yaw={0} length={2.6} color="#7c6b5b" />
       <Sofa position={[P.X(15), y, P.Z(10.8)]} yaw={0} length={2.2} color="#58616c" />
       <Plant position={[P.X(27), y, P.Z(10.8)]} scale={1.2} />

@@ -60,6 +60,8 @@ export const UNIFORMS = {
   gate: { id: 'gate', name: 'Gate agent uniform', price: 52, suit: '#1b3a6e', pants: '#15223a', trim: '#f2c230', hat: null, vest: null },
   tsa: { id: 'tsa', name: 'Airport security uniform', price: 60, suit: '#2a3344', pants: '#1a202c', trim: '#6fb8ff', hat: '#2a3344', vest: null },
   ramp: { id: 'ramp', name: 'Ramp crew hi-vis', price: 34, suit: '#ff8a1f', pants: '#2a2d3a', trim: '#f2f2f2', hat: '#2a2d3a', vest: '#f2f2f2' },
+  server: { id: 'server', name: 'Bistro server apron', price: 34, suit: '#f1ece2', pants: '#1b1e26', trim: '#7a3b33', hat: null, vest: '#3f2e2a' },
+  concierge: { id: 'concierge', name: 'Concierge blazer', price: 48, suit: '#1b2a4a', pants: '#15223a', trim: '#c9a96a', hat: null, vest: null },
 }
 
 // ---- sites: where you clock in ----
@@ -69,6 +71,7 @@ export const SITES = {
   carwashA: { id: 'carwashA', name: WASH_A.name, pos: cwWorld(WASH_A, 1.4, 6.4) },
   carwashB: { id: 'carwashB', name: WASH_B.name, pos: cwWorld(WASH_B, 1.4, 6.4) },
   airport: { id: 'airport', name: 'Vision Storms International Airport', pos: [-460, 5] },
+  plaza: { id: 'plaza', name: 'Vision Storms Plaza', pos: [-20, 50.9] }, // the ground-floor lobby desk
 }
 
 // ---- work stops ----
@@ -154,6 +157,22 @@ const STOP_LIST = [
   S('ap-cart', 'Baggage cart', 'Load the cart', -436, 4.5, 3.5),
   S('ap-ramp', 'Apron ramp', 'Marshal the aircraft', -405, 22, 4.5),
   S('ap-tow', 'Tow tractor', 'Tow the baggage train', -405, 32, 4),
+  // Vision Storms Plaza, VSP-101 Vision Bistro (restaurant)
+  S('bs-bar', 'Bistro bar', 'Mix drinks at the bar', -20.5, 39, 4),
+  S('bs-tables', 'Dining tables', 'Serve the dining room', -36.5, 37, 4),
+  S('bs-booth', 'Booth section', 'Bus the booth tables', -26, 36, 3.5),
+  // Vision Storms Plaza, VSP-102 Storms Threads (clothing store)
+  S('th-racks', 'Clothing racks', 'Fold and hang the clothes', -33.5, 59.75, 4),
+  S('th-floor', 'Sales floor', 'Help a customer find an outfit', -31.5, 54.6, 3.5),
+  S('th-register', 'Register', 'Ring up a sale', -18.5, 59, 3),
+  // Vision Storms Plaza lobby (front desk)
+  S('fd-greet', 'Entrance', 'Greet arriving guests', -18, 49, 3),
+  S('fd-desk', 'Front desk counter', 'Check a guest in', -20, 50.9, 4),
+  S('fd-keys', 'Key cabinet', 'Hand out room keys', -22, 50.5, 3),
+  // Job Center call bank
+  S('cc-deskA', 'Call desk A', 'Take a customer call', 67, 37, 4),
+  S('cc-deskB', 'Call desk B', 'Take a customer call', 69, 37, 4),
+  S('cc-queue', 'Queue board', 'Check the call queue', 68, 39, 3),
 ]
 
 // expand the car wash stops for both washes
@@ -235,6 +254,19 @@ export const JOBS = [
   { id: 'ramp-agent', title: 'Ramp Agent', cat: 'Airport', site: ['airport'], uniform: 'ramp', wage: 70, shirt: '#ff8a1f', pants: '#2a2d3a',
     desc: 'Marshal aircraft on the apron and tow the baggage train.',
     route: ['ap-ramp', 'ap-tow'] },
+  // Customer service pack: Vision Storms Plaza + the Job Center call bank
+  { id: 'threads-associate', title: 'Sales Associate', cat: 'Customer Service', site: ['plaza'], uniform: 'retail', wage: 54, shirt: '#2a2a2f', pants: '#1b1e26',
+    desc: 'Fold and hang clothes, help customers put together an outfit, and ring up sales at Storms Threads.',
+    route: ['th-racks', 'th-floor', 'th-register'] },
+  { id: 'bistro-server', title: 'Server / Bartender', cat: 'Customer Service', site: ['plaza'], uniform: 'server', wage: 60, shirt: '#f1ece2', pants: '#1b1e26',
+    desc: 'Mix drinks at the bar, serve the dining room and bus the booths at Vision Bistro.',
+    route: ['bs-bar', 'bs-tables', 'bs-booth'] },
+  { id: 'front-desk-agent', title: 'Front Desk Agent', cat: 'Customer Service', site: ['plaza'], uniform: 'concierge', wage: 62, shirt: '#1b2a4a', pants: '#15223a',
+    desc: 'Greet arriving guests, check them in at the front desk, and hand out keys for the rentable suites upstairs.',
+    route: ['fd-greet', 'fd-desk', 'fd-keys'] },
+  { id: 'call-center-agent', title: 'Call Center Agent', cat: 'Customer Service', site: ['jobcenter'], uniform: 'office', wage: 56, shirt: '#e9edf2', pants: '#242a3a',
+    desc: 'Answer customer calls and keep the queue moving at the Job Center call bank.',
+    route: ['cc-deskA', 'cc-deskB', 'cc-queue'] },
 ]
 
 export const jobById = (id) => JOBS.find((j) => j.id === id)
