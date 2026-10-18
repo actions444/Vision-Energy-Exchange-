@@ -11,7 +11,8 @@ import { useStore } from '../state/store.js'
 import { ANIM_CATEGORIES } from '../anim/categories.js'
 import { getLibraryClip } from '../anim/library.js'
 import { retargetClip } from '../anim/retarget.js'
-import { performanceMouth } from '../music/lipsync.js'
+import { performanceViseme } from '../music/lipsync.js'
+import { blinkAmount } from '../anim/blink.js'
 
 // Renders every placed imported model with a physics collider so the avatar can walk on,
 // into and around it. 'trimesh' gives exact collision (walkable interiors, stairs, ramps);
@@ -229,19 +230,24 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     return map
   }, [info, mixer, obj])
   // mouth-openness for singing/performing, driven by the same real audio signal the default
-  // procedural avatar uses (music/lipsync.js) - only on models with a recognizable mouth/jaw
-  // morph target; most uploaded avatars don't have one, so this silently does nothing for them.
-  const mouthTargets = useMemo(() => {
+  // procedural avatar uses (music/lipsync.js) - only on models with recognizable morph targets;
+  // most uploaded avatars don't have any, so this silently does nothing for them. Same morph
+  // target set a blink reuses if the model happens to have an eye-blink target too.
+  const morphByName = (re) => {
     const out = []
     obj.traverse((o) => {
       const dict = o.morphTargetDictionary
       if (!dict || !o.morphTargetInfluences) return
       for (const [name, idx] of Object.entries(dict)) {
-        if (/jaw ?open|mouth ?open|^open$|viseme_?aa/i.test(name)) out.push({ mesh: o, idx })
+        if (re.test(name)) out.push({ mesh: o, idx })
       }
     })
     return out
-  }, [obj])
+  }
+  const mouthTargets = useMemo(() => morphByName(/jaw ?open|mouth ?open|^open$|viseme_?aa/i), [obj])
+  const wideTargets = useMemo(() => morphByName(/mouth ?wide|mouth ?smile|viseme_?(ee|ih)/i), [obj])
+  const blinkTargets = useMemo(() => morphByName(/blink|eyes ?closed|eye ?close/i), [obj])
+  const blinkSeed = useMemo(() => Math.random() * 1000, [])
   const current = useRef(null)
   const bob = useRef()
   const t = useRef(0)
@@ -297,10 +303,16 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
       const drop = -(0.53 * height - ((state.sitHeight || 0.45) + 0.06)) * sitAmt.current
       bob.current.position.y = drop + (animated || state.sit ? 0 : Math.abs(Math.sin(t.current * (sp > 0.2 ? 9 : 2))) * (sp > 0.2 ? 0.06 : 0.015))
     }
-    if (mouthTargets.length) {
-      const live = state.performing ? performanceMouth(state.performing.trackId, t.current) : null
-      const open = live != null ? live : state.sing ? Math.max(0, Math.sin(t.current * 9)) * 0.5 : 0
+    if (mouthTargets.length || wideTargets.length) {
+      const live = state.performing ? performanceViseme(state.performing.trackId, t.current) : null
+      const open = live ? live.open : state.sing ? Math.max(0, Math.sin(t.current * 9)) * 0.5 : 0
+      const wide = live ? live.wide : 0
       for (const { mesh, idx } of mouthTargets) mesh.morphTargetInfluences[idx] = open
+      for (const { mesh, idx } of wideTargets) mesh.morphTargetInfluences[idx] = wide
+    }
+    if (blinkTargets.length) {
+      const blink = blinkAmount(t.current, blinkSeed)
+      for (const { mesh, idx } of blinkTargets) mesh.morphTargetInfluences[idx] = blink
     }
   })
 

@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { applyWorkout } from './workoutPose.js'
-import { performanceMouth } from '../music/lipsync.js'
+import { performanceViseme } from '../music/lipsync.js'
+import { blinkAmount } from '../anim/blink.js'
 import { registry } from '../assets/assetStore.js'
 
 // A picked-up prop held in front of the chest while state.carrying is set (see state/runtime.js,
@@ -69,6 +70,8 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
   }), [accent, skin, look?.gown, look?.hair])
   const sm = useMemo(() => (look?.social ? socialMats(skin, look) : null), [skin, look?.social, look?.gown, look?.hair, look?.eyes, look?.lips, look?.shirt, look?.tie, look?.top, look?.bottom, look?.coat, look?.shoe, look?.barefoot, look?.pattern, look?.pendant, look?.glassesColor]) // eslint-disable-line react-hooks/exhaustive-deps
   const vestRef = useRef(), hatRef = useRef(), seen = useRef(-1), mouthRef = useRef(), trainRef = useRef(), lipRef = useRef()
+  const eyeLRef = useRef(), eyeRRef = useRef()
+  const blinkSeed = useMemo(() => Math.random() * 1000, [])
   useEffect(() => { seen.current = -1 }, [m]) // materials were rebuilt: re-apply the work uniform
 
   const r = {
@@ -259,14 +262,23 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     a.clap = k(a.clap, gs === 'clap' ? 1 : 0, 7)
     a.bow = k(a.bow, gs === 'bow' ? 1 : 0, 5)
     if (mouthRef.current) {
-      // real performers: mouth openness comes from the actual music (precomputed visemes if a
-      // track ever has them, else the live audio loudness); everyone else keeps the idle wiggle.
-      const live = state.performing ? performanceMouth(state.performing.trackId, a.t) : null
-      const syl = live != null ? live : Math.abs(Math.sin(a.t * 8.6 + Math.sin(a.t * 2.3) * 2.2))
+      // real performers: mouth shape comes from the actual music (precomputed visemes if a track
+      // ever has them, else the live audio, split into an "open" and a "wide" component so it
+      // reads a bit more like real speech/singing than a single pump - see music/lipsync.js's
+      // performanceViseme for exactly what that is and isn't); everyone else keeps the idle wiggle.
+      const live = state.performing ? performanceViseme(state.performing.trackId, a.t) : null
+      const syl = live ? live.open : Math.abs(Math.sin(a.t * 8.6 + Math.sin(a.t * 2.3) * 2.2))
+      const wideSyl = live ? live.wide : 0
       const open = a.sing * (0.25 + syl * 1.5)
-      mouthRef.current.scale.set(1.15, 0.12 + open, 0.5)
+      const wide = a.sing * wideSyl * 0.35
+      mouthRef.current.scale.set(1.15 + wide, 0.12 + open - wide * 0.4, 0.5)
       if (lipRef.current) lipRef.current.position.y = 0.0925 - Math.min(open, 1.2) * 0.011
     }
+    // idle eye blink (anim/blink.js) - a believable cadence, not driven by any clip or audio
+    const blink = blinkAmount(a.t, blinkSeed)
+    const eyeOpenY = look?.social ? 1 : 1.25
+    if (eyeLRef.current) eyeLRef.current.scale.y = eyeOpenY * (1 - blink * 0.9)
+    if (eyeRRef.current) eyeRRef.current.scale.y = eyeOpenY * (1 - blink * 0.9)
     if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir + a.clap + a.bow + a.laugh + a.cry + a.talk > 0.01) {
       const L = THREE.MathUtils.lerp
       r.head.current.rotation.x = L(r.head.current.rotation.x, -0.16, a.sing)
@@ -349,7 +361,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     }
   })
 
-  if (look?.social) return <SocialRig r={r} m={m} sm={sm} look={look} mouthRef={mouthRef} lipRef={lipRef} trainRef={trainRef} vestRef={vestRef} hatRef={hatRef} state={state} />
+  if (look?.social) return <SocialRig r={r} m={m} sm={sm} look={look} mouthRef={mouthRef} lipRef={lipRef} trainRef={trainRef} vestRef={vestRef} hatRef={hatRef} eyeLRef={eyeLRef} eyeRRef={eyeRRef} state={state} />
   return (
     <group ref={r.root}>
       <group ref={r.hips} position={[0, 0.95, 0]}>
@@ -396,8 +408,8 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
             </group>
             {!look?.noVisor && <mesh geometry={g.visor} material={m.neon} position={[0, 0.17, 0.0]} rotation={[0, Math.PI * 1.05, 0]} />}
             {/* face: eyes, nose and a mouth that opens while singing */}
-            <mesh geometry={g.eye} material={m.eye} position={[0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
-            <mesh geometry={g.eye} material={m.eye} position={[-0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
+            <mesh ref={eyeLRef} geometry={g.eye} material={m.eye} position={[0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
+            <mesh ref={eyeRRef} geometry={g.eye} material={m.eye} position={[-0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
             <mesh geometry={g.eye} material={m.skin} position={[0, 0.145, 0.124]} scale={[1.1, 1.2, 1.2]} />
             <mesh ref={mouthRef} geometry={g.mouth} material={m.mouth} position={[0, 0.098, 0.113]} scale={[1.15, 0.12, 0.5]} />
             {look?.longHair && <mesh geometry={g.backHair} material={m.longHair} position={[0, -0.07, -0.085]} scale={[1.25, 1, 0.8]} castShadow />}
@@ -515,7 +527,7 @@ function leopardTex() {
   return LEO
 }
 
-function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef, state }) {
+function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef, eyeLRef, eyeRRef, state }) {
   const g = socialGeo()
   const F = look.build === 'f'
   const gown = !!look.gown
@@ -637,7 +649,7 @@ function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef
             {[1, -1].map((sd) => <mesh key={sd} geometry={g.sphere} material={sm.skin} position={[sd * 0.111, 0.15, -0.004]} scale={[0.012, 0.027, 0.02]} />)}
             {/* eyes */}
             {[1, -1].map((sd) => (
-              <group key={sd} position={[sd * 0.045, 0.165, 0.098]}>
+              <group key={sd} ref={sd === 1 ? eyeLRef : eyeRRef} position={[sd * 0.045, 0.165, 0.098]}>
                 <mesh geometry={g.sphere} material={sm.sclera} scale={[0.027, 0.019, 0.016]} />
                 <mesh geometry={g.sphere} material={sm.iris} position={[0, 0, 0.0095]} scale={[0.0165, 0.0165, 0.007]} />
                 <mesh geometry={g.sphere} material={sm.pupil} position={[0, 0, 0.0145]} scale={[0.0085, 0.0085, 0.004]} />
