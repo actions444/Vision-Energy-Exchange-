@@ -40,6 +40,8 @@ import Casino from './Casino.jsx'
 import ParkingGarage from './ParkingGarage.jsx'
 import Mall from './Mall.jsx'
 import { MALL } from '../config/mall.js'
+import ResidentialMansion from './ResidentialMansion.jsx'
+import { LOT as MANSION1_LOT } from '../config/mansion1.js'
 import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 import { LIB } from '../config/library.js'
 import { groundPieces } from '../config/island.js'
@@ -200,6 +202,7 @@ export default function City() {
       <Casino />
       <ParkingGarage />
       <Mall />
+      <ResidentialMansion />
       <RigidBody type="fixed" colliders={false}>
         {EXTRA_COLLIDERS.map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={i} args={[hx, hy, hz]} position={[x, y, z]} />)}
       </RigidBody>
@@ -400,6 +403,7 @@ const RESERVED = [
   [22, 74, -84, -44], // Storm Athletic Club and its forecourt
   [GARAGE_SITE.x0 - 3, GARAGE_SITE.x1 + 3, GARAGE_SITE.z0 - 3, GARAGE_SITE.z1 + 3], // Stormline Parking Garage
   [MALL.x0 - 4, MALL.x1 + 4, MALL.z0 - 4, MALL.z1 + 4], // Vision Storms Exchanges mall
+  [MANSION1_LOT.x0 - 2, MANSION1_LOT.x1 + 2, MANSION1_LOT.z0 - 2, MANSION1_LOT.z1 + 2], // 4821 Skyline Ridge (residential demo mansion)
 ]
 function Skyline() {
   const mats = getMaterials()
