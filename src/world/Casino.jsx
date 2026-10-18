@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { getMaterials, surface } from './materials.js'
@@ -6,12 +7,16 @@ import { Wall, Gate, Block } from './jobkit.jsx'
 import { DoubleDoor } from './Door.jsx'
 import { BrandSign, Plaque } from './signs.jsx'
 import { CeilingLight, PendantLight, Counter, Stool } from './furniture.jsx'
-import { registerInteractable } from '../state/runtime.js'
+import { HumanoidCrowd, makeCrowd } from '../npc/HumanoidCrowd.jsx'
+import { registerInteractable, playerState } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
+import { speakLine } from '../audio/tts.js'
 import {
   PLATFORM, PLATFORM_Y, HALL, FLOOR, H, CEIL, ZONE, NAME,
   SLOT_COUNT, SLOT_X, SLOT_Z0, SLOT_SPACING, ROULETTE, BLACKJACK, BAR,
 } from '../config/casino.js'
+
+const lerpAngle = (a, b, k) => { let d = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI; if (d < -Math.PI) d += Math.PI * 2; return a + d * Math.min(1, k) }
 
 // ============================================================================
 // THE JACKPOT EXCHANGE
@@ -134,8 +139,54 @@ function Interior() {
       <RouletteTable />
       <BlackjackTable />
       <Bar />
+      <CasinoHost />
     </group>
   )
+}
+
+// ---------------------------------------------------------------------------
+// The floor host: greets guests near the entrance, points them toward the games, and has a
+// line or two of flavor when you talk to them. A real (if simple) NPC, not just a prop.
+const HOST_X = CX + 5, HOST_Z = HALL.z0 + 4.2
+const HOST_LINES = [
+  'Welcome to The Jackpot Exchange - good luck at the tables tonight.',
+  'Slots line the west wall. Roulette and blackjack are straight ahead.',
+  'Every table pays out in real VSE credits. The house always smiles, so should you.',
+  'New here? Start at the slots - lowest buy-in on the floor.',
+]
+function CasinoHost() {
+  const fans = useMemo(() => {
+    const f = makeCrowd(1, () => ({ x: HOST_X, z: HOST_Z, y: PLATFORM_Y, yaw: Math.PI, raiseChance: 0 }))
+    f[0].shirt = '#0b0a0d'
+    f[0].pants = '#0b0a0d'
+    return f
+  }, [])
+  useEffect(() => {
+    const off = registerInteractable('casino-host', {
+      position: () => new THREE.Vector3(fans[0].x, PLATFORM_Y + 1, fans[0].z),
+      radius: 2.4,
+      label: 'Talk to the host',
+      onInteract: () => {
+        const line = HOST_LINES[Math.floor(Math.random() * HOST_LINES.length)]
+        useStore.getState().showToast(`Host: "${line}"`)
+        speakLine(line, { id: 'casino-host' })
+      },
+    })
+    return off
+  }, [fans])
+  useFrame((st) => {
+    const f = fans[0]
+    const pp = playerState.position
+    const near = Math.hypot(f.x - pp.x, f.z - pp.z)
+    if (near < 4.5) {
+      f.yaw = lerpAngle(f.yaw, Math.atan2(pp.x - f.x, pp.z - f.z), 0.06)
+      f.armsUp = 0.35 + 0.35 * Math.sin(st.clock.elapsedTime * 2.4)
+    } else {
+      f.yaw = lerpAngle(f.yaw, Math.PI, 0.03)
+      f.armsUp = 0
+    }
+  })
+  return <HumanoidCrowd fans={fans} beat={0} castShadow roam />
 }
 
 // ---------------------------------------------------------------------------

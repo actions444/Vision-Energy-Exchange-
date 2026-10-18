@@ -24,21 +24,33 @@ const ZONE = 'stage'
 
 const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s) }
 
-function ledTexture() {
+/** `live` = a real performance is happening right now (see playerState.performing), not just
+ * "some ambient zone music happens to be playing" - so the screen doesn't claim a show is on
+ * when nobody is actually up there. */
+function ledTexture(live) {
   return canvasTexture(1280, 480, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h)
     g.addColorStop(0, '#120a20'); g.addColorStop(1, '#2a0f3a')
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
     const m = useMusic.getState()
-    const title = m.track?.title || 'Grand Concert Stage'
-    const artist = m.track?.artist || 'Vision Storms Records'
     ctx.textAlign = 'center'
-    ctx.fillStyle = '#e0559f'; ctx.font = `600 26px ${FONTS.mono}`
-    ctx.fillText((m.status === 'playing' ? 'NOW PLAYING' : 'LIVE ON THE GRAND STAGE').toUpperCase(), w / 2, 90)
-    ctx.fillStyle = '#f4f1ea'; ctx.font = `800 84px ${FONTS.display}`
-    wrapText(ctx, title, w / 2, 220, w - 160, 88)
-    ctx.fillStyle = '#2fd0c4'; ctx.font = `500 34px ${FONTS.mono}`
-    ctx.fillText(artist, w / 2, 400)
+    if (live) {
+      const title = m.track?.title || 'Live Performance'
+      const artist = m.track?.artist || 'Vision Storms Records'
+      ctx.fillStyle = '#ff4fb0'; ctx.font = `700 28px ${FONTS.mono}`
+      ctx.fillText('● LIVE NOW', w / 2, 90)
+      ctx.fillStyle = '#f4f1ea'; ctx.font = `800 84px ${FONTS.display}`
+      wrapText(ctx, title, w / 2, 220, w - 160, 88)
+      ctx.fillStyle = '#2fd0c4'; ctx.font = `500 34px ${FONTS.mono}`
+      ctx.fillText(artist, w / 2, 400)
+    } else {
+      ctx.fillStyle = '#9a7bd6'; ctx.font = `600 26px ${FONTS.mono}`
+      ctx.fillText('GRAND CONCERT STAGE', w / 2, 210)
+      ctx.fillStyle = '#f4f1ea'; ctx.font = `700 46px ${FONTS.display}`
+      ctx.fillText('Vision Storms Records', w / 2, 280)
+      ctx.fillStyle = '#6a5a8a'; ctx.font = `500 26px ${FONTS.mono}`
+      ctx.fillText('Open Performance to go live', w / 2, 340)
+    }
   })
 }
 
@@ -47,15 +59,18 @@ export default function ConcertStage() {
   const { cx, cz, facing, w, d, h } = STAGE
   const deckMat = useMemo(() => surface('wood', 6, 3, { color: '#2a2024', roughness: 0.6 }), [])
   const trussMat = m.aluminum
-  const ledMat = useMemo(() => new THREE.MeshBasicMaterial({ map: ledTexture(), toneMapped: false }), [])
+  const ledMat = useMemo(() => new THREE.MeshBasicMaterial({ map: ledTexture(false), toneMapped: false }), [])
   const hasTrack = useMusic((s) => s.track?.id)
-  useEffect(() => {
-    // refresh the LED card when the track changes
-    const t = ledTexture()
+  const refreshLed = (live) => {
+    const t = ledTexture(live)
     ledMat.map?.dispose()
     ledMat.map = t
     ledMat.needsUpdate = true
-  }, [hasTrack, ledMat])
+  }
+  useEffect(() => {
+    // refresh the LED card's title/artist (e.g. "Next song") while a performance is live
+    if (playerState.performing) refreshLed(true)
+  }, [hasTrack]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => registerLoad({ zone: ZONE, watts: 9000 }), [])
 
   // stage lights: coloured anchors across the truss, switched by the stage zone
@@ -96,6 +111,7 @@ export default function ConcertStage() {
     if (live !== wasLive.current) {
       wasLive.current = live
       fans.forEach((f, i) => { f.hidden = !live && hash(i * 41.3) > 1 / 7 })
+      refreshLed(live)
     }
   })
   return (
