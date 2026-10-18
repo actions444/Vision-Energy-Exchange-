@@ -7,6 +7,7 @@
 import { create } from 'zustand'
 import { parseGLB, analyse, filesToGLBs } from './gltfImport.js'
 import * as db from './idb.js'
+import { contribute as contributeAnim, reapplyOverrides as reapplyAnimOverrides } from '../anim/library.js'
 
 export const registry = new Map() // id -> { scene, animations, offset, size, ... }
 
@@ -25,7 +26,9 @@ const uid = () => Math.random().toString(36).slice(2, 10)
 async function register(id, name, kind, bytes, source) {
   const gltf = await parseGLB(bytes)
   const info = analyse(gltf)
+  info.name = name
   registry.set(id, info)
+  contributeAnim(id, name, info) // joins the shared Animation Gallery library (anim/library.js) if it's a skinned character with clips
   return { id, name, kind, tris: info.tris, size: info.size, animations: info.animations.map((a) => a.name), skinned: info.skinned, source, bytes: bytes.byteLength }
 }
 
@@ -169,6 +172,7 @@ export const useAssets = create((set, get) => ({
     } catch {
       set({ persistent: false })
     }
+    reapplyAnimOverrides(registry) // every saved model is back in the registry now - reapply any manual animation-category assignments
     await loadManifest()
   },
 }))

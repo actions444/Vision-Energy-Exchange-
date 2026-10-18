@@ -8,6 +8,10 @@ import { NEON } from '../config/theme.js'
 import { useSeats } from '../state/seats.js'
 import { playerState, registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
+import { ANIM_CATEGORIES } from '../anim/categories.js'
+import { getLibraryClip } from '../anim/library.js'
+import { retargetClip } from '../anim/retarget.js'
+import { performanceMouth } from '../music/lipsync.js'
 
 // Renders every placed imported model with a physics collider so the avatar can walk on,
 // into and around it. 'trimesh' gives exact collision (walkable interiors, stairs, ramps);
@@ -191,27 +195,10 @@ function furnitureSeats(inst, W, D) {
 
 // ---------- Imported character as the player's avatar ----------
 const X_AXIS = new THREE.Vector3(1, 0, 0)
-export const CLIP_PATTERNS = {
-  idle: /idle|stand|breath|rest/i,
-  walk: /walk/i,
-  run: /run|jog|sprint/i,
-  jump: /jump|fall|air/i,
-  wave: /wave|greet|hello/i,
-  sit: /sit|seat|chair/i,
-  // Extra categories for the Animation Gallery (ui/AnimationGalleryPanel.jsx): only picked up
-  // when an imported model actually ships a clip with a matching name - there is no shared,
-  // cross-rig animation library yet (see that file's header comment), so an avatar without one
-  // of these clips in its own file simply doesn't offer that category.
-  dance: /dance|dancing/i,
-  sing: /sing|singing|vocal/i,
-  talk: /talk|speak|convers/i,
-  laugh: /laugh/i,
-  cry: /cry|sob|weep/i,
-  cook: /cook|stir|chef/i,
-  clean: /clean|wipe|sweep|mop/i,
-  exercise: /exercise|squat|workout|gym/i,
-  perform: /perform|act|pose|model/i,
-}
+// Categories now live in anim/categories.js, the single list shared with the cross-rig retargeted
+// clip library (anim/library.js) and the gallery UI (ui/ActionsPanel.jsx). Re-exported under the
+// old name since ActionsPanel still imports it from here.
+export const CLIP_PATTERNS = ANIM_CATEGORIES
 
 // Common bone names in Tripo / Meshy / Mixamo-style rigs, for a fallback seated pose.
 const THIGH = /(left|right|^l|^r|_l|_r|\.l|\.r).*(up_?leg|thigh)|(up_?leg|thigh).*(left|right|_l|_r|\.l|\.r)/i
@@ -229,12 +216,32 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
   const actions = useMemo(() => {
     const map = {}
     for (const [key, re] of Object.entries(CLIP_PATTERNS)) {
-      const clip = info.animations.find((a) => re.test(a.name))
+      let clip = info.animations.find((a) => re.test(a.name))
+      if (!clip && info.skinned) {
+        // this model's own file has nothing for this category - borrow it from the shared,
+        // cross-rig library (anim/library.js) instead, retargeted onto this skeleton
+        const entry = getLibraryClip(key)
+        if (entry) clip = retargetClip(entry.clip, entry.boneMap, entry.srcHipsY, obj)
+      }
       if (clip) map[key] = mixer.clipAction(clip)
     }
     if (!map.walk && info.animations.length === 1) map.walk = mixer.clipAction(info.animations[0])
     return map
-  }, [info, mixer])
+  }, [info, mixer, obj])
+  // mouth-openness for singing/performing, driven by the same real audio signal the default
+  // procedural avatar uses (music/lipsync.js) - only on models with a recognizable mouth/jaw
+  // morph target; most uploaded avatars don't have one, so this silently does nothing for them.
+  const mouthTargets = useMemo(() => {
+    const out = []
+    obj.traverse((o) => {
+      const dict = o.morphTargetDictionary
+      if (!dict || !o.morphTargetInfluences) return
+      for (const [name, idx] of Object.entries(dict)) {
+        if (/jaw ?open|mouth ?open|^open$|viseme_?aa/i.test(name)) out.push({ mesh: o, idx })
+      }
+    })
+    return out
+  }, [obj])
   const current = useRef(null)
   const bob = useRef()
   const t = useRef(0)
@@ -265,8 +272,8 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     else if (state.emote === 'wave' && actions.wave) want = 'wave'
     else if (state.dancing && actions.dance) want = 'dance'
     else if (state.sing && actions.sing) want = 'sing'
-    // Animation Gallery categories (ui/AnimationGalleryPanel.jsx): only used when this specific
-    // imported model ships a matching clip of its own - see the CLIP_PATTERNS comment above.
+    // Animation Gallery categories (ui/ActionsPanel.jsx): from this model's own file if it has
+    // one, otherwise borrowed and retargeted from the shared library (anim/categories.js header).
     else if (state.gesture && actions[state.gesture]) want = state.gesture
     const next = actions[want] || actions.idle || null
     if (next !== current.current) {
@@ -289,6 +296,11 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     if (bob.current) {
       const drop = -(0.53 * height - ((state.sitHeight || 0.45) + 0.06)) * sitAmt.current
       bob.current.position.y = drop + (animated || state.sit ? 0 : Math.abs(Math.sin(t.current * (sp > 0.2 ? 9 : 2))) * (sp > 0.2 ? 0.06 : 0.015))
+    }
+    if (mouthTargets.length) {
+      const live = state.performing ? performanceMouth(state.performing.trackId, t.current) : null
+      const open = live != null ? live : state.sing ? Math.max(0, Math.sin(t.current * 9)) * 0.5 : 0
+      for (const { mesh, idx } of mouthTargets) mesh.morphTargetInfluences[idx] = open
     }
   })
 

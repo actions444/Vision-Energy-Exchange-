@@ -66,6 +66,7 @@ import MallPanel from './MallPanel.jsx'
 import HotelPanel from './HotelPanel.jsx'
 import { HOTEL } from '../config/hotel.js'
 import LandPanel from './LandPanel.jsx'
+import AnimationAdmin from './AnimationAdmin.jsx'
 import { RANCH } from '../config/ranch.js'
 import { LOT as WOLVES_LOT, CX as WOLVES_CX } from '../config/steelWolves.js'
 import { LOT as VOICES_LOT, CX as VOICES_CX } from '../config/risingVoices.js'
@@ -99,6 +100,7 @@ export default function UI() {
       {ok && panel?.type === 'media' && <MediaAdmin />}
       {ok && panel?.type === 'access' && <AdminAccess />}
       {ok && panel?.type === 'npcs' && <NpcShiftsAdmin />}
+      {ok && panel?.type === 'animations' && <AnimationAdmin />}
       {panel?.type === 'records' && <RecordsPanel />}
       {panel?.type === 'cinema' && <CinemaPanel screenId={panel.screenId} />}
       {panel?.type === 'elevator' && <ElevatorPanel />}

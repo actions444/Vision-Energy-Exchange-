@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { playerState } from '../state/runtime.js'
 import { useAssets, registry } from '../assets/assetStore.js'
 import { CLIP_PATTERNS } from '../assets/PlacedAssets.jsx'
+import { getLibraryClip, subscribe as subscribeAnimLibrary } from '../anim/library.js'
 import { useStore } from '../state/store.js'
 
 // The Animation Gallery: every expressive animation your avatar can perform, in one searchable
@@ -10,12 +11,13 @@ import { useStore } from '../state/store.js'
 //  - The default procedural avatar (player/Avatar.jsx) implements every pose below directly -
 //    no imported assets needed, always available.
 //  - A custom avatar you imported and set as yours (Asset Library -> "Use as avatar") plays real
-//    AnimationMixer clips instead (assets/PlacedAssets.jsx, ImportedAvatar). It can only ever
-//    offer a pose if THAT model's own file actually contains a clip whose name matches the
-//    category (assets/PlacedAssets.jsx's CLIP_PATTERNS) - there is no shared animation library
-//    that retargets one set of clips onto a different skeleton yet, so a model without a
-//    matching clip simply doesn't offer that entry (disabled, with the reason why - never a
-//    button that does nothing silently).
+//    AnimationMixer clips instead (assets/PlacedAssets.jsx, ImportedAvatar): from that model's own
+//    file if it has a matching clip, otherwise borrowed and retargeted onto its skeleton from the
+//    shared cross-rig library (anim/library.js, fed by every skinned avatar anyone's uploaded - see
+//    anim/categories.js). A model without a skeleton to retarget onto, or for which no uploaded
+//    avatar has ever contributed that category, simply doesn't offer that entry (disabled, with
+//    the reason why - never a button that does nothing silently). ui/AnimationAdmin.jsx is where
+//    an admin can assign a clip to a category by hand when its name doesn't say what it is.
 const FAV_KEY = 'vsw-anim-favorites'
 const loadFavs = () => { try { return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')) } catch { return new Set() } }
 const saveFavs = (s) => { try { localStorage.setItem(FAV_KEY, JSON.stringify([...s])) } catch { /* best effort */ } }
@@ -26,21 +28,21 @@ const GESTURE_SECS = { clap: 2.2, bow: 2.2, point: 1.8 }
 // clipKey: the assets/PlacedAssets.jsx CLIP_PATTERNS category an imported avatar needs a clip for.
 const CATALOG = [
   { id: 'wave', label: 'Wave', group: 'Everyday', kind: 'oneshot', procId: 'wave', clipKey: 'wave' },
-  { id: 'clap', label: 'Clap', group: 'Everyday', kind: 'oneshot', procId: 'clap', clipKey: null },
-  { id: 'bow', label: 'Bow', group: 'Everyday', kind: 'oneshot', procId: 'bow', clipKey: null },
-  { id: 'point', label: 'Point', group: 'Everyday', kind: 'oneshot', procId: 'point', clipKey: null },
-  { id: 'chest', label: 'Hand to chest', group: 'Poses', kind: 'hold', procId: 'chest', clipKey: null },
-  { id: 'open', label: 'Arms open', group: 'Poses', kind: 'hold', procId: 'open', clipKey: null, hint: 'Welcoming, both arms out' },
-  { id: 'reach', label: 'Reach', group: 'Poses', kind: 'hold', procId: 'reach', clipKey: null, hint: 'Reach out with one hand' },
-  { id: 'hold', label: 'Hold hands', group: 'Poses', kind: 'hold', procId: 'hold', clipKey: null, hint: 'Both hands out, waist height' },
-  { id: 'read', label: 'Read', group: 'Poses', kind: 'hold', procId: 'read', clipKey: null, hint: 'Hold something up to read, like a book or sign' },
-  { id: 'write', label: 'Write', group: 'Poses', kind: 'hold', procId: 'write', clipKey: null, hint: 'Work at a desk or table' },
-  { id: 'tray', label: 'Carry a tray', group: 'Poses', kind: 'hold', procId: 'tray', clipKey: null, hint: 'Both forearms level, like carrying something' },
-  { id: 'shake', label: 'Shake', group: 'Poses', kind: 'hold', procId: 'shake', clipKey: null, hint: 'Shaking something hard, like a cocktail shaker' },
+  { id: 'clap', label: 'Clap', group: 'Everyday', kind: 'oneshot', procId: 'clap', clipKey: 'clap' },
+  { id: 'bow', label: 'Bow', group: 'Everyday', kind: 'oneshot', procId: 'bow', clipKey: 'bow' },
+  { id: 'point', label: 'Point', group: 'Everyday', kind: 'oneshot', procId: 'point', clipKey: 'point' },
+  { id: 'chest', label: 'Hand to chest', group: 'Poses', kind: 'hold', procId: 'chest', clipKey: 'chest' },
+  { id: 'open', label: 'Arms open', group: 'Poses', kind: 'hold', procId: 'open', clipKey: 'open', hint: 'Welcoming, both arms out' },
+  { id: 'reach', label: 'Reach', group: 'Poses', kind: 'hold', procId: 'reach', clipKey: 'reach', hint: 'Reach out with one hand' },
+  { id: 'hold', label: 'Hold hands', group: 'Poses', kind: 'hold', procId: 'hold', clipKey: 'hold', hint: 'Both hands out, waist height' },
+  { id: 'read', label: 'Read', group: 'Poses', kind: 'hold', procId: 'read', clipKey: 'read', hint: 'Hold something up to read, like a book or sign' },
+  { id: 'write', label: 'Write', group: 'Poses', kind: 'hold', procId: 'write', clipKey: 'write', hint: 'Work at a desk or table' },
+  { id: 'tray', label: 'Carry a tray', group: 'Poses', kind: 'hold', procId: 'tray', clipKey: 'tray', hint: 'Both forearms level, like carrying something' },
+  { id: 'shake', label: 'Shake', group: 'Poses', kind: 'hold', procId: 'shake', clipKey: 'shake', hint: 'Shaking something hard, like a cocktail shaker' },
   { id: 'cook', label: 'Cook', group: 'Poses', kind: 'hold', procId: 'stir', clipKey: 'cook', hint: 'Stirring a pot' },
   { id: 'clean', label: 'Clean', group: 'Poses', kind: 'hold', procId: 'wipe', clipKey: 'clean', hint: 'Wiping a counter' },
-  { id: 'brow', label: 'Shield eyes', group: 'Poses', kind: 'hold', procId: 'brow', clipKey: null, hint: 'Hand to the brow, scanning the distance' },
-  { id: 'blow', label: 'Whistle', group: 'Poses', kind: 'hold', procId: 'blow', clipKey: null, hint: 'Hand to the mouth' },
+  { id: 'brow', label: 'Shield eyes', group: 'Poses', kind: 'hold', procId: 'brow', clipKey: 'brow', hint: 'Hand to the brow, scanning the distance' },
+  { id: 'blow', label: 'Whistle', group: 'Poses', kind: 'hold', procId: 'blow', clipKey: 'blow', hint: 'Hand to the mouth' },
   { id: 'laugh', label: 'Laugh', group: 'Poses', kind: 'hold', procId: 'laugh', clipKey: 'laugh' },
   { id: 'cry', label: 'Cry', group: 'Poses', kind: 'hold', procId: 'cry', clipKey: 'cry' },
   { id: 'talk', label: 'Talk', group: 'Poses', kind: 'hold', procId: 'talk', clipKey: 'talk', hint: 'An idle conversational gesture' },
@@ -62,6 +64,8 @@ export default function ActionsPanel() {
   const [favs, setFavs] = useState(loadFavs)
   const [pose, setPose] = useState(playerState.gesture)
   const [speed, setSpeed] = useState(playerState.animSpeed || 1)
+  const [, bumpLibrary] = useState(0) // re-render if the shared animation library gains an entry while this is open
+  useEffect(() => subscribeAnimLibrary(() => bumpLibrary((n) => n + 1)), [])
   const dancing = playerState.dancing
   const working = playerState.workout === 'squat'
   const singing = !!playerState.sing
@@ -77,9 +81,17 @@ export default function ActionsPanel() {
     if (!imported) return true // the procedural avatar implements every entry below for real
     if (!c.clipKey) return false // no imported-avatar equivalent for this one - see header note
     const re = CLIP_PATTERNS[c.clipKey]
-    return !!re && info.animations.some((a) => re.test(a.name))
+    if (re && info.animations.some((a) => re.test(a.name))) return true
+    // no clip of its own - but the shared, cross-rig library might have one to retarget on, as
+    // long as this model actually has a skeleton to retarget onto
+    return !!(info.skinned && getLibraryClip(c.clipKey))
   }
-  const unavailableReason = (c) => (!imported ? '' : !c.clipKey ? 'Only on the default avatar (no imported model has this pose)' : 'Your imported avatar has no matching clip for this')
+  const unavailableReason = (c) => {
+    if (!imported) return ''
+    if (!c.clipKey) return 'Only on the default avatar'
+    if (!info.skinned) return 'This model has no skeleton to animate'
+    return 'No clip for this yet - your model and the shared library both lack one'
+  }
 
   const oneshot = (c) => {
     if (c.id === 'wave') { playerState.emote = 'wave'; playerState.emoteUntil = performance.now() / 1000 + 1.5; return }
