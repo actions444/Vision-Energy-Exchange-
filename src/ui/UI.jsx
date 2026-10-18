@@ -59,6 +59,7 @@ import { OUTFITS } from '../config/outfits.js'
 import CineOverlay from './CineOverlay.jsx'
 import { useCine } from '../state/cine.js'
 import ActionsPanel from './ActionsPanel.jsx'
+import MallPanel from './MallPanel.jsx'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access', 'npcs'])
 
@@ -110,6 +111,7 @@ export default function UI() {
       {panel?.type === 'departures' && <DeparturesPanel />}
       {panel?.type === 'performance' && <PerformancePanel />}
       {panel?.type === 'actions' && <ActionsPanel />}
+      {panel?.type === 'mall' && <MallPanel storeId={panel.storeId} />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
       {panel?.type === 'taxi' && <TaxiPanel standId={panel.standId} />}

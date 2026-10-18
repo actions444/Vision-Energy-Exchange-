@@ -26,6 +26,7 @@ const BASE = {
   vehicles: [], // owned vehicle ids (config/vehicleShop.js)
   businesses: {}, // businessId -> { boughtDay, lastPayout: day of last passive-income payout }
   ownedDecor: [], // purchased decor/catalog item ids (decor/catalog.jsx) — separate from `owned` (uniforms)
+  ownedMall: [], // purchased Vision Storms Exchanges mall product ids (config/mall.js) — mock catalog, Phase 1
 }
 const PERSIST = Object.keys(BASE)
 
@@ -158,6 +159,17 @@ export const useJobs = create((set, get) => {
       if (!get().spend(item.price, 'decor', `Bought: ${item.name}`)) return false
       set({ ownedDecor: [...get().ownedDecor, item.id] }); persist()
       toast(`Bought ${item.name}.`)
+      return true
+    },
+
+    /** Buy a mock mall product (config/mall.js) once. Phase-1 placeholder catalog - there is no
+     * real Shopify order behind this, just a local purchase record, same shape as buyDecorItem. */
+    buyMallItem: (product) => {
+      if (!product) return false
+      if (get().ownedMall.includes(product.id)) return true
+      if (!get().spend(product.price, 'mall', `Bought: ${product.name}`)) return false
+      set({ ownedMall: [...get().ownedMall, product.id] }); persist()
+      toast(`Bought ${product.name}.`)
       return true
     },
 
