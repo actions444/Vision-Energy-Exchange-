@@ -11,6 +11,7 @@ import * as THREE from 'three'
 import City from './world/City.jsx'
 import Gallery from './world/Gallery.jsx'
 import Atmosphere from './world/Atmosphere.jsx'
+import WeatherDirector from './world/WeatherDirector.jsx'
 import Player from './player/Player.jsx'
 import CameraRig from './player/CameraRig.jsx'
 import PlacedAssets from './assets/PlacedAssets.jsx'
@@ -119,6 +120,7 @@ export default function App() {
             <CameraRig />
           </Physics>
           <Atmosphere />
+          <WeatherDirector />
           {settings.aircraft !== false && <AirTraffic />}
           <MusicZones />
           <PhotoBooth />

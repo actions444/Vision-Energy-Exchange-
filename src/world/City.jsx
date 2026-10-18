@@ -14,7 +14,7 @@ import CinemaExterior, { CINEMA_FRONT } from './CinemaExterior.jsx'
 import PlazaParking from './Parking.jsx'
 import PlazaBuilding, { PLAZA } from './PlazaBuilding.jsx'
 import { BrandSign } from './signs.jsx'
-import { Trees, FlowerBed, Bench, StreetLamp, Bollard, Fountain, ParkingLot, Planter, Lawn } from './props.jsx'
+import { Trees, FlowerBed, Bench, StreetLamp, Bollard, Fountain, ParkingLot, Planter, Lawn, Atm } from './props.jsx'
 import { nightLit } from '../state/environment.js'
 import { StaticBatch } from './batch.jsx'
 import ConcertStage from './ConcertStage.jsx'
@@ -258,6 +258,7 @@ function Square() {
       <mesh position={[cx, CURB + 0.007, cz]} rotation={[-Math.PI / 2, 0, 0]} material={surfaceHD('pavers', 2, 11)}><planeGeometry args={[4, SQUARE.z1 - SQUARE.z0]} /></mesh>
       <mesh position={[cx, CURB + 0.007, cz]} rotation={[-Math.PI / 2, 0, 0]} material={surfaceHD('pavers', 9, 2)}><planeGeometry args={[SQUARE.x1 - SQUARE.x0, 4]} /></mesh>
       <Fountain position={[cx, CURB, cz]} radius={4} />
+      <Atm id="atm-square" position={[cx + 11, CURB, cz]} yaw={Math.PI} />
       {benches.map(([p, yaw], i) => <Bench key={i} position={p} yaw={yaw} />)}
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <FlowerBed key={i} x={cx + sx * 11.5} z={cz + sz * 13} w={6} d={4} seed={10 + i} />

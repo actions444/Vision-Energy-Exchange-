@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { getMaterials, surface } from './materials.js'
 import { nightLit } from '../state/environment.js'
 import { BrandSign, Plaque } from './signs.jsx'
-import { Bench, Bollard, LightAnchor } from './props.jsx'
+import { Bench, Bollard, LightAnchor, Atm } from './props.jsx'
 import { DiningSet } from './furniture.jsx'
 import { LOT, GROUND, WALL_Z, WALL_H, CX, CZ } from '../config/bikerMeetup.js'
 
@@ -88,6 +88,7 @@ export default function BikerMeetup() {
       {/* entrance markers at the open (north) side of the lot */}
       <Bollard position={[LOT.x0 + 2, GROUND, LOT.z1 - 0.6]} />
       <Bollard position={[LOT.x1 - 2, GROUND, LOT.z1 - 0.6]} />
+      <Atm id="atm-clubhouse" position={[LOT.x1 - 3.4, GROUND, WALL_Z + 0.9]} yaw={0} />
     </group>
   )
 }

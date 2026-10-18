@@ -7,6 +7,7 @@ import { Wall, Gate, Block } from './jobkit.jsx'
 import { DoubleDoor } from './Door.jsx'
 import { BrandSign, Plaque } from './signs.jsx'
 import { CeilingLight, PendantLight, Counter, Stool } from './furniture.jsx'
+import { Atm } from './props.jsx'
 import { HumanoidCrowd, makeCrowd } from '../npc/HumanoidCrowd.jsx'
 import { registerInteractable, playerState } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
@@ -102,6 +103,7 @@ function Shell() {
       </mesh>
 
       <DoubleDoor id="casino-doors" center={[CX, PLATFORM_Y + 1.3, RECT.z0]} halfWidth={doorHalf} height={2.6} facing={Math.PI} accent="#ff2fa0" label="The Jackpot Exchange" finish="bronze" />
+      <Atm id="atm-casino" position={[RECT.x0 + 4, PLATFORM_Y, RECT.z0 + 2]} yaw={0} />
 
       {/* marquee */}
       <mesh position={[CX, TOPY - 1.6, RECT.z0 - 0.26]} material={mm.gold} castShadow>
