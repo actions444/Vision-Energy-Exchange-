@@ -191,13 +191,26 @@ function furnitureSeats(inst, W, D) {
 
 // ---------- Imported character as the player's avatar ----------
 const X_AXIS = new THREE.Vector3(1, 0, 0)
-const CLIP_PATTERNS = {
+export const CLIP_PATTERNS = {
   idle: /idle|stand|breath|rest/i,
   walk: /walk/i,
   run: /run|jog|sprint/i,
   jump: /jump|fall|air/i,
   wave: /wave|greet|hello/i,
   sit: /sit|seat|chair/i,
+  // Extra categories for the Animation Gallery (ui/AnimationGalleryPanel.jsx): only picked up
+  // when an imported model actually ships a clip with a matching name - there is no shared,
+  // cross-rig animation library yet (see that file's header comment), so an avatar without one
+  // of these clips in its own file simply doesn't offer that category.
+  dance: /dance|dancing/i,
+  sing: /sing|singing|vocal/i,
+  talk: /talk|speak|convers/i,
+  laugh: /laugh/i,
+  cry: /cry|sob|weep/i,
+  cook: /cook|stir|chef/i,
+  clean: /clean|wipe|sweep|mop/i,
+  exercise: /exercise|squat|workout|gym/i,
+  perform: /perform|act|pose|model/i,
 }
 
 // Common bone names in Tripo / Meshy / Mixamo-style rigs, for a fallback seated pose.
@@ -247,9 +260,14 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     let want = 'idle'
     if (state.sit && actions.sit) want = 'sit'
     else if (!state.grounded && actions.jump) want = 'jump'
-    else if (state.emote === 'wave' && actions.wave) want = 'wave'
     else if (sp > 4 && actions.run) want = 'run'
     else if (sp > 0.2) want = actions.walk ? 'walk' : actions.run ? 'run' : 'idle'
+    else if (state.emote === 'wave' && actions.wave) want = 'wave'
+    else if (state.dancing && actions.dance) want = 'dance'
+    else if (state.sing && actions.sing) want = 'sing'
+    // Animation Gallery categories (ui/AnimationGalleryPanel.jsx): only used when this specific
+    // imported model ships a matching clip of its own - see the CLIP_PATTERNS comment above.
+    else if (state.gesture && actions[state.gesture]) want = state.gesture
     const next = actions[want] || actions.idle || null
     if (next !== current.current) {
       if (current.current) current.current.fadeOut(0.2)
@@ -257,6 +275,9 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
       current.current = next
     }
     if (next && (want === 'walk' || want === 'run')) next.timeScale = THREE.MathUtils.clamp(sp / (want === 'run' ? 6 : 2.6), 0.6, 1.6)
+    // Animation Gallery speed slider (dance/sing/gesture categories only - walk/run above are
+    // paced by actual movement speed instead, and shouldn't be hand-tuned out of sync with it)
+    else if (next && (want === 'dance' || want === 'sing' || want === state.gesture)) next.timeScale = state.animSpeed || 1
     mixer.update(dt)
     // procedural sit for rigs without a sit clip: bend thighs and shins, lower the model
     const animated = Object.keys(actions).length > 0

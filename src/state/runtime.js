@@ -33,6 +33,8 @@ export const playerState = {
   dancing: false, // toggled by the performance menu; layers a dance sway on top of whatever else the avatar is doing
   gesture: null, // one-shot performance gesture: 'clap' | 'bow' | 'point' | null (auto-clears at gestureUntil)
   gestureUntil: 0,
+  animSpeed: 1, // Animation Gallery speed control (ui/AnimationGalleryPanel.jsx): dance sway and, for an
+  // imported skeletal avatar, the active gesture-category clip's playback rate
 
   // ---- carried props (see world/Carryables.jsx, ui/ActionsPanel.jsx) ----
   carrying: null, // { iid, assetId, name } while holding a picked-up prop; null if empty-handed
