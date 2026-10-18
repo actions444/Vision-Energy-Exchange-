@@ -24,6 +24,7 @@ import JusticeDistrict, { JUSTICE } from './Justice.jsx'
 import CountyJail, { JAIL, JAIL_YARD } from './CountyJail.jsx'
 import StatePrison, { PRISON, PRISON_YARD } from './StatePrison.jsx'
 import RehabCenter, { REHAB } from './RehabCenter.jsx'
+import Hospital, { HOSPITAL } from './Hospital.jsx'
 import JobDistrict, { DISTRICT, WASH_B } from './JobDistrict.jsx'
 import MotorCourt, { MOTORS } from './MotorCourt.jsx'
 import Island from './Island.jsx'
@@ -181,6 +182,7 @@ export default function City() {
       <CountyJail />
       <StatePrison />
       <RehabCenter />
+      <Hospital />
       <JobDistrict />
       <Pedestrians />
       <WestEnd />
@@ -385,6 +387,7 @@ const RESERVED = [
   [JAIL_YARD.x0 - 8, JAIL.x1 + 4, JAIL.z0 - 14, JAIL.z1 + 14], // County Jail, its yard and forecourt
   [PRISON.x0 - 8, PRISON.x1 + 6, PRISON.z0 - 14, PRISON_YARD.z1 + 6], // State Prison, its yard and forecourt
   [REHAB.x0 - 14, REHAB.x1 + 4, REHAB.z0 - 2, REHAB.z1 + 6], // Rehabilitation Center and its approach
+  [HOSPITAL.x0 - 4, HOSPITAL.x1 + 4, HOSPITAL.z0 - 6, HOSPITAL.z1 + 4], // Vision Storms General Hospital and its approach
   [DISTRICT.x0 - 2, DISTRICT.x1 + 2, DISTRICT.z0 - 2, DISTRICT.z1 + 2], // Employment District (Job Center, Post Office, car wash)
   [WASH_B.x0 - 3, WASH_B.x0 + WASH_B.w + 3, 26, 56], // second car wash
   [MOTORS.x0 - 2, MOTORS.x1 + 3, MOTORS.z0 - 4, MOTORS.z1 + 2], // Vision Motors & Skyport (court, canopy, jet pads)

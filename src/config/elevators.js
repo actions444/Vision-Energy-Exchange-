@@ -45,6 +45,15 @@ export const CARS = [
     accent: '#2fd0c4',
   },
   {
+    id: 'hospital',
+    name: 'Vision Storms General Hospital elevator',
+    x0: 76.0, x1: 78.7, z0: 122.0, z1: 125.0,
+    baseY: BASE, floorH: 4.6, floors: 3, hall: 'south',
+    labels: ['1', '2', '3'],
+    names: ['Reception · ER · Pharmacy', "Patient Rooms", 'Surgery · Doctors\' Offices'],
+    accent: '#3fa9e0',
+  },
+  {
     id: 'cinema',
     name: 'Vision Cinema elevator',
     x0: -15.8, x1: -13.1, z0: -3.0, z1: 0.0,

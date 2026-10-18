@@ -18,6 +18,10 @@ export const WASH_B = { id: 'carwashB', name: 'Quick Bay Wash', x0: -122, z0: 30
 export const COURTYARD = { x0: 50, x1: 82, z0: 48, z1: 54 }
 export const DISTRICT = { x0: 34, x1: 83, z0: 28, z1: 68 }
 
+// Vision Storms General Hospital, north of the Courthouse / east of the Rehabilitation Center
+// (see Hospital.jsx for the 3-floor building). Door faces south at [85, 114].
+export const HOSP = { x0: 64, x1: 106, z0: 114, z1: 130 }
+
 /** Car wash local (u across, v along the tunnel) to world. */
 export const cwWorld = (w, u, v) => [w.x0 + u, w.z0 + v]
 // Local layout of a car wash (see CarWash.jsx): tunnel u 4.6..9.0, v 3..19; office u 0..3.9, v 3.4..11.4;
@@ -62,6 +66,10 @@ export const UNIFORMS = {
   ramp: { id: 'ramp', name: 'Ramp crew hi-vis', price: 34, suit: '#ff8a1f', pants: '#2a2d3a', trim: '#f2f2f2', hat: '#2a2d3a', vest: '#f2f2f2' },
   server: { id: 'server', name: 'Bistro server apron', price: 34, suit: '#f1ece2', pants: '#1b1e26', trim: '#7a3b33', hat: null, vest: '#3f2e2a' },
   concierge: { id: 'concierge', name: 'Concierge blazer', price: 48, suit: '#1b2a4a', pants: '#15223a', trim: '#c9a96a', hat: null, vest: null },
+  nurse: { id: 'nurse', name: 'Nurse scrubs', price: 42, suit: '#2f6f9a', pants: '#1b2430', trim: '#dfe7ec', hat: null, vest: null },
+  doctor: { id: 'doctor', name: "Doctor's coat", price: 58, suit: '#e9eef0', pants: '#1f2a33', trim: '#2f6f9a', hat: null, vest: null },
+  scrub: { id: 'scrub', name: 'Surgical scrubs & cap', price: 46, suit: '#a9d4e6', pants: '#1f2a33', trim: '#ffffff', hat: '#a9d4e6', vest: null },
+  medadmin: { id: 'medadmin', name: 'Hospital admin blazer', price: 44, suit: '#dfe7ec', pants: '#1f2a33', trim: '#3fa9e0', hat: null, vest: null },
 }
 
 // ---- sites: where you clock in ----
@@ -72,6 +80,7 @@ export const SITES = {
   carwashB: { id: 'carwashB', name: WASH_B.name, pos: cwWorld(WASH_B, 1.4, 6.4) },
   airport: { id: 'airport', name: 'Vision Storms International Airport', pos: [-460, 5] },
   plaza: { id: 'plaza', name: 'Vision Storms Plaza', pos: [-20, 50.9] }, // the ground-floor lobby desk
+  hospital: { id: 'hospital', name: 'Vision Storms General Hospital', pos: [83, 126.2] },
 }
 
 // ---- work stops ----
@@ -173,6 +182,15 @@ const STOP_LIST = [
   S('cc-deskA', 'Call desk A', 'Take a customer call', 67, 37, 4),
   S('cc-deskB', 'Call desk B', 'Take a customer call', 69, 37, 4),
   S('cc-queue', 'Queue board', 'Check the call queue', 68, 39, 3),
+  // Vision Storms General Hospital
+  S('hp-desk', 'Reception counter', 'Check in a patient', 83, 126.2, 4),
+  S('hp-waiting', 'Waiting room', 'Check on the waiting room', 83, 118, 3),
+  S('hp-triage', 'Triage bay', 'Triage an incoming patient', 95, 120.4, 4),
+  S('hp-er1', 'ER bed 1', 'Check vitals and chart', 95, 118, 4),
+  S('hp-er2', 'ER bed 2', 'Check vitals and chart', 99.5, 121.4, 4),
+  S('hp-pharmacy', 'Pharmacy counter', 'Fill a prescription', 70, 123.4, 4),
+  S('hp-pharmshelf', 'Pharmacy shelves', 'Restock the shelves', 70, 116, 3.5),
+  S('hp-imaging', 'Imaging room', 'Run a scan', 68, 115.6, 4),
 ]
 
 // expand the car wash stops for both washes
@@ -267,6 +285,25 @@ export const JOBS = [
   { id: 'call-center-agent', title: 'Call Center Agent', cat: 'Customer Service', site: ['jobcenter'], uniform: 'office', wage: 56, shirt: '#e9edf2', pants: '#242a3a',
     desc: 'Answer customer calls and keep the queue moving at the Job Center call bank.',
     route: ['cc-deskA', 'cc-deskB', 'cc-queue'] },
+  // Vision Storms General Hospital
+  { id: 'hospital-receptionist', title: 'Hospital Receptionist', cat: 'Hospital', site: ['hospital'], uniform: 'medadmin', wage: 60, shirt: '#dfe7ec', pants: '#1f2a33',
+    desc: 'Check patients in at the front desk and keep the waiting room running smoothly.',
+    route: ['hp-desk', 'hp-waiting'] },
+  { id: 'nurse', title: 'Nurse', cat: 'Hospital', site: ['hospital'], uniform: 'nurse', wage: 88, shirt: '#2f6f9a', pants: '#1b2430',
+    desc: 'Triage incoming patients and check vitals on the ER floor.',
+    route: ['hp-triage', 'hp-er1', 'hp-er2'] },
+  { id: 'doctor', title: 'Doctor', cat: 'Hospital', site: ['hospital'], uniform: 'doctor', wage: 120, shirt: '#e9eef0', pants: '#1f2a33',
+    desc: 'See patients in the ER and sign off on their charts.',
+    route: ['hp-triage', 'hp-er1', 'hp-er2'] },
+  { id: 'surgeon', title: 'Surgeon', cat: 'Hospital', site: ['hospital'], uniform: 'scrub', wage: 150, shirt: '#a9d4e6', pants: '#1f2a33',
+    desc: 'Scrub in and handle the most critical cases that come through the ER.',
+    route: ['hp-er1', 'hp-er2'] },
+  { id: 'pharmacist', title: 'Pharmacist', cat: 'Hospital', site: ['hospital'], uniform: 'medadmin', wage: 94, shirt: '#e9eef0', pants: '#1f2a33',
+    desc: 'Fill prescriptions and keep the pharmacy shelves stocked.',
+    route: ['hp-pharmacy', 'hp-pharmshelf'] },
+  { id: 'radiology-tech', title: 'Radiology Technician', cat: 'Hospital', site: ['hospital'], uniform: 'medadmin', wage: 76, shirt: '#dfe7ec', pants: '#1f2a33',
+    desc: 'Run scans in the imaging room for patients referred by the ER.',
+    route: ['hp-imaging'] },
 ]
 
 export const jobById = (id) => JOBS.find((j) => j.id === id)

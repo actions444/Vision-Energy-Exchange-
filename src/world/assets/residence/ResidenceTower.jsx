@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
@@ -33,6 +33,76 @@ import { SIGNATURE_ROOMS } from './residentRooms.jsx'
 // audio/tts.js system the city's other talking NPCs use), and a name plaque at each resident's
 // door. What's scenery (for now): floors 6+ are reserved for the rest of the character roster -
 // see the `built: false` entries in src/config/residences.js.
+
+/** A small sitting teddy bear - purely decorative, built from primitives, no real-brand reference. */
+function TeddyBear({ position, yaw = 0, color = '#a9754a', scale = 1 }) {
+  const fur = useMemo(() => new THREE.MeshStandardMaterial({ color, roughness: 0.95 }), [color])
+  const dark = useMemo(() => new THREE.MeshStandardMaterial({ color: '#2a1d14', roughness: 0.6 }), [])
+  return (
+    <group position={position} rotation={[0, yaw, 0]} scale={scale}>
+      <mesh position={[0, 0.1, 0]} material={fur} castShadow><sphereGeometry args={[0.1, 12, 10]} /></mesh>
+      <mesh position={[-0.07, 0.1, 0.05]} material={fur}><sphereGeometry args={[0.055, 10, 8]} /></mesh>
+      <mesh position={[0.07, 0.1, 0.05]} material={fur}><sphereGeometry args={[0.055, 10, 8]} /></mesh>
+      <mesh position={[0, 0.22, 0.02]} material={fur} castShadow><sphereGeometry args={[0.075, 12, 10]} /></mesh>
+      <mesh position={[-0.05, 0.27, 0.08]} material={fur}><sphereGeometry args={[0.028, 8, 8]} /></mesh>
+      <mesh position={[0.05, 0.27, 0.08]} material={fur}><sphereGeometry args={[0.028, 8, 8]} /></mesh>
+      <mesh position={[0, 0.215, 0.08]} material={dark}><sphereGeometry args={[0.022, 8, 8]} /></mesh>
+      <mesh position={[-0.08, 0.1, 0.03]} material={fur} rotation={[0, 0, 0.5]}><capsuleGeometry args={[0.028, 0.1, 4, 8]} /></mesh>
+      <mesh position={[0.08, 0.1, 0.03]} material={fur} rotation={[0, 0, -0.5]}><capsuleGeometry args={[0.028, 0.1, 4, 8]} /></mesh>
+    </group>
+  )
+}
+
+/** A ceiling pendant that slowly cycles through colour, for the "mood lighting" rooms ask for. */
+function ColorCycleLight({ position, zone, seed = 0 }) {
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 2.2, toneMapped: false }), [])
+  const light = useRef()
+  const col = useMemo(() => new THREE.Color(), [])
+  useFrame((state) => {
+    const hue = (state.clock.elapsedTime * 0.05 + seed) % 1
+    col.setHSL(hue, 0.65, 0.55)
+    mat.emissive.copy(col); mat.color.copy(col)
+    if (light.current) light.current.color.copy(col)
+  })
+  return (
+    <group position={position}>
+      <mesh position={[0, -0.02, 0]} material={getMaterials().chrome}><cylinderGeometry args={[0.03, 0.03, 0.5, 8]} /></mesh>
+      <mesh position={[0, -0.3, 0]} material={mat}><sphereGeometry args={[0.16, 16, 14]} /></mesh>
+      <pointLight ref={light} position={[0, -0.3, 0]} intensity={6} distance={7} color="#ffffff" />
+    </group>
+  )
+}
+
+/** The cantilevered balcony punched through the south wall for a BALCONY_FLOORS unit: decking,
+ * a solid-collider glass railing, a real double door, and a couple of outdoor pieces. */
+function Balcony({ floor }) {
+  const y0 = Y(floor)
+  const m = getMaterials()
+  const deckMat = surface('wood', 2, 1, { color: '#8a6a4a' })
+  const [gx0, gx1] = BALCONY_GAP
+  const cx = (gx0 + gx1) / 2
+  const depth = 2.4 // how far it cantilevers south, beyond TOWER.z1
+  const z0 = TOWER.z1, z1 = TOWER.z1 + depth
+  const railH = 1.05
+  return (
+    <group>
+      <DoubleDoor id={`balcony-${floor}`} center={[cx, y0, z0 - 0.05]} halfWidth={(gx1 - gx0) / 2 - 0.1} height={2.3} facing={0} accent="#8fb6ff" label="balcony doors" />
+      {/* deck slab, cantilevered south of the building line */}
+      <Block position={[cx, y0 - 0.1, (z0 + z1) / 2]} size={[gx1 - gx0, 0.2, depth]} material={deckMat} />
+      {/* glass-and-chrome railing around the open three sides */}
+      <Block position={[cx, y0 + railH / 2, z1 - 0.03]} size={[gx1 - gx0, railH, 0.06]} material={m.glass} collide={false} />
+      <Block position={[gx0 + 0.03, y0 + railH / 2, (z0 + z1) / 2]} size={[0.06, railH, depth]} material={m.glass} collide={false} />
+      <Block position={[gx1 - 0.03, y0 + railH / 2, (z0 + z1) / 2]} size={[0.06, railH, depth]} material={m.glass} collide={false} />
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[(gx1 - gx0) / 2, railH / 2, depth / 2]} position={[cx, y0 + railH / 2, (z0 + z1) / 2]} />
+      </RigidBody>
+      <mesh position={[cx, y0 + railH, z1 - 0.03]} material={m.chrome}><boxGeometry args={[gx1 - gx0, 0.04, 0.04]} /></mesh>
+      {/* a small chair and planter to actually stand on the balcony for */}
+      <Chair position={[cx - 0.7, y0, (z0 + z1) / 2]} yaw={Math.PI} color="#2fd0c4" />
+      <Plant position={[cx + 0.9, y0, z1 - 0.5]} scale={0.9} kind="areca" />
+    </group>
+  )
+}
 
 /** Shows its children only while the camera is near the tower (interiors aren't drawn across town). */
 function NearGate({ bounds, margin = 26, children }) {
@@ -69,6 +139,13 @@ function WallEW({ z, xa, xb, y0, h, gaps = [], t = 0.15, material }) {
 // the entry doorway: a gap in the CORE/UNIT wall (x = UNIT.x0), within the landing band
 const ENTRY_GAP = [UNIT.z0 + 2, UNIT.z0 + 6]
 
+// Sage Green (floor 3) and Jade Green (floor 4) get an enlarged, open-plan bedroom suite (bedroom +
+// ensuite + closet merged into one bigger room) with a real cantilevered balcony punched through the
+// south exterior wall. BALCONY_GAP is that wall opening's world-x span, picked to sit within the
+// building's south-face "left band" (away from the stair/elevator core) on both floors.
+const BALCONY_FLOORS = new Set([3, 4])
+const BALCONY_GAP = [UNIT.x0 + 3, UNIT.x0 + 9] // world x 49..55
+
 /** One built resident's suite: lounge, signature room, bedroom, closet, bathroom, reading nook. */
 function ResidentSuite({ resident, floor }) {
   const y0 = Y(floor)
@@ -88,6 +165,11 @@ function ResidentSuite({ resident, floor }) {
   const SigP = (u, v, y = 0) => [sox + u, y0 + y, soz + v]
   const SignatureRoom = SIGNATURE_ROOMS[resident.signature]
 
+  // Sage Green and Jade Green get the enlarged suite: bedroom + ensuite + closet opened into one
+  // big room (u0..30, v18..30 - the old bedroom/bath/closet/nook footprint combined) with a real
+  // balcony through the south wall (see Balcony/BALCONY_FLOORS above).
+  const deluxe = resident.id === 'sage-green' || resident.id === 'jade-green'
+
   return (
     <group>
       {/* floor + ceiling */}
@@ -104,19 +186,31 @@ function ResidentSuite({ resident, floor }) {
       <WallNS x={ox} za={oz + 0} zb={oz + 30} y0={y0} h={h} gaps={[ENTRY_GAP]} material={wallMat} />
       {/* interior walls */}
       <WallNS x={ox + 16} za={oz + 0} zb={oz + 18} y0={y0} h={h} gaps={[[oz + 7, oz + 10]]} material={wallMat} />
-      <WallEW z={oz + 18} xa={ox + 0} xb={ox + 30} y0={y0} h={h} gaps={[[ox + 4, ox + 7], [ox + 24, ox + 27]]} material={wallMat} />
-      <WallNS x={ox + 14} za={oz + 18} zb={oz + 30} y0={y0} h={h} gaps={[[oz + 19, oz + 21], [oz + 25, oz + 27]]} material={wallMat} />
-      <WallNS x={ox + 22} za={oz + 18} zb={oz + 24} y0={y0} h={h} material={wallMat} />
-      <WallEW z={oz + 24} xa={ox + 14} xb={ox + 22} y0={y0} h={h} material={wallMat} />
-      <WallNS x={ox + 22} za={oz + 24} zb={oz + 30} y0={y0} h={h} material={wallMat} />
+      {deluxe ? (
+        <WallEW z={oz + 18} xa={ox + 0} xb={ox + 30} y0={y0} h={h} gaps={[[ox + 5, ox + 10]]} material={wallMat} />
+      ) : (
+        <>
+          <WallEW z={oz + 18} xa={ox + 0} xb={ox + 30} y0={y0} h={h} gaps={[[ox + 4, ox + 7], [ox + 24, ox + 27]]} material={wallMat} />
+          <WallNS x={ox + 14} za={oz + 18} zb={oz + 30} y0={y0} h={h} gaps={[[oz + 19, oz + 21], [oz + 25, oz + 27]]} material={wallMat} />
+          <WallNS x={ox + 22} za={oz + 18} zb={oz + 24} y0={y0} h={h} material={wallMat} />
+          <WallEW z={oz + 24} xa={ox + 14} xb={ox + 22} y0={y0} h={h} material={wallMat} />
+          <WallNS x={ox + 22} za={oz + 24} zb={oz + 30} y0={y0} h={h} material={wallMat} />
+        </>
+      )}
 
       {/* doors (baseYaw picks which local axis the leaf swings along: 0 = along x, for walls that
           run east-west; ±PI/2 = along z, for walls that run north-south) */}
       <SingleDoor id={`residence-${resident.id}-entry`} hinge={[ox, y0, ENTRY_GAP[0]]} width={ENTRY_GAP[1] - ENTRY_GAP[0]} height={2.5} baseYaw={-Math.PI / 2} openAngle={1.5} label={`${resident.name}'s door`} />
-      <SingleDoor id={`residence-${resident.id}-bed`} hinge={[ox + 4, y0, oz + 18]} width={3} height={2.3} baseYaw={0} openAngle={1.5} label="bedroom door" />
-      <SingleDoor id={`residence-${resident.id}-nook`} hinge={[ox + 24, y0, oz + 18]} width={3} height={2.3} baseYaw={0} openAngle={-1.5} label="door" />
-      <SingleDoor id={`residence-${resident.id}-bath`} hinge={[ox + 14, y0, oz + 19]} width={2} height={2.3} baseYaw={-Math.PI / 2} openAngle={1.5} label="bathroom door" />
-      <SingleDoor id={`residence-${resident.id}-closet`} hinge={[ox + 14, y0, oz + 25]} width={2} height={2.3} baseYaw={-Math.PI / 2} openAngle={1.5} label="closet door" />
+      {deluxe ? (
+        <SingleDoor id={`residence-${resident.id}-bed`} hinge={[ox + 5, y0, oz + 18]} width={5} height={2.4} baseYaw={0} openAngle={1.5} label="bedroom suite door" />
+      ) : (
+        <>
+          <SingleDoor id={`residence-${resident.id}-bed`} hinge={[ox + 4, y0, oz + 18]} width={3} height={2.3} baseYaw={0} openAngle={1.5} label="bedroom door" />
+          <SingleDoor id={`residence-${resident.id}-nook`} hinge={[ox + 24, y0, oz + 18]} width={3} height={2.3} baseYaw={0} openAngle={-1.5} label="door" />
+          <SingleDoor id={`residence-${resident.id}-bath`} hinge={[ox + 14, y0, oz + 19]} width={2} height={2.3} baseYaw={-Math.PI / 2} openAngle={1.5} label="bathroom door" />
+          <SingleDoor id={`residence-${resident.id}-closet`} hinge={[ox + 14, y0, oz + 25]} width={2} height={2.3} baseYaw={-Math.PI / 2} openAngle={1.5} label="closet door" />
+        </>
+      )}
       <SingleDoor id={`residence-${resident.id}-sig`} hinge={[ox + 16, y0, oz + 7]} width={3} height={2.3} baseYaw={-Math.PI / 2} openAngle={1.5} label={resident.rooms.find((r) => /studio|office|room|workspace/i.test(r)) || 'door'} />
 
       {/* lounge: u0..16, v0..18 */}
@@ -143,35 +237,74 @@ function ResidentSuite({ resident, floor }) {
           player has NPC voices on in Settings (Settings > Sound) */}
       {resident.lines?.length > 0 && <TalkTo id={`residence-${resident.id}`} position={P(8, 1.4, 3)} name={resident.name} lines={resident.lines} />}
 
-      {/* bedroom: u0..14, v18..30 */}
-      <Rug position={P(7, 24, 0)} size={[5, 5]} color={c.primary} />
-      <Bed position={P(7, 26)} yaw={Math.PI} color={c.accent} frame={c.gold} size={[1.9, 2.1]} />
-      <NightStand position={P(5.0, 25)} yaw={0} />
-      <NightStand position={P(9.0, 25)} yaw={0} />
-      <Wardrobe position={P(1.0, 29.4)} yaw={0} width={2.4} />
-      <Plant position={P(13, 29.4)} scale={1.0} kind="snake" />
-      <CeilingLight position={P(7, 0, 24)} size={[1.0, 0.6]} color="#fff1dc" zone={zone} intensity={12} distance={7} />
+      {deluxe ? (
+        <>
+          {/* the enlarged suite: u0..30, v18..30 - sleeping area, vanity, an open ensuite behind
+              a frosted glass screen, a closet nook, and the real balcony door beyond v30 (south
+              wall; built once per floor by Balcony/BALCONY_FLOORS in the tower shell above). */}
+          <Rug position={P(9, 25, 0)} size={[11, 7]} color={c.primary} />
+          <Bed position={P(10, 26)} yaw={Math.PI} color={c.accent} frame={c.gold} size={[2.0, 2.2]} />
+          <NightStand position={P(7.2, 25)} yaw={0} />
+          <NightStand position={P(12.8, 25)} yaw={0} />
+          <TeddyBear position={P(8.9, 0.76, 25.3)} yaw={0.3} color="#a9754a" />
+          <TeddyBear position={P(11.1, 0.76, 25.4)} yaw={-0.4} scale={0.85} color="#6b4a30" />
+          <ColorCycleLight position={P(10, h - 0.1, 26)} zone={zone} seed={resident.floor * 0.3} />
+          <Plant position={P(2.2, 29.2)} scale={1.2} kind="snake" />
+          <CeilingLight position={P(4, 0, 22)} size={[1.0, 0.6]} color="#fff1dc" zone={zone} intensity={10} distance={6} />
 
-      {/* closet: u14..22, v24..30 - decor + an interactable that opens the outfit picker */}
-      <ClothingRack position={P(16.2, 26.5)} yaw={0} seed={resident.floor} />
-      <Mannequin position={P(19.6, 26.5)} color={c.primary} />
-      <Wardrobe position={P(21.3, 29.4)} yaw={0} width={1.4} />
-      <CeilingLight position={P(18, 0, 27)} size={[0.8, 0.5]} color="#fff1dc" zone={zone} intensity={8} distance={5} />
-      <ClosetTrigger position={P(18, 1.2, 27)} name={resident.name} />
+          {/* vanity set, its own corner of the bedroom (not the ensuite's) */}
+          <Vanity position={P(16.5, 20.2)} yaw={Math.PI} width={1.5} zone={zone} />
+          <Stool position={P(16.5, 21.4)} color={c.accent} />
 
-      {/* bathroom: u14..22, v18..24 */}
-      <Toilet position={P(20.5, 22.6)} yaw={Math.PI} />
-      <Vanity position={P(15.6, 19.3)} yaw={Math.PI / 2} width={1.3} zone={zone} />
-      <Shower position={P(20.3, 19.3)} yaw={0} w={1.2} d={1.2} h={2.2} zone={zone} />
-      <TowelRail position={P(18, 22.8, 0.05)} yaw={0} />
-      <CeilingLight position={P(18, 0, 21)} size={[0.7, 0.5]} color="#fff1dc" zone={zone} intensity={8} distance={5} />
+          {/* ensuite, screened by a waist-to-head frosted glass partition instead of a full wall */}
+          <Block position={[ox + 19, y0 + 0.9, oz + 24.5]} size={[0.08, 1.8, 7]} material={getMaterials().glass} collide={false} />
+          <RigidBody type="fixed" colliders={false}><CuboidCollider args={[0.04, 0.9, 3.5]} position={[ox + 19, y0 + 0.9, oz + 24.5]} /></RigidBody>
+          <Toilet position={P(25, 22.6)} yaw={Math.PI} />
+          <Shower position={P(25, 19.3)} yaw={0} w={1.3} d={1.3} h={2.2} zone={zone} />
+          <TowelRail position={P(21.5, 21, 0.05)} yaw={0} />
+          <CeilingLight position={P(22, 0, 21)} size={[0.9, 0.6]} color="#fff1dc" zone={zone} intensity={10} distance={6} />
+          <Plaque lines={['ENSUITE']} position={[ox + 19.08, y0 + 2.2, oz + 21]} rotation={[0, Math.PI / 2, 0]} width={1.0} />
 
-      {/* reading nook: u22..30, v18..30 */}
-      <Rug position={P(26, 24, 0)} size={[5, 8]} color={c.teal} />
-      <Sofa position={P(27.5, 20)} yaw={-Math.PI / 2} length={2.0} color={c.accent} />
-      <Table position={P(25.5, 20)} yaw={0} size={[0.9, 0.6]} height={0.42} />
-      <Plant position={P(28.6, 28.6)} scale={1.1} kind="monstera" />
-      <CeilingLight position={P(26, 0, 24)} size={[0.9, 0.6]} color="#fff1dc" zone={zone} intensity={10} distance={6} />
+          {/* closet nook */}
+          <ClothingRack position={P(21, 27.5)} yaw={0} seed={resident.floor} />
+          <Mannequin position={P(24, 27.5)} color={c.primary} />
+          <Wardrobe position={P(27.4, 28.8)} yaw={-Math.PI / 2} width={2.2} />
+          <CeilingLight position={P(23, 0, 27.5)} size={[0.9, 0.6]} color="#fff1dc" zone={zone} intensity={8} distance={5} />
+          <ClosetTrigger position={P(23, 1.2, 27.5)} name={resident.name} />
+        </>
+      ) : (
+        <>
+          {/* bedroom: u0..14, v18..30 */}
+          <Rug position={P(7, 24, 0)} size={[5, 5]} color={c.primary} />
+          <Bed position={P(7, 26)} yaw={Math.PI} color={c.accent} frame={c.gold} size={[1.9, 2.1]} />
+          <NightStand position={P(5.0, 25)} yaw={0} />
+          <NightStand position={P(9.0, 25)} yaw={0} />
+          <Wardrobe position={P(1.0, 29.4)} yaw={0} width={2.4} />
+          <Plant position={P(13, 29.4)} scale={1.0} kind="snake" />
+          <CeilingLight position={P(7, 0, 24)} size={[1.0, 0.6]} color="#fff1dc" zone={zone} intensity={12} distance={7} />
+
+          {/* closet: u14..22, v24..30 - decor + an interactable that opens the outfit picker */}
+          <ClothingRack position={P(16.2, 26.5)} yaw={0} seed={resident.floor} />
+          <Mannequin position={P(19.6, 26.5)} color={c.primary} />
+          <Wardrobe position={P(21.3, 29.4)} yaw={0} width={1.4} />
+          <CeilingLight position={P(18, 0, 27)} size={[0.8, 0.5]} color="#fff1dc" zone={zone} intensity={8} distance={5} />
+          <ClosetTrigger position={P(18, 1.2, 27)} name={resident.name} />
+
+          {/* bathroom: u14..22, v18..24 */}
+          <Toilet position={P(20.5, 22.6)} yaw={Math.PI} />
+          <Vanity position={P(15.6, 19.3)} yaw={Math.PI / 2} width={1.3} zone={zone} />
+          <Shower position={P(20.3, 19.3)} yaw={0} w={1.2} d={1.2} h={2.2} zone={zone} />
+          <TowelRail position={P(18, 22.8, 0.05)} yaw={0} />
+          <CeilingLight position={P(18, 0, 21)} size={[0.7, 0.5]} color="#fff1dc" zone={zone} intensity={8} distance={5} />
+
+          {/* reading nook: u22..30, v18..30 */}
+          <Rug position={P(26, 24, 0)} size={[5, 8]} color={c.teal} />
+          <Sofa position={P(27.5, 20)} yaw={-Math.PI / 2} length={2.0} color={c.accent} />
+          <Table position={P(25.5, 20)} yaw={0} size={[0.9, 0.6]} height={0.42} />
+          <Plant position={P(28.6, 28.6)} scale={1.1} kind="monstera" />
+          <CeilingLight position={P(26, 0, 24)} size={[0.9, 0.6]} color="#fff1dc" zone={zone} intensity={10} distance={6} />
+        </>
+      )}
 
       {/* signature room */}
       {SignatureRoom && <SignatureRoom P={SigP} colors={c} zone={zone} />}
@@ -283,13 +416,34 @@ export default function ResidenceTower() {
             <Block position={[TOWER.x0 + 0.1, y0 + h / 2, (TOWER.z0 + TOWER.z1) / 2]} size={[0.2, h, TOWER.z1 - TOWER.z0]} material={shellMat} />
             <Block position={[TOWER.x1 - 0.1, y0 + h / 2, (TOWER.z0 + TOWER.z1) / 2]} size={[0.2, h, TOWER.z1 - TOWER.z0]} material={shellMat} />
             <Block position={[cx, y0 + h / 2, TOWER.z0 + 0.1]} size={[TOWER.x1 - TOWER.x0, h, 0.2]} material={shellMat} />
-            {/* south (front) face: solid band + glazing above waist height, with the entry gap on the ground floor */}
-            <Block position={[(TOWER.x0 + cx - 2) / 2, y0 + 0.5, TOWER.z1 - 0.1]} size={[cx - 2 - TOWER.x0, 1.0, 0.2]} material={shellMat} />
-            <Block position={[(cx + 2 + TOWER.x1) / 2, y0 + 0.5, TOWER.z1 - 0.1]} size={[TOWER.x1 - cx - 2, 1.0, 0.2]} material={shellMat} />
-            {k > 0 && <Block position={[cx, y0 + 0.5, TOWER.z1 - 0.1]} size={[4, 1.0, 0.2]} material={shellMat} />}
-            <mesh position={[cx, y0 + (h + 1.0) / 2, TOWER.z1 - 0.1]} material={glassMat}>
-              <boxGeometry args={[TOWER.x1 - TOWER.x0 - 1.2, h - 1.0, 0.1]} />
-            </mesh>
+            {/* south (front) face: solid band + glazing above waist height, with gaps for the
+                ground-floor entry and, on floors 3 & 4, a real balcony doorway. The glass band
+                gets its own collider too - a window should stop you, not let you walk through it. */}
+            {(() => {
+              const gaps = []
+              if (k === 0) gaps.push([cx - 2, cx + 2])
+              if (BALCONY_FLOORS.has(k)) gaps.push(BALCONY_GAP)
+              const lowSegs = segments(TOWER.x0, TOWER.x1, gaps)
+              const highSegs = segments(TOWER.x0 + 0.6, TOWER.x1 - 0.6, gaps)
+              return (
+                <>
+                  {lowSegs.map(([a, b], i) => (
+                    <Block key={'lo' + i} position={[(a + b) / 2, y0 + 0.5, TOWER.z1 - 0.1]} size={[b - a, 1.0, 0.2]} material={shellMat} />
+                  ))}
+                  {highSegs.map(([a, b], i) => (
+                    <group key={'hi' + i}>
+                      <mesh position={[(a + b) / 2, y0 + (h + 1.0) / 2, TOWER.z1 - 0.1]} material={glassMat}>
+                        <boxGeometry args={[b - a, h - 1.0, 0.1]} />
+                      </mesh>
+                      <RigidBody type="fixed" colliders={false}>
+                        <CuboidCollider args={[(b - a) / 2, (h - 1.0) / 2, 0.08]} position={[(a + b) / 2, y0 + (h + 1.0) / 2, TOWER.z1 - 0.1]} />
+                      </RigidBody>
+                    </group>
+                  ))}
+                  {BALCONY_FLOORS.has(k) && <Balcony floor={k} />}
+                </>
+              )
+            })()}
             {/* floor slab: a stairwell hole over the flight below, on every floor but the ground */}
             {k === 0 ? (
               <Block position={[cx, y0 - 0.1, (TOWER.z0 + TOWER.z1) / 2]} size={[TOWER.x1 - TOWER.x0, 0.2, TOWER.z1 - TOWER.z0]} material={concrete} />
