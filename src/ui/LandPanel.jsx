@@ -1,6 +1,6 @@
 import { Panel } from './UI.jsx'
 import { useJobs } from '../state/jobs.js'
-import { PLOTS, ANIMALS, plotById, PLOT_ANIMAL_CAP } from '../config/ranch.js'
+import { PLOTS, ANIMALS, HOUSE_TIERS, plotById, houseTierById, PLOT_ANIMAL_CAP } from '../config/ranch.js'
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US')
 
@@ -13,6 +13,8 @@ export default function LandPanel({ plotId }) {
   const plot = plotById(plotId) || PLOTS[0]
   const owned = s.ownedLand.includes(plot.id)
   const herd = s.livestock[plot.id] || []
+  const houseTierId = s.houses[plot.id]
+  const houseTier = houseTierId && houseTierById(houseTierId)
 
   return (
     <Panel title={plot.name} eyebrow="Vision Storms Ranch · Maple Court">
@@ -29,7 +31,34 @@ export default function LandPanel({ plotId }) {
           </div>
         ) : (
           <>
-            <p className="hint">You own this lot - {herd.length}/{PLOT_ANIMAL_CAP} animals on it.</p>
+            <p className="hint">You own this lot{houseTier ? ` - the ${houseTier.name} is built here` : ''} - {herd.length}/{PLOT_ANIMAL_CAP} animals on it.</p>
+
+            <p className="hint">House</p>
+            <ul className="admin-list jobs-list">
+              {HOUSE_TIERS.map((t) => (
+                <li key={t.id} className="admin-row" id={'house-' + t.id}>
+                  <span style={{ flex: 1, minWidth: 200 }}>
+                    <b>{t.name}</b> <small>{fmt(t.price)} cr</small><br />
+                    <small>{t.desc}</small>
+                  </span>
+                  <button
+                    className={'btn small ' + (houseTierId === t.id ? 'on' : 'primary')}
+                    disabled={houseTierId === t.id || s.wallet < t.price}
+                    onClick={() => s.buildHouse(plot.id, t.id)}
+                  >
+                    {houseTierId === t.id ? 'Built' : houseTier ? 'Trade in' : 'Build'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {houseTier && (
+              <div className="admin-row">
+                <span style={{ flex: 1 }}><small>Demolish the {houseTier.name} for half back.</small></span>
+                <button className="btn small danger" onClick={() => s.demolishHouse(plot.id)}>Demolish — +{fmt(Math.round(houseTier.price * 0.5))} cr</button>
+              </div>
+            )}
+
+            <p className="hint">Livestock</p>
             <ul className="admin-list jobs-list">
               {ANIMALS.map((a) => (
                 <li key={a.id} className="admin-row">

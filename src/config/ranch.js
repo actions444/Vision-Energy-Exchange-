@@ -27,3 +27,13 @@ export const ANIMALS = [
   { id: 'pig', name: 'Pig', price: 280, color: '#e7a9a1', accent: '#c47d73' },
 ]
 export const animalById = (id) => ANIMALS.find((a) => a.id === id)
+
+// Houses you can build on an owned plot - three real, walkable, furnished tiers, back of the lot
+// so the yard in front stays free for a herd. Replacing a built house with a different tier trades
+// the old one in at half price, same as selling an animal back.
+export const HOUSE_TIERS = [
+  { id: 'cabin', name: 'Starter Cabin', price: 1800, w: 6, d: 6, h: 2.7, wall: '#8a6a4a', roof: '#3a2c20', desc: 'A simple one-room cabin - a bed, a table, a roof over your head.' },
+  { id: 'farmhouse', name: 'Ranch Farmhouse', price: 4200, w: 8, d: 7.5, h: 3.1, wall: '#e8e0cf', roof: '#5a3b2a', desc: 'A proper farmhouse with a sitting room and a real bedroom.' },
+  { id: 'estate', name: 'Ranch Estate', price: 8200, w: 10, d: 8.5, h: 3.5, wall: '#f4efe4', roof: '#2a2a2d', desc: 'The big house on the lot - more room, nicer finish, room to entertain.' },
+]
+export const houseTierById = (id) => HOUSE_TIERS.find((t) => t.id === id)

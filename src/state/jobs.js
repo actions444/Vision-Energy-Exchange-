@@ -3,7 +3,7 @@ import { useStore } from './store.js'
 import { PAY, START_WALLET, ROUTE_BONUS, STOPS, jobById, uniformById, routeFor, stopPay, routeBonus, SITES, WASH_PRICE, WASH_SECONDS, IRON_PRICE, RATING_START, ratingMultiplier, ratingTier } from '../config/jobs.js'
 import { BUSINESSES, businessById } from '../config/businesses.js'
 import { hotelTierById } from '../config/hotel.js'
-import { plotById, animalById, PLOT_ANIMAL_CAP } from '../config/ranch.js'
+import { plotById, animalById, houseTierById, PLOT_ANIMAL_CAP } from '../config/ranch.js'
 
 // Jobs, uniforms, shifts and payroll.
 //
@@ -43,6 +43,7 @@ const BASE = {
   hotelStay: null, // { tierId, bookedDay, nights } while checked into the Vision Grand Hotel, else null
   ownedLand: [], // plot ids bought at Vision Storms Ranch (config/ranch.js)
   livestock: {}, // plotId -> [{ id, kind, boughtDay }], only for owned plots
+  houses: {}, // plotId -> house tier id (config/ranch.js HOUSE_TIERS), only for owned plots
 }
 const PERSIST = Object.keys(BASE)
 
@@ -234,6 +235,38 @@ export const useJobs = create((set, get) => {
       if (refund > 0) get().earn(refund, 'livestock', `Sold a ${animal?.name || 'animal'} from ${plot?.name || 'a plot'}`)
       persist()
       toast(`Sold the ${animal?.name || 'animal'} back for ${fmt(refund)} credits.`)
+      return true
+    },
+    buildHouse: (plotId, tierId) => {
+      const plot = plotById(plotId)
+      const tier = houseTierById(tierId)
+      if (!plot || !tier) return false
+      const s = get()
+      if (!s.ownedLand.includes(plotId)) { toast('You need to buy this plot before you can build on it.'); return false }
+      const existingId = s.houses[plotId]
+      if (existingId === tierId) { toast(`${plot.name} already has the ${tier.name}.`); return false }
+      if (existingId) {
+        const existing = houseTierById(existingId)
+        const refund = Math.round((existing?.price || 0) * 0.5)
+        if (refund > 0) get().earn(refund, 'house', `Traded in the ${existing?.name || 'house'} on ${plot.name}`)
+      }
+      if (!get().spend(tier.price, 'house', `Built the ${tier.name} on ${plot.name}`)) return false
+      set({ houses: { ...get().houses, [plotId]: tierId } }); persist()
+      toast(`Built the ${tier.name} on ${plot.name} - ${fmt(tier.price)} credits.`)
+      return true
+    },
+    demolishHouse: (plotId) => {
+      const plot = plotById(plotId)
+      const s = get()
+      const tierId = s.houses[plotId]
+      if (!tierId) return false
+      const tier = houseTierById(tierId)
+      const refund = Math.round((tier?.price || 0) * 0.5)
+      const next = { ...s.houses }; delete next[plotId]
+      set({ houses: next })
+      if (refund > 0) get().earn(refund, 'house', `Demolished the ${tier?.name || 'house'} on ${plot?.name || 'a plot'}`)
+      persist()
+      toast(`Demolished the ${tier?.name || 'house'} - ${fmt(refund)} credits back.`)
       return true
     },
 

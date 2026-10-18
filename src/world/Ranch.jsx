@@ -4,10 +4,14 @@ import * as THREE from 'three'
 import { surface } from './materials.js'
 import { ParkSign, RailFence } from './assets/park/ParkKit.jsx'
 import { Bollard } from './props.jsx'
+import { Wall, Block } from './jobkit.jsx'
+import { Table } from './furniture.jsx'
+import { Bed } from './assets/apartment/furnishings.jsx'
+import { BrandSign } from './signs.jsx'
 import { registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { useJobs } from '../state/jobs.js'
-import { RANCH, GROUND, ROAD_Z, PLOTS, animalById } from '../config/ranch.js'
+import { RANCH, GROUND, ROAD_Z, PLOTS, animalById, houseTierById } from '../config/ranch.js'
 
 // Vision Storms Ranch: six fenced, buyable land plots in Maple Court. Walk up to a lot's sign to
 // buy it (real credits, ui/LandPanel.jsx + state/jobs.js buyPlot), then once it's yours, the same
@@ -77,10 +81,37 @@ function Animal({ kind, x, z, seed = 0 }) {
   )
 }
 
-/** The fenced lot, its sale/manage sign, and (once owned) the herd standing on it. */
+/** A small, real, walkable house built on the back of an owned plot - three tiers from
+ * config/ranch.js's HOUSE_TIERS, an open doorway (no separate door mechanism needed) facing the
+ * yard, and a bed + table inside so it isn't just an empty shell. */
+function House({ tier, cx, backZ }) {
+  const hw = tier.w / 2, hd = tier.d
+  const cz = backZ - hd / 2 - 0.6
+  const rect = { x0: cx - hw, x1: cx + hw, z0: cz - hd / 2, z1: cz + hd / 2 }
+  const wallMat = useMemo(() => new THREE.MeshStandardMaterial({ color: tier.wall, roughness: 0.85 }), [tier.wall])
+  const roofMat = useMemo(() => new THREE.MeshStandardMaterial({ color: tier.roof, roughness: 0.6 }), [tier.roof])
+  const floor = useMemo(() => surface('wood', hw, hd / 2, { color: '#8a6a4a' }), [hw, hd])
+  return (
+    <group>
+      <Wall side="w" rect={rect} h={tier.h} t={0.22} ext={wallMat} int={wallMat} y={GROUND} />
+      <Wall side="e" rect={rect} h={tier.h} t={0.22} ext={wallMat} int={wallMat} y={GROUND} />
+      <Wall side="n" rect={rect} h={tier.h} t={0.22} ext={wallMat} int={wallMat} y={GROUND} />
+      <Wall side="s" rect={rect} h={tier.h} t={0.22} ext={wallMat} int={wallMat} y={GROUND} openings={[{ at: cx, half: 1.0, h: tier.h * 0.78 }]} />
+      <Block position={[cx, GROUND + tier.h + 0.14, cz]} size={[tier.w + 1, 0.28, hd + 1]} material={roofMat} collide={false} />
+      <mesh position={[cx, GROUND + 0.02, cz]} rotation={[-Math.PI / 2, 0, 0]} material={floor} receiveShadow><planeGeometry args={[tier.w - 0.4, hd - 0.4]} /></mesh>
+      <Bed position={[cx - hw * 0.4, GROUND, rect.z1 - 1.1]} yaw={Math.PI} color="#6b4f3a" size={[1.3, 1.9]} />
+      <Table position={[cx + hw * 0.35, GROUND, cz]} size={[1.1, 0.75]} height={0.72} top="wood" />
+      <BrandSign text={tier.name} position={[cx, GROUND + tier.h - 0.35, rect.z0 - 0.02]} width={tier.w * 0.85} color="#2a2420" glow="#c9a35a" size={90} />
+    </group>
+  )
+}
+
+/** The fenced lot, its sale/manage sign, the house on it (if built), and the herd in the yard. */
 function Plot({ plot }) {
   const owned = useJobs((s) => s.ownedLand.includes(plot.id))
   const herd = useJobs((s) => s.livestock[plot.id] || [])
+  const houseTierId = useJobs((s) => s.houses[plot.id])
+  const houseTier = houseTierId && houseTierById(houseTierId)
   const openPanel = useStore((s) => s.openPanel)
   const cx = (plot.x0 + plot.x1) / 2
   const ground = useMemo(() => surface('grass', (plot.x1 - plot.x0) / 4, (plot.z1 - plot.z0) / 4, { color: owned ? '#5a7a3a' : '#6a7a52' }), [plot.x0, plot.x1, plot.z0, plot.z1, owned])
@@ -92,19 +123,21 @@ function Plot({ plot }) {
     onInteract: () => openPanel({ type: 'land', plotId: plot.id }),
   }), [owned, plot.id, plot.name, plot.price, cx])
 
-  // spread owned animals across the lot in a stable (seeded) layout
+  // spread owned animals across the yard in a stable (seeded) layout, leaving the back of the lot
+  // clear for a house - one row when a house is built, two when the yard is open.
   const slots = useMemo(() => {
     const cols = 3
+    const rows = houseTier ? 1 : 2
     const out = []
     for (let i = 0; i < herd.length; i++) {
-      const col = i % cols, row = Math.floor(i / cols)
+      const col = i % cols, row = Math.floor(i / cols) % rows
       out.push({
         x: plot.x0 + 3 + col * ((plot.x1 - plot.x0 - 6) / Math.max(1, cols - 1)),
-        z: plot.z0 + 4 + row * 6,
+        z: plot.z0 + 4 + row * 5,
       })
     }
     return out
-  }, [herd.length, plot.x0, plot.x1, plot.z0])
+  }, [herd.length, plot.x0, plot.x1, plot.z0, houseTier])
 
   return (
     <group>
@@ -112,7 +145,8 @@ function Plot({ plot }) {
         <planeGeometry args={[plot.x1 - plot.x0, plot.z1 - plot.z0]} />
       </mesh>
       <RailFence x0={plot.x0} x1={plot.x1} z0={plot.z0} z1={plot.z1} y={GROUND} gap={[cx - 1.4, cx + 1.4]} gapSide="z0" />
-      <ParkSign position={[cx, GROUND, plot.z0 - 0.6]} text={owned ? plot.name : 'FOR SALE'} sub={owned ? `${herd.length}/6 animals` : `${plot.name} · ${fmt(plot.price)} CR`} />
+      <ParkSign position={[cx, GROUND, plot.z0 - 0.6]} text={owned ? plot.name : 'FOR SALE'} sub={owned ? (houseTier ? houseTier.name : `${herd.length}/6 animals`) : `${plot.name} · ${fmt(plot.price)} CR`} />
+      {owned && houseTier && <House tier={houseTier} cx={cx} backZ={plot.z1} />}
       {owned && herd.map((a, i) => <Animal key={a.id} kind={a.kind} x={slots[i]?.x ?? cx} z={slots[i]?.z ?? plot.z0 + 4} seed={i + 1} />)}
     </group>
   )
