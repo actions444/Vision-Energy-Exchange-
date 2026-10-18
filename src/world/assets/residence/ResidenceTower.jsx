@@ -11,7 +11,7 @@ import { Sofa, Table, Rug, Plant, Chair, Stool, DiningSet, CeilingLight, Pendant
 import { Toilet, Vanity, Shower, TowelRail, LightSwitch } from '../../Interior.jsx'
 import { registerInteractable, playerState } from '../../../state/runtime.js'
 import { useStore } from '../../../state/store.js'
-import { speakLine } from '../../../audio/tts.js'
+import { speakLine, translatedLine } from '../../../audio/tts.js'
 import { BUILT_RESIDENTS } from '../../../config/residences.js'
 import { TOWER, CORE, STAIR_SPAN, UNIT, Y } from '../../../config/residenceTower.js'
 import { SIGNATURE_ROOMS } from './residentRooms.jsx'
@@ -196,7 +196,7 @@ function TalkTo({ id, position, name, lines }) {
       label: () => `Talk to ${name}`,
       onInteract: () => {
         const line = lines[i % lines.length]
-        useStore.getState().showToast(`${name}: "${line}"`)
+        useStore.getState().showToast(`${name}: "${translatedLine(line)}"`)
         speakLine(line, { id, name })
         i++
       },

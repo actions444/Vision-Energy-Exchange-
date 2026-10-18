@@ -32,6 +32,7 @@ import DeparturesPanel from './DeparturesPanel.jsx'
 import PerformancePanel from './PerformancePanel.jsx'
 import GuidePanel from './GuidePanel.jsx'
 import { ttsSupported } from '../audio/tts.js'
+import { useLocale, LOCALES } from '../state/locale.js'
 import JusticePanel from './JusticePanel.jsx'
 import CarPanel from './CarPanel.jsx'
 import { PowerChip } from './PowerChip.jsx'
@@ -520,6 +521,10 @@ function SettingsPanel() {
   const profile = useStore((s) => s.profile)
   const setProfile = useStore((s) => s.setProfile)
   const outdoor = useMusic((s) => s.outdoor)
+  const locale = useLocale((s) => s.locale)
+  const localeAuto = useLocale((s) => s.auto)
+  const setLocale = useLocale((s) => s.setLocale)
+  const useAutoDetectLocale = useLocale((s) => s.useAutoDetect)
   const Toggle = ({ k, label, desc }) => (
     <label className="row toggle">
       <span><b>{label}</b><small>{desc}</small></span>
@@ -547,6 +552,20 @@ function SettingsPanel() {
       {ttsSupported
         ? <Toggle k="npcVoice" label="NPC voices" desc="Read townspeople and staff dialogue aloud with your browser's built-in voice when you talk to them." />
         : <p className="hint">NPC voices: not supported in this browser.</p>}
+      <div className="row">
+        <span>
+          <b>Language</b>
+          <small>
+            {localeAuto ? 'Auto-detected from your browser. ' : ''}
+            Spoken NPC dialogue is translated when a translation is on file (currently the Residence Tower's
+            greetings); the rest of the game's text stays in English for now.
+          </small>
+        </span>
+        <div className="seg small" style={{ flexWrap: 'wrap' }}>
+          {LOCALES.map((l) => <button key={l.code} id={'lang-' + l.code} className={locale === l.code ? 'on' : ''} onClick={() => setLocale(l.code)}>{l.label}</button>)}
+          {!localeAuto && <button id="lang-auto" onClick={useAutoDetectLocale}>Auto</button>}
+        </div>
+      </div>
       <div className="row">
         <span><b>Street traffic</b><small>Cars driving on the cross street. Heavy adds a rush-hour jam; Light or Off runs better on phones.</small></span>
         <div className="seg small">
