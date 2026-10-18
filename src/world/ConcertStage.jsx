@@ -9,6 +9,7 @@ import { useMusic } from '../music/engine.js'
 import { canvasTexture, wrapText } from './canvasText.js'
 import { FONTS } from '../config/theme.js'
 import { HumanoidCrowd, makeCrowd } from '../npc/HumanoidCrowd.jsx'
+import { playerState } from '../state/runtime.js'
 
 // The Grand Concert Stage: a raised stage with a truss and lighting rig, a full-width LED wall
 // that shows the track playing in the Records library, and a tiered audience of fans. The crowd
@@ -84,7 +85,10 @@ export default function ConcertStage() {
   const beatRef = useRef(0)
   const wasLive = useRef(false)
   useFrame(() => {
-    const live = zoneLit(ZONE) && useMusic.getState().status === 'playing'
+    // a real show: someone is actually performing through the stage speakers right now (see
+    // PerformancePanel.jsx) - NOT just "some ambient zone music happens to be playing somewhere",
+    // which is true almost all the time and was filling the crowd back in constantly.
+    const live = zoneLit(ZONE) && !!playerState.performing && useMusic.getState().status === 'playing'
     beatRef.current = live ? 1 : 0.25
     // no show running: thin the 306-person audience down to a loose, scattered crowd of
     // regulars instead of the full block standing frozen in rows — fills back in the moment

@@ -45,6 +45,11 @@ const BODY_STYLES = [
   { name: 'taxi', len: 4.8, wid: 1.85, low: 0.62, cab: 0.48, cabLen: 2.3, cabX: -0.2, colors: ['#f2c230'], sign: true },
   { name: 'van', len: 5.4, wid: 2.0, low: 0.9, cab: 0.95, cabLen: 3.9, cabX: -0.6, colors: ['#f1f1ee', '#e6e9ec'] },
   { name: 'ev', len: 4.5, wid: 1.85, low: 0.6, cab: 0.5, cabLen: 2.4, cabX: -0.3, colors: ['#4b2a6e', '#2fd3c3', '#ef6aa8', '#e8e8e6'] },
+  // emergency vehicles: on patrol/en route, not parked - they drive the same lanes as everyone
+  // else but carry a flashing light bar so they read as actively working, not just traffic.
+  { name: 'police', len: 4.9, wid: 1.9, low: 0.64, cab: 0.5, cabLen: 2.4, cabX: -0.2, colors: ['#121722'], lightbar: ['#2a63ff', '#ff2a2a'] },
+  { name: 'fire', len: 7.0, wid: 2.3, low: 1.05, cab: 1.25, cabLen: 4.0, cabX: -0.9, colors: ['#b3140f'], lightbar: ['#ff2a2a', '#ff2a2a'] },
+  { name: 'ems', len: 5.6, wid: 2.05, low: 0.98, cab: 1.1, cabLen: 3.4, cabX: -0.7, colors: ['#f2f0ea'], lightbar: ['#ff2a2a', '#ffffff'] },
 ]
 
 function hash(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s) }
@@ -134,8 +139,16 @@ function NpcCar({ car }) {
   const head = m.shared('npcHead', () => nightLit(new THREE.MeshStandardMaterial({ color: '#e9eef5', emissive: '#fff4dc' }), 3, 0.2))
   const tail = m.shared('npcTail', () => nightLit(new THREE.MeshStandardMaterial({ color: '#4a0608', emissive: '#ff2020' }), 1.8, 0.3))
   const sign = m.shared('taxiSign', () => nightLit(new THREE.MeshStandardMaterial({ color: '#fff7d6', emissive: '#ffe08a' }), 2, 0.4))
+  const lightbar = s.lightbar ? s.lightbar.map((c) => m.shared('lightbar:' + c, () => new THREE.MeshStandardMaterial({ color: '#0a0a0c', emissive: c, emissiveIntensity: 0, toneMapped: false }))) : null
   const wheels = useRef([])
-  useFrame(() => { for (const w of wheels.current) if (w) w.rotation.z = -(car.spin || 0) })
+  useFrame((state) => {
+    for (const w of wheels.current) if (w) w.rotation.z = -(car.spin || 0)
+    if (lightbar) {
+      const on = Math.floor(state.clock.elapsedTime * 6) % 2 === 0
+      lightbar[0].emissiveIntensity = on ? 5 : 0.1
+      lightbar[1].emissiveIntensity = on ? 0.1 : 5
+    }
+  })
   const Lh = s.len / 2, Wh = s.wid / 2, y0 = 0.25
   return (
     <group userData={{ noBatch: true }}>
@@ -149,6 +162,13 @@ function NpcCar({ car }) {
         </group>
       ))}
       {s.sign && <mesh position={[s.cabX, y0 + s.low + s.cab + 0.12, 0]} material={sign}><boxGeometry args={[0.25, 0.22, 0.7]} /></mesh>}
+      {lightbar && (
+        <group position={[s.cabX, y0 + s.low + s.cab + 0.08, 0]}>
+          <mesh material={m.shared('lightbarBase', () => new THREE.MeshStandardMaterial({ color: '#0a0a0c', roughness: 0.4 }))}><boxGeometry args={[0.6, 0.1, s.wid - 0.3]} /></mesh>
+          <mesh position={[0, 0.07, -(s.wid - 0.3) / 4]} material={lightbar[0]}><boxGeometry args={[0.56, 0.08, (s.wid - 0.3) / 2 - 0.02]} /></mesh>
+          <mesh position={[0, 0.07, (s.wid - 0.3) / 4]} material={lightbar[1]}><boxGeometry args={[0.56, 0.08, (s.wid - 0.3) / 2 - 0.02]} /></mesh>
+        </group>
+      )}
       {[[Lh - 0.85, -Wh + 0.1], [Lh - 0.85, Wh - 0.1], [-Lh + 0.85, -Wh + 0.1], [-Lh + 0.85, Wh - 0.1]].map(([x, z], i) => (
         <group key={i} position={[x, 0.34, z]} ref={(g) => (wheels.current[i] = g)}>
           <mesh rotation={[Math.PI / 2, 0, 0]} material={tire}><cylinderGeometry args={[0.34, 0.34, 0.24, 14]} /></mesh>
