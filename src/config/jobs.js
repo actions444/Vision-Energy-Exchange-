@@ -37,7 +37,7 @@ export const PAY = {
   yearly: { id: 'yearly', label: 'Yearly', days: 365, bonus: 0.12, note: 'Paid every 365 days, +12% bonus.' },
 }
 export const PAY_ORDER = ['weekly', 'biweekly', 'monthly', 'yearly']
-export const START_WALLET = 250
+export const START_WALLET = 50000
 export const ROUTE_BONUS = 0.1 // finishing a whole route adds 10% of the shift wage
 
 // ---- uniforms (the player must buy the one their job requires) ----
