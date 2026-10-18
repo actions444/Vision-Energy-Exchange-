@@ -66,7 +66,9 @@ export default function ConcertStage() {
     return () => offs.forEach((o) => o())
   }, [cx, cz, h])
 
-  // the audience: humanoid fans on tiers in front of the stage (local frame, the group faces them)
+  // the audience: humanoid fans on tiers in front of the stage (local frame, the group faces them).
+  // Starts as a loose, scattered crowd of regulars (most hidden) rather than the full 306-person
+  // block standing frozen in rows — the rest fill in the moment a real show starts (see beatRef below).
   const fans = useMemo(() => makeCrowd(FANS, (i) => {
     const row = Math.floor(i / FANS_PER_ROW), col = i % FANS_PER_ROW
     return {
@@ -74,13 +76,23 @@ export default function ConcertStage() {
       z: d / 2 + 1.8 + row * 0.95 + (hash(i * 3) - 0.5) * 0.18,
       scale: 1,
       raiseChance: 0.14,
+      hidden: hash(i * 41.3) > 1 / 7,
     }
   }), [d])
   // the crowd reads the beat every frame through this getter (a prop would go stale between renders)
   const lampMat = useMemo(() => switchedMaterial(new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#ffd9ff', emissiveIntensity: 1.6 }), ZONE, 1.6, 0.05), [])
   const beatRef = useRef(0)
+  const wasLive = useRef(false)
   useFrame(() => {
-    beatRef.current = zoneLit(ZONE) && useMusic.getState().status === 'playing' ? 1 : 0.25
+    const live = zoneLit(ZONE) && useMusic.getState().status === 'playing'
+    beatRef.current = live ? 1 : 0.25
+    // no show running: thin the 306-person audience down to a loose, scattered crowd of
+    // regulars instead of the full block standing frozen in rows — fills back in the moment
+    // a show starts (and empties back out a few seconds after it ends, so it doesn't snap)
+    if (live !== wasLive.current) {
+      wasLive.current = live
+      fans.forEach((f, i) => { f.hidden = !live && hash(i * 41.3) > 1 / 7 })
+    }
   })
   return (
     <group position={[cx, 0, cz]} rotation={[0, facing, 0]}>

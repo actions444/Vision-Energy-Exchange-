@@ -8,6 +8,7 @@ import { registerLightAnchor } from '../state/environment.js'
 import { registerLoad, switchedMaterial, zoneLit, zoneName, ZONES } from '../state/power.js'
 import { registerScreen, guideSurface } from '../guide/guide.js'
 import { PottedPlant } from './Vegetation.jsx'
+import { canvasTexture } from './canvasText.js'
 
 // Interior furniture. Every piece has a collider; anything you can sit on registers seats,
 // so a Sit button appears when you walk up to it. Local +z is the front of each piece.
@@ -227,25 +228,53 @@ export function Shelf({ position, yaw = 0, width = 2, height = 2.2, books = true
   )
 }
 
+// Default "channel" a WallScreen shows when the owner hasn't scheduled anything for it on the TV
+// guide yet, so a screen reads as a working display rather than a dead black panel out of the
+// box. One texture per label (cheap, cached) - a plain idle slate with the screen's own name.
+const idleScreens = new Map()
+function idleChannel(label) {
+  let mat = idleScreens.get(label)
+  if (mat) return mat
+  const tex = canvasTexture(640, 360, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, w, h)
+    g.addColorStop(0, '#171320'); g.addColorStop(1, '#241a30')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 2
+    ctx.strokeRect(20, 20, w - 40, h - 40)
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#716c8c'; ctx.font = '600 20px monospace'
+    ctx.fillText('VISION STORMS NETWORK', w / 2, h / 2 - 16)
+    ctx.fillStyle = '#9a93b8'; ctx.font = '500 16px monospace'
+    ctx.fillText(label.toUpperCase(), w / 2, h / 2 + 16)
+  })
+  mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })
+  idleScreens.set(label, mat)
+  return mat
+}
+
 /**
- * Wall-mounted display. Pass a material (e.g. a video or shader screen) or get a dark panel.
- * Give it an `id` (and the `zone` whose lights power it) and it joins the TV guide: whatever the
- * owner has scheduled for it, its venue or all screens plays on it at the scheduled time.
+ * Wall-mounted display. Pass a material (e.g. a video or shader screen) for a custom face, or
+ * leave it out for a TV-guide screen: whatever the owner has scheduled for it, its venue or all
+ * screens plays on it at the scheduled time, and it shows a branded idle slate (not a dead black
+ * panel) whenever nothing is scheduled. It only goes dark when its zone loses power.
  */
 export function WallScreen({ position, yaw = 0, size = [3, 1.7], material, id, zone, venue, name }) {
   const m = getMaterials()
   const off = useMemo(() => new THREE.MeshStandardMaterial({ color: '#0d0e10', roughness: 0.15, metalness: 0.4 }), [])
+  const label = name || (zone ? `${zoneName(zone)} screen` : 'Wall screen')
+  const idle = useMemo(() => idleChannel(label), [label])
   const grp = useRef()
   const face = useRef()
   useEffect(() => {
     if (!id || material) return
     const z = ZONES.find((x) => x.id === zone)
-    return registerScreen({ id, name: name || (zone ? `${zoneName(zone)} screen` : 'Wall screen'), venue: venue || z?.group || 'World', obj: grp.current, active: () => !zone || zoneLit(zone) })
-  }, [id, zone, venue, name, material])
+    return registerScreen({ id, name: label, venue: venue || z?.group || 'World', obj: grp.current, active: () => !zone || zoneLit(zone) })
+  }, [id, zone, venue, name, material, label])
   useFrame(() => {
     if (!id || material || !face.current) return
-    const g = !zone || zoneLit(zone) ? guideSurface(id) : null
-    const want = g || off
+    const powered = !zone || zoneLit(zone)
+    const g = powered ? guideSurface(id) : null
+    const want = g || (powered ? idle : off)
     if (face.current.material !== want) face.current.material = want
   })
   return (
