@@ -62,11 +62,14 @@ export default function CameraRig() {
     const cp = Math.cos(cameraState.pitch)
     const dir = new THREE.Vector3(Math.sin(cameraState.yaw) * cp, Math.sin(cameraState.pitch), Math.cos(cameraState.yaw) * cp)
 
-    // camera collision
+    // camera collision: pull the camera to just in front of whatever the ray hits. The margin and
+    // floor below must never exceed the hit distance itself - a fixed 0.4 m floor used to let the
+    // camera clip straight through a wall or chair back whenever it sat closer than that (e.g.
+    // sitting with your back against a wall), hiding the avatar inside the geometry.
     let allowed = cameraState.distance
     const ray = new rapier.Ray(origin, dir)
     const hit = world.castRay(ray, cameraState.distance + 0.3, true, undefined, undefined, undefined, undefined, (col) => col.handle !== playerState.colliderHandle && !col.isSensor() && !cameraState.ignore?.has(col.handle))
-    if (hit) allowed = Math.max(0.4, hit.timeOfImpact - 0.3)
+    if (hit) allowed = Math.max(0.08, hit.timeOfImpact - 0.08)
     // pull in fast, ease out slowly
     const rate = allowed < smoothD.current ? 25 : 4
     smoothD.current += (allowed - smoothD.current) * (1 - Math.exp(-rate * dt))
