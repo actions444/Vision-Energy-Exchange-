@@ -6,7 +6,6 @@ import { useStore } from '../state/store.js'
 import { usePeers, net } from '../net/netManager.js'
 import { input, setJoystick, setRunToggle } from '../input/input.js'
 import { AVATAR_ACCENTS, SKIN_TONES } from '../config/theme.js'
-import { ARTIST } from '../config/portfolio.js'
 import { playerState, cameraState } from '../state/runtime.js'
 import ContentPanel from './ContentPanel.jsx'
 import AssetPanel from './AssetPanel.jsx'
@@ -163,41 +162,32 @@ function StartScreen() {
     if (ok) enterWorld('multi')
   }
 
+  const enterCreatorStudio = () => {
+    musicEngine.unlock()
+    unlockCinema()
+    setTimeout(prewarmDemoTracks, 2500)
+    net.disconnect()
+    if (!useDevAdmin.getState().on) useDevAdmin.getState().toggle()
+    enterWorld('single')
+    useStore.getState().openPanel({ type: 'admin' })
+  }
+
   return (
     <div className="start">
-      <header className="start-top">
-        <span className="mark"><i />VISION STORMS ENERGY EXCHANGES</span>
-        <span className="mono dim">{ARTIST.roles}</span>
-      </header>
-      <div className="start-body">
-        <div className="start-title">
-          <p className="eyebrow">{ARTIST.name} presents</p>
-          <h1>Vision Storms<br /><span>Energy</span><br />Exchanges</h1>
-          <p className="lede">{ARTIST.tagline} Now it's a city you can walk through.</p>
-        </div>
-        <form className="start-card" onSubmit={enter}>
-          <label className="field">
-            <span>Your name</span>
-            <input id="player-name" value={profile.name} maxLength={20} onChange={(e) => setProfile({ name: e.target.value })} />
-          </label>
-          <div className="field">
-            <span>Accent color</span>
-            <div className="swatches">
-              {AVATAR_ACCENTS.map((c) => (
-                <button type="button" key={c} className={'sw' + (profile.accent === c ? ' on' : '')} style={{ '--c': c }} onClick={() => setProfile({ accent: c })} aria-label={'Accent ' + c} />
-              ))}
-            </div>
+      <div className="start-wordmark" aria-label="Vision Storms Energy Exchanges">
+        <span className="vs-line1">VISION STORMS</span>
+        <span className="vs-line2">ENERGY EXCHANGES</span>
+      </div>
+      <div className="start-body compact">
+        <form className="start-card compact" onSubmit={enter}>
+          <div className="guest-row">
+            <span className="avatar-preview" style={{ '--c': profile.accent, '--s': profile.skin }} aria-hidden />
+            <label className="field grow">
+              <span>Guest name</span>
+              <input id="player-name" value={profile.name} maxLength={20} onChange={(e) => setProfile({ name: e.target.value })} />
+            </label>
           </div>
           <div className="field">
-            <span>Skin tone</span>
-            <div className="swatches">
-              {SKIN_TONES.map((c) => (
-                <button type="button" key={c} className={'sw' + (profile.skin === c ? ' on' : '')} style={{ '--c': c }} onClick={() => setProfile({ skin: c })} aria-label={'Skin ' + c} />
-              ))}
-            </div>
-          </div>
-          <div className="field">
-            <span>Mode</span>
             <div className="seg">
               <button type="button" className={mode === 'single' ? 'on' : ''} onClick={() => setMode('single')}>Single-player</button>
               <button type="button" className={mode === 'multi' ? 'on' : ''} onClick={() => setMode('multi')}>Multiplayer</button>
@@ -224,8 +214,9 @@ function StartScreen() {
               {status === 'error' && <p className="error">{error}</p>}
             </div>
           )}
-          <button className="cta" type="submit" disabled={busy}>{busy ? 'Connecting…' : 'Enter the world'}</button>
-          <p className="hint center">WASD or arrows to walk · Shift to run · Space to jump · E to interact · drag to look</p>
+          <button className="cta" type="submit" disabled={busy}>{busy ? 'Connecting…' : 'Enter World'}</button>
+          <button type="button" className="cta ghost" onClick={enterCreatorStudio}>Creator Studio</button>
+          <p className="hint center">Full appearance editor (hair, outfit, skin) is in Settings once you're in · WASD to walk · Shift to run · E to interact</p>
         </form>
       </div>
     </div>
