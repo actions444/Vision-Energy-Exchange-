@@ -10,7 +10,7 @@ import { useStore } from '../state/store.js'
 import { getMaterials } from '../world/materials.js'
 import Avatar from '../player/Avatar.jsx'
 import { VEHICLE_TYPES, VEHICLE_SPAWNS, useDriving, vehicleBodies, vehicleActions, ROAD_LINES, wheelLayout, vehicleTypeForImport } from './vehicles.js'
-import { JetSkiBody, OpenGBody, EvSuvBody, CrossoverBody, LimoBody, EvBody, SlingBody, CruiserBody, SportBikeBody, BikeFront, useBodyMats } from './Bodies.jsx'
+import { JetSkiBody, OpenGBody, EvSuvBody, CrossoverBody, LimoBody, EvBody, SlingBody, CruiserBody, SportBikeBody, BikeFront, useBodyMats, screenTexture } from './Bodies.jsx'
 import { priceOf } from '../config/vehicleShop.js'
 import { useJobs } from '../state/jobs.js'
 import { useAssets, registry } from '../assets/assetStore.js'
@@ -437,12 +437,13 @@ function SuvBody({ T, paint, accent, tailRef }) {
   const mats = useMemo(() => {
     const body = new THREE.MeshPhysicalMaterial({ color: paint, roughness: 0.22, metalness: 0.75, clearcoat: 1, clearcoatRoughness: 0.08 })
     const trim = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 1 })
-    const glass = new THREE.MeshPhysicalMaterial({ color: '#0d1116', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.55 })
+    const glass = new THREE.MeshPhysicalMaterial({ color: '#aab4c2', roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.28 })
+    const screen = nightLit(new THREE.MeshStandardMaterial({ color: '#0b1a2a', map: screenTexture(), emissive: '#ffffff', emissiveMap: screenTexture(), roughness: 0.2 }), 1.6, 0.8)
     const head = nightLit(new THREE.MeshStandardMaterial({ color: '#e9eef5', emissive: '#fff6e0', roughness: 0.1 }), 3, 0.25)
     const tail = new THREE.MeshStandardMaterial({ color: '#4a0608', emissive: '#ff1a1a', emissiveIntensity: 0.4, roughness: 0.3 })
     const plastic = new THREE.MeshStandardMaterial({ color: '#16171a', roughness: 0.8 })
     const interior = new THREE.MeshStandardMaterial({ color: '#2a2220', roughness: 0.7 })
-    return { body, trim, glass, head, tail, plastic, interior }
+    return { body, trim, glass, head, tail, plastic, interior, screen }
   }, [paint, accent])
   useEffect(() => { tailRef.current = mats.tail }, [mats, tailRef])
   const Lh = T.length / 2, Wh = T.width / 2
@@ -488,6 +489,13 @@ function SuvBody({ T, paint, accent, tailRef }) {
         <group key={i}>
           <mesh position={[x, 0.9, z]} material={mats.interior}><boxGeometry args={[0.55, 0.12, i === 2 ? 1.5 : 0.55]} /></mesh>
           <mesh position={[x - 0.3, 1.22, z]} rotation={[0, 0, -0.18]} material={mats.interior}><boxGeometry args={[0.1, 0.6, i === 2 ? 1.5 : 0.55]} /></mesh>
+          {/* headrest TV on the back of each front seat, for the row behind */}
+          {i < 2 && (
+            <>
+              <mesh position={[x - 0.355, 1.32, z]} rotation={[0, 0, -0.18]} material={mats.plastic}><boxGeometry args={[0.015, 0.2, 0.42]} /></mesh>
+              <mesh position={[x - 0.36, 1.32, z]} rotation={[0, 0, -0.18]} material={mats.screen}><boxGeometry args={[0.02, 0.17, 0.38]} /></mesh>
+            </>
+          )}
         </group>
       ))}
     </group>
@@ -504,6 +512,12 @@ function StyledBody({ T, paint, accent, tailRef }) {
   const seats = (xs, y) => xs.forEach((x, i) => {
     parts.push(box('sb' + i, m.interior, [x, y, 0], [0.5, 0.12, T.width - 0.5]))
     parts.push(box('sr' + i, m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, T.width - 0.5], [0, 0, -0.18]))
+    // headrest TV on the back of every row except the last, for whoever's sitting behind it
+    if (i < xs.length - 1) {
+      const w = Math.min(0.42, (T.width - 0.5) * 0.4)
+      parts.push(box('tv' + i, m.screen, [x - 0.335, y + 0.42, 0], [0.025, 0.17, w], [0, 0, -0.18]))
+      parts.push(box('tvf' + i, m.plastic, [x - 0.33, y + 0.42, 0], [0.015, 0.2, w + 0.03], [0, 0, -0.18]))
+    }
   })
   if (T.style === 'sedan') {
     // long, low saloon: sloping windscreen and fastback, full-width light bars

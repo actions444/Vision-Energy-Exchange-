@@ -1,17 +1,40 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { nightLit } from '../state/environment.js'
+import { canvasTexture } from '../world/canvasText.js'
 
 // Original body designs for the Vision Motors lineup. Chassis axes: forward +x, up +y, right +z;
 // the origin sits a little above the ground. Everything is built from boxes and a few cylinders so a
 // whole lot of vehicles stays cheap to draw. No real-brand shapes, grilles or badges.
+
+// Shared static "now playing" image for every headrest/dash screen in every car - built once, so
+// a dozen vehicles in frame cost nothing extra. A believable on-screen picture, not a flat glow.
+let SCREEN_TEX = null
+export function screenTexture() {
+  if (SCREEN_TEX) return SCREEN_TEX
+  SCREEN_TEX = canvasTexture(256, 160, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, w, h)
+    g.addColorStop(0, '#0c1f3a'); g.addColorStop(1, '#1a0c3a')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h)
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = ['#3fb2ff', '#ff4fb0', '#2fd0c4', '#ffd36b'][i % 4]
+      ctx.globalAlpha = 0.5
+      ctx.beginPath(); ctx.ellipse(20 + i * 42, h / 2 + Math.sin(i) * 30, 26, 46, i * 0.6, 0, Math.PI * 2); ctx.fill()
+    }
+    ctx.globalAlpha = 1
+    ctx.fillStyle = 'rgba(8,10,18,0.35)'
+    for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1.5) // faint scanlines
+  })
+  return SCREEN_TEX
+}
 
 export function useBodyMats(paint, accent, tailRef) {
   const mats = useMemo(() => ({
     body: new THREE.MeshPhysicalMaterial({ color: paint, roughness: 0.22, metalness: 0.75, clearcoat: 1, clearcoatRoughness: 0.08 }),
     trim: new THREE.MeshStandardMaterial({ color: accent, roughness: 0.3, metalness: 1 }),
     chrome: new THREE.MeshStandardMaterial({ color: '#d6d8dc', roughness: 0.15, metalness: 1 }),
-    glass: new THREE.MeshPhysicalMaterial({ color: '#0d1116', roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.55 }),
+    // real automotive glass: a light grey-blue tint you can actually see through, not a black mirror
+    glass: new THREE.MeshPhysicalMaterial({ color: '#aab4c2', roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.28 }),
     head: nightLit(new THREE.MeshStandardMaterial({ color: '#e9eef5', emissive: '#fff6e0', roughness: 0.1 }), 3, 0.25),
     drl: nightLit(new THREE.MeshStandardMaterial({ color: accent, emissive: accent, roughness: 0.2 }), 2.2, 0.9),
     tail: new THREE.MeshStandardMaterial({ color: '#4a0608', emissive: '#ff1a1a', emissiveIntensity: 0.4, roughness: 0.3 }),
@@ -19,7 +42,7 @@ export function useBodyMats(paint, accent, tailRef) {
     interior: new THREE.MeshStandardMaterial({ color: '#2a2220', roughness: 0.7 }),
     leather: new THREE.MeshStandardMaterial({ color: '#c9b79a', roughness: 0.6 }),
     accentSeat: new THREE.MeshStandardMaterial({ color: '#b8352b', roughness: 0.55 }),
-    screen: nightLit(new THREE.MeshStandardMaterial({ color: '#0b1a2a', emissive: '#3fb2ff', roughness: 0.2 }), 1.6, 0.8),
+    screen: nightLit(new THREE.MeshStandardMaterial({ color: '#0b1a2a', map: screenTexture(), emissive: '#ffffff', emissiveMap: screenTexture(), roughness: 0.2 }), 1.6, 0.8),
   }), [paint, accent])
   useEffect(() => { if (tailRef) tailRef.current = mats.tail }, [mats, tailRef])
   return mats
@@ -31,6 +54,12 @@ const seatSet = (parts, m, xs, y, wide, mat) => xs.forEach((x, i) => {
   parts.push(box('sb' + i, mat || m.interior, [x, y, 0], [0.5, 0.12, wide]))
   parts.push(box('sr' + i, mat || m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, wide], [0, 0, -0.18]))
 })
+/** A working headrest TV on the back of a front/middle-row seat, for whoever sits behind it. */
+const headrestTV = (parts, m, x, y, wide, key = x) => {
+  const w = Math.min(0.42, wide * 0.4)
+  parts.push(box('tv' + key, m.screen, [x - 0.335, y + 0.42, 0], [0.025, 0.17, w], [0, 0, -0.18]))
+  parts.push(box('tvf' + key, m.plastic, [x - 0.33, y + 0.42, 0], [0.015, 0.2, w + 0.03], [0, 0, -0.18]))
+}
 const wrap = (parts) => <group userData={{ noBatch: true }}>{parts}</group>
 
 /** Three-row crossover: smooth nose, long glasshouse, tapered tail, roof rails. */
@@ -66,6 +95,8 @@ export function CrossoverBody({ T, paint, accent, tailRef }) {
   p.push(box('bumpR', m.plastic, [-Lh + 0.06, 0.6, 0], [0.2, 0.2, T.width + 0.02]))
   p.push(box('skid', m.trim, [Lh - 0.03, 0.52, 0], [0.04, 0.05, 0.9]))
   seatSet(p, m, [0.1, -0.85, -1.6], 0.9, T.width - 0.5)
+  headrestTV(p, m, 0.1, 0.9, T.width - 0.5, 'f')
+  headrestTV(p, m, -0.85, 0.9, T.width - 0.5, 'm')
   return wrap(p)
 }
 
@@ -101,6 +132,9 @@ export function LimoBody({ T, paint, accent, tailRef }) {
   p.push(box('bumpR', m.chrome, [-Lh + 0.04, 0.6, 0], [0.12, 0.14, T.width + 0.02]))
   seatSet(p, m, [0.55, -0.9], 0.8, T.width - 0.5)
   seatSet(p, m, [-1.5], 0.8, T.width - 0.5, m.leather)
+  // a limo's whole reason for being: screens for the back row
+  headrestTV(p, m, 0.55, 0.8, T.width - 0.5, 'f')
+  headrestTV(p, m, -0.9, 0.8, T.width - 0.5, 'm')
   return wrap(p)
 }
 
@@ -135,6 +169,7 @@ export function EvBody({ T, paint, accent, tailRef }) {
   p.push(box('sr1', m.interior, [-0.38, 1.04, -0.42], [0.1, 0.5, 0.5], [0, 0, -0.2]))
   p.push(box('sr2', m.interior, [-0.38, 1.04, 0.42], [0.1, 0.5, 0.5], [0, 0, -0.2]))
   seatSet(p, m, [-1.1], 0.74, T.width - 0.5)
+  headrestTV(p, m, -0.1, 0.74, 0.46, 'f')
   return wrap(p)
 }
 
@@ -278,6 +313,8 @@ export function EvSuvBody({ T, paint, accent, tailRef }) {
   p.push(box('skid', m.trim, [Lh - 0.03, 0.54, 0], [0.04, 0.05, 0.9]))
   p.push(box('dash', m.screen, [0.7, 1.12, 0], [0.04, 0.2, 0.8], [0, 0.25, 0]))
   seatSet(p, m, [0.0, -1.0, -1.7], 1.0, T.width - 0.5)
+  headrestTV(p, m, 0.0, 1.0, T.width - 0.5, 'f')
+  headrestTV(p, m, -1.0, 1.0, T.width - 0.5, 'm')
   return wrap(p)
 }
 
