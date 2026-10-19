@@ -14,7 +14,7 @@ import CinemaExterior, { CINEMA_FRONT } from './CinemaExterior.jsx'
 import PlazaParking from './Parking.jsx'
 import PlazaBuilding, { PLAZA } from './PlazaBuilding.jsx'
 import { BrandSign } from './signs.jsx'
-import { Trees, FlowerBed, Bench, StreetLamp, Bollard, Fountain, ParkingLot, Planter, Lawn } from './props.jsx'
+import { Trees, FlowerBed, Bench, StreetLamp, Bollard, Fountain, ParkingLot, Planter, Lawn, Atm } from './props.jsx'
 import { nightLit } from '../state/environment.js'
 import { StaticBatch } from './batch.jsx'
 import ConcertStage from './ConcertStage.jsx'
@@ -42,6 +42,10 @@ import Mall from './Mall.jsx'
 import { MALL } from '../config/mall.js'
 import ResidentialMansion from './ResidentialMansion.jsx'
 import { LOT as MANSION1_LOT } from '../config/mansion1.js'
+import ApartmentsStandard from './ApartmentsStandard.jsx'
+import { LOT as APTS1_LOT } from '../config/apts1.js'
+import BikerMeetup from './BikerMeetup.jsx'
+import { LOT as CLUB_LOT } from '../config/bikerMeetup.js'
 import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 import { LIB } from '../config/library.js'
 import { groundPieces } from '../config/island.js'
@@ -203,6 +207,8 @@ export default function City() {
       <ParkingGarage />
       <Mall />
       <ResidentialMansion />
+      <ApartmentsStandard />
+      <BikerMeetup />
       <RigidBody type="fixed" colliders={false}>
         {EXTRA_COLLIDERS.map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={i} args={[hx, hy, hz]} position={[x, y, z]} />)}
       </RigidBody>
@@ -252,6 +258,7 @@ function Square() {
       <mesh position={[cx, CURB + 0.007, cz]} rotation={[-Math.PI / 2, 0, 0]} material={surfaceHD('pavers', 2, 11)}><planeGeometry args={[4, SQUARE.z1 - SQUARE.z0]} /></mesh>
       <mesh position={[cx, CURB + 0.007, cz]} rotation={[-Math.PI / 2, 0, 0]} material={surfaceHD('pavers', 9, 2)}><planeGeometry args={[SQUARE.x1 - SQUARE.x0, 4]} /></mesh>
       <Fountain position={[cx, CURB, cz]} radius={4} />
+      <Atm id="atm-square" position={[cx + 11, CURB, cz]} yaw={Math.PI} />
       {benches.map(([p, yaw], i) => <Bench key={i} position={p} yaw={yaw} />)}
       {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
         <FlowerBed key={i} x={cx + sx * 11.5} z={cz + sz * 13} w={6} d={4} seed={10 + i} />
@@ -404,6 +411,8 @@ const RESERVED = [
   [GARAGE_SITE.x0 - 3, GARAGE_SITE.x1 + 3, GARAGE_SITE.z0 - 3, GARAGE_SITE.z1 + 3], // Stormline Parking Garage
   [MALL.x0 - 4, MALL.x1 + 4, MALL.z0 - 4, MALL.z1 + 4], // Vision Storms Exchanges mall
   [MANSION1_LOT.x0 - 2, MANSION1_LOT.x1 + 2, MANSION1_LOT.z0 - 2, MANSION1_LOT.z1 + 2], // 4821 Skyline Ridge (residential demo mansion)
+  [APTS1_LOT.x0 - 2, APTS1_LOT.x1 + 2, APTS1_LOT.z0 - 2, APTS1_LOT.z1 + 2], // Maple Garden Apartments (standard-tier residential demo)
+  [CLUB_LOT.x0 - 2, CLUB_LOT.x1 + 2, CLUB_LOT.z0 - 2, CLUB_LOT.z1 + 2], // Iron Horse M.C. clubhouse lot
 ]
 function Skyline() {
   const mats = getMaterials()

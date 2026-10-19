@@ -4,13 +4,14 @@ import AirTraffic, { airState } from './world/AirTraffic.jsx'
 import { Suspense, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
-import { EffectComposer, Bloom, Vignette, DepthOfField, ToneMapping, Noise, HueSaturation, BrightnessContrast, ChromaticAberration } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, Vignette, DepthOfField, ToneMapping, Noise, HueSaturation, BrightnessContrast, ChromaticAberration, N8AO } from '@react-three/postprocessing'
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
 import { Exposure } from './world/exposureEffect.js'
 import * as THREE from 'three'
 import City from './world/City.jsx'
 import Gallery from './world/Gallery.jsx'
 import Atmosphere from './world/Atmosphere.jsx'
+import WeatherDirector from './world/WeatherDirector.jsx'
 import Player from './player/Player.jsx'
 import CameraRig from './player/CameraRig.jsx'
 import PlacedAssets from './assets/PlacedAssets.jsx'
@@ -119,20 +120,25 @@ export default function App() {
             <CameraRig />
           </Physics>
           <Atmosphere />
+          <WeatherDirector />
           {settings.aircraft !== false && <AirTraffic />}
           <MusicZones />
           <PhotoBooth />
           {(settings.bloom || cineOn) && (
             <EffectComposer multisampling={high ? 4 : 0}>
               <Exposure />
-              <Bloom mipmapBlur intensity={cineOn ? 0.75 : high ? 0.55 : 0.45} luminanceThreshold={cineOn ? 0.86 : 0.92} luminanceSmoothing={0.2} />
+              {/* a punchier, more saturated "night-drive" grade is on by default (not just in
+                  cinema mode) - richer neon, deeper blacks, a tighter vignette, closer to the
+                  look of the city's own signage than a flat, literal render */}
+              {high ? <N8AO aoRadius={2.4} intensity={2.4} distanceFalloff={1} quality="performance" halfRes /> : null}
+              <Bloom mipmapBlur intensity={cineOn ? 0.75 : high ? 0.62 : 0.52} luminanceThreshold={cineOn ? 0.86 : 0.86} luminanceSmoothing={0.2} />
               <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
               {cineOn && high ? <DepthOfField ref={dofRef} worldFocusDistance={3} worldFocusRange={1.6} bokehScale={3.2} /> : null}
-              {cineOn ? <HueSaturation saturation={0.06} /> : null}
-              {cineOn ? <BrightnessContrast brightness={-0.02} contrast={0.16} /> : null}
+              <HueSaturation saturation={cineOn ? 0.08 : 0.13} />
+              <BrightnessContrast brightness={cineOn ? -0.02 : -0.012} contrast={cineOn ? 0.18 : 0.15} />
               {cineOn ? <ChromaticAberration offset={[0.0006, 0.0006]} radialModulation modulationOffset={0.4} /> : null}
               {cineOn ? <Noise premultiply blendFunction={BlendFunction.SOFT_LIGHT} opacity={0.14} /> : null}
-              <Vignette offset={cineOn ? 0.15 : 0.3} darkness={cineOn ? 0.75 : 0.45} />
+              <Vignette offset={cineOn ? 0.15 : 0.24} darkness={cineOn ? 0.75 : 0.52} />
             </EffectComposer>
           )}
           <CineFocus dofRef={dofRef} />

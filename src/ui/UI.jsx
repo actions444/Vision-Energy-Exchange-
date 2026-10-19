@@ -2,6 +2,8 @@ import { SPAWNS, BLOCKS, PARK, PARADE } from '../config/westend.js'
 import { TOWER as RESIDENCE_TOWER } from '../config/residenceTower.js'
 import { HOUSE as MANSION1_HOUSE, LOT as MANSION1_LOT } from '../config/mansion1.js'
 import { MALL as MALL_B } from '../config/mall.js'
+import { LOT as APTS1_LOT, WALK as APTS1_WALK } from '../config/apts1.js'
+import { LOT as CLUB_LOT, CX as CLUB_CX } from '../config/bikerMeetup.js'
 import Objective, { restartObjective } from './Objective.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
@@ -134,14 +136,98 @@ function Loading() {
 }
 
 // ---------- Title screen ----------
+/** Builds a joinable invite link for the current multiplayer setup (mirrors what StartScreen
+ *  reads back out below) and offers real ways to send it: copy, the device's native share sheet
+ *  (texting, Messages, WhatsApp, email, whatever the person picks), a direct SMS compose link, or
+ *  (where the browser supports it) picking a number straight out of the phone's own contacts via
+ *  the Contact Picker API. Nothing here can send a text by itself or read someone's contacts on
+ *  its own — a browser game has no access to either without the person's own phone taking the
+ *  next step, so this hands off to their phone's real apps instead of faking either one. */
+function InvitePanel({ transport, url, room }) {
+  const [open, setOpen] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const canPick = typeof navigator !== 'undefined' && navigator.contacts && typeof navigator.contacts.select === 'function'
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+  const inviteUrl = () => {
+    const u = new URL(window.location.href)
+    u.search = ''
+    u.searchParams.set('invite', '1')
+    u.searchParams.set('transport', transport)
+    u.searchParams.set('room', room || 'lobby')
+    if (transport === 'server' && url) u.searchParams.set('url', url)
+    return u.toString()
+  }
+  const message = () => `Come play Vision Storms Energy Exchanges with me — tap this to join my room ("${room || 'lobby'}"): ${inviteUrl()}`
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(inviteUrl()); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch {}
+  }
+  const share = async () => {
+    try { await navigator.share({ title: 'Vision Storms Energy Exchanges', text: message(), url: inviteUrl() }) } catch {}
+  }
+  const textPhone = (number) => {
+    const n = (number || '').replace(/[^\d+]/g, '')
+    if (!n) return
+    // sms: with a body works on iOS/Android; the ?/& separator differs slightly by platform, but
+    // browsers tolerate either, so this opens the person's own Messages app with the text ready to send.
+    window.location.href = `sms:${n}?&body=${encodeURIComponent(message())}`
+  }
+  const pickContact = async () => {
+    if (!canPick) return
+    setPicking(true)
+    try {
+      const [c] = await navigator.contacts.select(['tel', 'name'], { multiple: false })
+      const num = c?.tel?.[0]
+      if (num) textPhone(num)
+    } catch { /* user cancelled or the browser refused - nothing to show for it */ }
+    setPicking(false)
+  }
+
+  if (!open) return <button type="button" className="btn ghost small" onClick={() => setOpen(true)}>Invite someone</button>
+  return (
+    <div className="field invite-box">
+      <span>Invite someone to this room</span>
+      {canPick && <button type="button" className="btn small primary" disabled={picking} onClick={pickContact}>{picking ? 'Choosing…' : 'Choose from your phone contacts'}</button>}
+      <div className="row-actions">
+        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" style={{ flex: 1 }} aria-label="Phone number" />
+        <button type="button" className="btn small" disabled={!phone.trim()} onClick={() => textPhone(phone)}>Text invite</button>
+      </div>
+      <div className="row-actions">
+        {canShare && <button type="button" className="btn small" onClick={share}>Share…</button>}
+        <button type="button" className="btn small" onClick={copy}>{copied ? 'Link copied!' : 'Copy invite link'}</button>
+      </div>
+      <p className="hint">
+        {canPick ? '' : "This browser won't let a web page read your contacts directly, so type the number or use Share to pick one from your phone's own apps. "}
+        Texting opens your phone's own Messages app with the invite ready — nothing is sent automatically. Whoever taps the link lands here with this room and server already filled in.
+      </p>
+    </div>
+  )
+}
+
 function StartScreen() {
   const profile = useStore((s) => s.profile)
   const setProfile = useStore((s) => s.setProfile)
   const enterWorld = useStore((s) => s.enterWorld)
-  const [mode, setMode] = useState('single')
-  const [transport, setTransport] = useState('tabs')
-  const [url, setUrl] = useState(() => { try { return localStorage.getItem('vsw-server') || 'ws://localhost:8787' } catch { return 'ws://localhost:8787' } })
-  const [room, setRoom] = useState('lobby')
+  // An invite link (built by InvitePanel below) lands here as ?invite=1&transport=&room=&url= -
+  // read it once on load so tapping someone's text drops you straight into their room, with the
+  // multiplayer form already filled in and ready for "Enter World".
+  const invite = useRef(null)
+  if (invite.current === null) {
+    try {
+      const p = new URLSearchParams(window.location.search)
+      invite.current = p.get('invite') === '1' ? { transport: p.get('transport') || 'tabs', room: p.get('room') || 'lobby', url: p.get('url') || '' } : false
+    } catch { invite.current = false }
+  }
+  const [mode, setMode] = useState(invite.current ? 'multi' : 'single')
+  const [transport, setTransport] = useState(invite.current ? invite.current.transport : 'tabs')
+  const [url, setUrl] = useState(() => {
+    if (invite.current && invite.current.url) return invite.current.url
+    try { return localStorage.getItem('vsw-server') || 'ws://localhost:8787' } catch { return 'ws://localhost:8787' }
+  })
+  const [room, setRoom] = useState(invite.current ? invite.current.room : 'lobby')
   const [busy, setBusy] = useState(false)
   const status = usePeers((s) => s.status)
   const error = usePeers((s) => s.error)
@@ -213,6 +299,8 @@ function StartScreen() {
                 <span>Room</span>
                 <input id="room" value={room} onChange={(e) => setRoom(e.target.value)} maxLength={32} />
               </label>
+              {invite.current && <p className="hint">You're joining from an invite link - the room{invite.current.url ? ' and server' : ''} above is already set up for you.</p>}
+              <InvitePanel transport={transport} url={url} room={room} />
               {status === 'error' && <p className="error">{error}</p>}
             </div>
           )}
@@ -341,6 +429,8 @@ function HUD() {
             ['residences', 'Reign Residences', [(RESIDENCE_TOWER.x0 + RESIDENCE_TOWER.x1) / 2, 0.3, RESIDENCE_TOWER.z1 + 3]],
             ['mansion1', '4821 Skyline Ridge (mansion)', [(MANSION1_HOUSE.x0 + MANSION1_HOUSE.x1) / 2 + 6, 0.3, MANSION1_LOT.z0]],
             ['mall', 'Vision Storms Exchanges (mall)', [(MALL_B.x0 + MALL_B.x1) / 2, 0.3, MALL_B.z0]],
+            ['apts1', 'Maple Garden Apartments', [(APTS1_WALK.x0 + APTS1_WALK.x1) / 2, 0.3, APTS1_LOT.z0]],
+            ['club1', 'Iron Horse M.C. (biker meetup)', [CLUB_CX, 0.3, CLUB_LOT.z1 - 2]],
             ...SPAWNS.map(([id, name, pos]) => [id, name, pos]),
           ].map(([id, name, pos]) => (
             <button key={id} id={'place-' + id} role="menuitem" onClick={() => { playerState.teleport = pos; setPlaces(false); setMenu(false) }}>{name}</button>

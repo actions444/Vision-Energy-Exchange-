@@ -76,7 +76,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     lUA: useRef(), lFA: useRef(), rUA: useRef(), rFA: useRef(),
     lUL: useRef(), lLL: useRef(), rUL: useRef(), rLL: useRef(),
   }
-  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null, clap: 0, bow: 0, dance: 0 })
+  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null, clap: 0, bow: 0, dance: 0, laugh: 0, cry: 0, talk: 0 })
 
   useFrame((_, dtRaw) => {
     // work uniform (set by the jobs system for the local player): recolour clothes, trim, cap and vest
@@ -252,6 +252,9 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     a.brow = k(a.brow, gs === 'brow' ? 1 : 0, 5)
     a.blow = k(a.blow, gs === 'blow' ? 1 : 0, 7)
     a.stir = k(a.stir, gs === 'stir' ? 1 : 0, 5)
+    a.laugh = k(a.laugh, gs === 'laugh' ? 1 : 0, 6)
+    a.cry = k(a.cry, gs === 'cry' ? 1 : 0, 5)
+    a.talk = k(a.talk, gs === 'talk' ? 1 : 0, 5)
     // performance gestures: a crowd-facing clap and a bow (see ui/PerformancePanel.jsx)
     a.clap = k(a.clap, gs === 'clap' ? 1 : 0, 7)
     a.bow = k(a.bow, gs === 'bow' ? 1 : 0, 5)
@@ -264,7 +267,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
       mouthRef.current.scale.set(1.15, 0.12 + open, 0.5)
       if (lipRef.current) lipRef.current.position.y = 0.0925 - Math.min(open, 1.2) * 0.011
     }
-    if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir + a.clap + a.bow > 0.01) {
+    if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir + a.clap + a.bow + a.laugh + a.cry + a.talk > 0.01) {
       const L = THREE.MathUtils.lerp
       r.head.current.rotation.x = L(r.head.current.rotation.x, -0.16, a.sing)
       r.head.current.rotation.z = Math.sin(a.t * 0.9) * 0.06 * a.sing
@@ -311,12 +314,25 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
       // bowing to the audience: pitch forward from the waist, arms relaxed back
       to(r.spine, 'x', 0.55, a.bow); to(r.head, 'x', 0.3, a.bow)
       to(r.lUA, 'x', 0.3, a.bow); to(r.lUA, 'z', 0.05, a.bow); to(r.rUA, 'x', 0.3, a.bow); to(r.rUA, 'z', -0.05, a.bow)
+      // laughing: head tips back and bobs, shoulders shake, both hands come toward the stomach
+      to(r.head, 'x', -0.35 + Math.sin(a.t * 10) * 0.05, a.laugh)
+      to(r.spine, 'x', -0.08 + Math.abs(Math.sin(a.t * 10)) * 0.05, a.laugh)
+      to(r.lUA, 'x', -0.5, a.laugh); to(r.lUA, 'z', 0.25, a.laugh); to(r.lFA, 'x', -1.3, a.laugh)
+      to(r.rUA, 'x', -0.5, a.laugh); to(r.rUA, 'z', -0.25, a.laugh); to(r.rFA, 'x', -1.3, a.laugh)
+      // crying: head bows, both hands come up to the face, shoulders tremble
+      to(r.head, 'x', 0.35, a.cry)
+      to(r.spine, 'z', Math.sin(a.t * 6) * 0.04, a.cry)
+      to(r.lUA, 'x', -1.5, a.cry); to(r.lUA, 'z', -0.15, a.cry); to(r.lFA, 'x', -2.1, a.cry)
+      to(r.rUA, 'x', -1.5, a.cry); to(r.rUA, 'z', 0.15, a.cry); to(r.rFA, 'x', -2.1, a.cry)
+      // talking: an idle one-hand gesture with a small head nod, for conversation scenes
+      to(r.head, 'x', Math.sin(a.t * 1.6) * 0.05, a.talk)
+      to(r.rUA, 'x', -0.55 + Math.sin(a.t * 2.2) * 0.12, a.talk); to(r.rUA, 'z', -0.1, a.talk); to(r.rFA, 'x', -0.9 + Math.sin(a.t * 2.2 + 0.6) * 0.15, a.talk)
     }
     // dancing: an additive sway/bounce layered on top of whatever else is happening (singing,
     // walking, gesturing), so a performer can dance while singing rather than picking one.
     a.dance = k(a.dance, state.dancing ? 1 : 0, 6)
     if (a.dance > 0.01) {
-      const d = a.dance, beat = a.t * 5.3
+      const d = a.dance, beat = a.t * 5.3 * (state.animSpeed || 1)
       r.hips.current.position.y += Math.abs(Math.sin(beat)) * 0.07 * d
       r.hips.current.rotation.y += Math.sin(beat * 0.5) * 0.18 * d
       r.hips.current.rotation.z = Math.sin(beat * 0.5 + 1) * 0.08 * d

@@ -15,6 +15,14 @@ import { BUSINESSES, businessById } from '../config/businesses.js'
 const KEY = 'vsw-jobs'
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') } catch { return null } }
 const saved = load()
+// One-time top-up: every account starts at START_WALLET (50,000 credits). A save created before
+// that was the starting amount (or one that's simply never been topped up) gets bumped up to it
+// once, the first time this file loads after the fix - never again, so later real spending below
+// 50,000 is never silently refilled. Tracked by `walletTopped` so it only ever fires once per save.
+if (saved && !saved.walletTopped && (saved.wallet ?? 0) < START_WALLET) {
+  saved.wallet = START_WALLET
+}
+if (saved) saved.walletTopped = true
 
 const BASE = {
   // `wallet` is cash on hand — spent in person at registers, kiosks and vendors, exactly as before.
@@ -27,6 +35,9 @@ const BASE = {
   businesses: {}, // businessId -> { boughtDay, lastPayout: day of last passive-income payout }
   ownedDecor: [], // purchased decor/catalog item ids (decor/catalog.jsx) — separate from `owned` (uniforms)
   ownedMall: [], // purchased Vision Storms Exchanges mall product ids (config/mall.js) — mock catalog, Phase 1
+  walletTopped: true, // internal: has the one-time 50,000-credit top-up above already run on this save
+  loan: 0, // credits currently owed to Vision Storms Bank (see takeLoan/repayLoan below)
+  loanBorrowed: 0, // lifetime credits ever advanced - part of how the next credit line is sized
 }
 const PERSIST = Object.keys(BASE)
 
@@ -112,6 +123,51 @@ export const useJobs = create((set, get) => {
       if (!amount) return false
       if (get().bank < amount) { toast(`Not enough in the bank: ${fmt(amount)} needed, you have ${fmt(get().bank)}.`); return false }
       set({ bank: get().bank - amount, wallet: get().wallet + amount }); log('bank', `ATM withdrawal`, amount); persist()
+      return true
+    },
+
+    // ---- Vision Storms Bank: cash advances against a future paycheck ----
+    // A real credit line, sized by how much the player actually earns: it needs a job, and the
+    // limit scales with that job's shift wage (at the player's current performance rating) and
+    // with how much they've already proven they can pay back (lifetime earnings). An advance
+    // lands in the wallet immediately; the balance owed is then auto-deducted from payday (see
+    // `advanceDay` below) before the rest of the paycheck is credited - exactly like a payday
+    // advance or an employer loan taken against wages. It can also be paid down early by hand.
+    loanLimit: () => {
+      const s = get()
+      const job = s.jobId && jobById(s.jobId)
+      if (!job) return 0
+      const perShift = Math.round(job.wage * ratingMultiplier(s.rating))
+      // five shifts of wages, plus a small step up the more the player has borrowed and repaid
+      // before (a real credit line grows with a track record), capped in both directions.
+      return Math.max(300, Math.min(6000, perShift * 5 + Math.round(s.loanBorrowed * 0.08)))
+    },
+    takeLoan: (amount) => {
+      amount = Math.max(0, Math.round(amount))
+      const s = get()
+      const job = s.jobId && jobById(s.jobId)
+      if (!job) { toast('Vision Storms Bank only advances credits against a paycheck - get a job first.'); return false }
+      if (!amount) return false
+      const limit = get().loanLimit()
+      if (s.loan + amount > limit) {
+        toast(`Vision Storms Bank can advance up to ${fmt(limit)} credits on your pay — you already owe ${fmt(s.loan)}, so ${fmt(Math.max(0, limit - s.loan))} is available.`)
+        return false
+      }
+      set({ wallet: s.wallet + amount, loan: s.loan + amount, loanBorrowed: s.loanBorrowed + amount })
+      log('loan', 'Cash advance from Vision Storms Bank', amount); persist()
+      toast(`Advanced ${fmt(amount)} credits. It's auto-deducted from your paycheck on payday (up to half each time) until it's paid off.`)
+      return true
+    },
+    /** Pay down the advance early, straight from the wallet - never required, just optional. */
+    repayLoan: (amount) => {
+      amount = Math.max(0, Math.round(amount))
+      const s = get()
+      if (!amount || s.loan <= 0) return false
+      amount = Math.min(amount, s.loan, s.wallet)
+      if (amount <= 0) { toast(s.wallet < 1 ? 'Not enough cash on hand.' : 'Nothing owed.'); return false }
+      set({ wallet: s.wallet - amount, loan: s.loan - amount })
+      log('loan', 'Paid down the Vision Storms Bank advance', -amount); persist()
+      toast(`Paid down ${fmt(amount)} credits. ${s.loan - amount > 0 ? `${fmt(s.loan - amount)} still owed.` : 'Advance paid off.'}`)
       return true
     },
 
@@ -287,9 +343,20 @@ export const useJobs = create((set, get) => {
         const gross = s.accrued
         const bonus = Math.round(gross * p.bonus)
         const job = jobById(s.jobId)
+        let payout = gross + bonus
+        // auto-repay any Vision Storms Bank advance out of this paycheck, capped at half of it so
+        // a payday never nets the player zero credits just because they owe the bank.
+        let repaid = 0
+        if (get().loan > 0 && payout > 0) {
+          repaid = Math.min(get().loan, Math.round(payout * 0.5))
+          payout -= repaid
+          set({ loan: get().loan - repaid })
+        }
         if (gross > 0) {
-          add(gross + bonus, 'pay', `${p.label} pay, ${job.title}${bonus ? ` (includes +${Math.round(p.bonus * 100)}% bonus)` : ''}`)
-          toast(`Payday! ${fmt(gross + bonus)} credits (${p.label.toLowerCase()} pay) were added to your wallet.`)
+          add(payout, 'pay', `${p.label} pay, ${job.title}${bonus ? ` (includes +${Math.round(p.bonus * 100)}% bonus)` : ''}${repaid ? `, -${fmt(repaid)} bank advance repayment` : ''}`)
+          toast(repaid
+            ? `Payday! ${fmt(payout)} credits after ${fmt(repaid)} went to your Vision Storms Bank advance${get().loan > 0 ? ` (${fmt(get().loan)} still owed)` : ' (paid off!)'}.`
+            : `Payday! ${fmt(gross + bonus)} credits (${p.label.toLowerCase()} pay) were added to your wallet.`)
         } else {
           log('pay', `${p.label} pay day: nothing earned this period`, 0)
           toast(`Payday, but you didn't work any stops this ${p.label.toLowerCase()} period.`)

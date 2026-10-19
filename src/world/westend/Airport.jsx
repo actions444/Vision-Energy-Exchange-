@@ -34,14 +34,14 @@ const FY = Y + 0.02
 /** "Destinations" the departures board can send you to: notable places already in the world,
  *  dressed up as flights. Reuses the same teleport mechanic as the Places menu. */
 export const DESTINATIONS = [
-  { flight: 'VS 101', to: 'Downtown Avenue', gate: 'A1', pos: [0, 0.3, 10] },
-  { flight: 'VS 204', to: 'Energy Exchanges Plaza', gate: 'A2', pos: [-28, 0.3, 48] },
-  { flight: 'VS 318', to: 'The Jackpot Exchange (Casino)', gate: 'B1', pos: [95, 0.3, 56] },
-  { flight: 'VS 442', to: 'Reign Estate (Mansion)', gate: 'B2', pos: [100, 0.3, -70] },
-  { flight: 'VS 507', to: 'Isla Serena (Island resort)', gate: 'A3', pos: [301, 1.2, -83] },
-  { flight: 'VS 619', to: 'Emerald Links (golf course)', gate: 'B3', pos: [250, 0.3, 60] },
-  { flight: 'VS 733', to: 'Meadowbrook Park (West End)', gate: 'A1', pos: [-167, CURB + 0.2, -34] },
-  { flight: 'VS 850', to: 'Vision Motors & Skyport', gate: 'B2', pos: [108, 0.3, -20] },
+  { flight: 'VS 101', to: 'Downtown Avenue', gate: 'A1', pos: [0, 0.3, 10], price: 15 },
+  { flight: 'VS 204', to: 'Energy Exchanges Plaza', gate: 'A2', pos: [-28, 0.3, 48], price: 15 },
+  { flight: 'VS 318', to: 'The Jackpot Exchange (Casino)', gate: 'B1', pos: [95, 0.3, 56], price: 35 },
+  { flight: 'VS 442', to: 'Reign Estate (Mansion)', gate: 'B2', pos: [100, 0.3, -70], price: 25 },
+  { flight: 'VS 507', to: 'Isla Serena (Island resort)', gate: 'A3', pos: [301, 1.2, -83], price: 60 },
+  { flight: 'VS 619', to: 'Emerald Links (golf course)', gate: 'B3', pos: [250, 0.3, 60], price: 45 },
+  { flight: 'VS 733', to: 'Meadowbrook Park (West End)', gate: 'A1', pos: [-167, CURB + 0.2, -34], price: 20 },
+  { flight: 'VS 850', to: 'Vision Motors & Skyport', gate: 'B2', pos: [108, 0.3, -20], price: 30 },
 ]
 
 function Scanner({ position, yaw = 0 }) {
