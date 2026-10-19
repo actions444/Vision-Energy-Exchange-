@@ -51,21 +51,49 @@ function Ready() {
   return null
 }
 
+// TEMP DIAGNOSTIC (to find the startup infinite-loop crash) - a plain-DOM breadcrumb badge, not
+// React state, so it can't itself contribute to a render loop. Sits at a higher z-index than the
+// crash overlay in main.jsx, so whatever step it's on stays visible on screen even after the app
+// crashes - that tells us exactly which startup call the loop is coming from. Remove once found.
+function boot(step) {
+  try {
+    let el = document.getElementById('boot-badge')
+    if (!el) {
+      el = document.createElement('div')
+      el.id = 'boot-badge'
+      el.style.cssText = 'position:fixed;top:4px;left:4px;z-index:9999999;background:#000;color:#0f0;font:10px monospace;padding:3px 6px;opacity:.85;pointer-events:none;white-space:pre'
+      document.body.appendChild(el)
+    }
+    el.textContent = 'boot: ' + step
+  } catch {}
+}
+
 export default function App() {
   const settings = useStore((s) => s.settings)
 
   useEffect(() => {
+    boot('start')
     useAssets.getState().restore()
+    boot('assets.restore called')
     // find the backend (hosted page, self-hosted server, or dev), then load the shared media
     // library and music setup from it
+    boot('detectBackend start')
     detectBackend().finally(() => {
+      boot('detectBackend done -> startMedia')
       startMedia()
+      boot('musicLibrary.init')
       useMusicLibrary.getState().init()
+      boot('startCinema')
       startCinema()
+      boot('startGuide')
       startGuide()
+      boot('startDecor')
       startDecor()
+      boot('runCinema')
       runCinema()
+      boot('runGuide')
       runGuide()
+      boot('startup complete')
     })
     return installKeyboard({
       onKey: (e) => {
