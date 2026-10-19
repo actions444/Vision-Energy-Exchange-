@@ -6,7 +6,7 @@ import { surface } from '../materials.js'
 import { assetMats } from '../assets/materials.js'
 import { Builder } from '../facade/kit.js'
 import { StreetLamp } from '../props.jsx'
-import { BrandSign } from '../signs.jsx'
+import { BrandSign, StreetSign } from '../signs.jsx'
 import { StaticBatch } from '../batch.jsx'
 import { Pad } from '../assets/park/ParkKit.jsx'
 import TerraceSite from './TerraceSite.jsx'
@@ -17,6 +17,7 @@ import WasteDistrict from './WasteDistrict.jsx'
 import IndustrialRow from './IndustrialRow.jsx'
 import HarborParade from './HarborParade.jsx'
 import Airport from './Airport.jsx'
+import AirportFreeway from './AirportFreeway.jsx'
 import { CURB, WEST, BOULEVARD, MAPLE, CEDAR, BLOCKS, PARADE, TOLL } from '../../config/westend.js'
 import { playerState } from '../../state/runtime.js'
 import { useJobs } from '../../state/jobs.js'
@@ -120,24 +121,6 @@ function Kerbs() {
     return B.merged()
   }, [])
   return geos.k ? <mesh geometry={geos.k} material={mat} receiveShadow /> : null
-}
-
-/** Street-name blade sign on a pole. */
-export function StreetSign({ position, text, num = '', yaw = 0 }) {
-  const A = assetMats()
-  const green = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1d5a45', roughness: 0.45, metalness: 0.1 }), [])
-  return (
-    <group position={position} rotation={[0, yaw, 0]}>
-      <mesh position={[0, 1.6, 0]} material={A.galv} castShadow><cylinderGeometry args={[0.04, 0.04, 3.2, 8]} /></mesh>
-      <mesh position={[0, 3.35, 0]} material={green}><boxGeometry args={[1.5, 0.37, 0.04]} /></mesh>
-      <mesh position={[0, 3.35, 0]} material={green}><boxGeometry args={[0.04, 0.37, 1.5]} /></mesh>
-      {[0, Math.PI, Math.PI / 2, -Math.PI / 2].map((r, i) => (
-        <group key={i} rotation={[0, r, 0]}>
-          <BrandSign text={text} sub={num || undefined} position={[0, 3.35, 0.03]} width={1.4} size={110} color="#ffffff" glow="#ffffff" />
-        </group>
-      ))}
-    </group>
-  )
 }
 
 /** Open-road tolling gantry over the boulevard (Tomball Pkwy) - EZ TAG style: two slim posts and
@@ -275,6 +258,7 @@ export default function WestEnd() {
       <TerraceSite />
       <HarborParade />
       <Airport />
+      <AirportFreeway />
     </>
   )
 }
