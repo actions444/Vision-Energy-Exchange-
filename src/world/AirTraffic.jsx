@@ -165,11 +165,10 @@ function useEngineSound(kind, groupRef) {
   }
 }
 
-function Plane({ kind, livery, airKey, altOffset = 0, speedMul = 1 }) {
+function Plane({ kind }) {
   const g = useRef(), beacon = useRef()
   const route = useRef(null)
-  const base = kind === 'airliner' ? { alt: 320, speed: 72, wait: [8, 30] } : { alt: 230, speed: 62, wait: [20, 50] }
-  const cfg = useMemo(() => ({ alt: base.alt + altOffset, speed: base.speed * speedMul, wait: base.wait }), [base.alt, base.speed, base.wait, altOffset, speedMul])
+  const cfg = kind === 'airliner' ? { alt: 320, speed: 72, wait: [8, 30] } : { alt: 230, speed: 62, wait: [20, 50] }
   const steady = useMemo(() => (kind === 'airliner'
     ? [{ pos: [-1, -0.8, -17.2], color: '#ff2a2a' }, { pos: [-1, -0.8, 17.2], color: '#20ff60' }, { pos: [-21.5, 1, 0], color: '#ffffff' }]
     : [{ pos: [0.5, -0.6, -8.6], color: '#ff2a2a' }, { pos: [0.5, -0.6, 8.6], color: '#20ff60' }, { pos: [-11.5, 4, 0], color: '#ffffff' }]), [kind])
@@ -177,8 +176,7 @@ function Plane({ kind, livery, airKey, altOffset = 0, speedMul = 1 }) {
     ? [{ pos: [0, 2.2, 0], color: '#ff3020' }, { pos: [0, -2.2, 0], color: '#ff3020' }]
     : [{ pos: [0, 1.2, 0], color: '#ff3020' }]), [kind])
   const sound = useEngineSound(kind === 'airliner' ? 'airliner' : 'jet', g)
-  const key = airKey || kind
-  useEffect(() => { airState[key] = g.current; return () => { delete airState[key] } }, [key])
+  useEffect(() => { airState[kind] = g.current; return () => { delete airState[kind] } }, [kind])
   useFrame(({ camera, clock }, dt) => {
     if (!route.current) { route.current = newRoute(cfg.alt, cfg.speed); route.current.s = rand() * route.current.len }
     const r = route.current
@@ -194,7 +192,7 @@ function Plane({ kind, livery, airKey, altOffset = 0, speedMul = 1 }) {
   })
   return (
     <group ref={g} visible={false}>
-      {kind === 'airliner' ? <Airliner livery={livery} /> : <BizJet livery={livery} />}
+      {kind === 'airliner' ? <Airliner /> : <BizJet />}
       <NavLights steady={steady} blink={blink} beaconRef={beacon} />
     </group>
   )
@@ -230,63 +228,12 @@ function Heli() {
   )
 }
 
-// ---------------- hot air balloons ----------------
-// Slow, silent, purely decorative - a handful of candy-striped balloons drifting on a long,
-// lazy circuit high over the city, bobbing gently. No engine sound; just a soft creak.
-let stripeTex = null
-function stripeTexture(a, b) {
-  const key = a + '|' + b
-  stripeTex = stripeTex || new Map()
-  if (stripeTex.has(key)) return stripeTex.get(key)
-  const c = document.createElement('canvas'); c.width = 256; c.height = 32
-  const g = c.getContext('2d')
-  const n = 10
-  for (let i = 0; i < n; i++) { g.fillStyle = i % 2 === 0 ? a : b; g.fillRect((i / n) * 256, 0, 256 / n, 32) }
-  const t = new THREE.CanvasTexture(c)
-  t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace
-  stripeTex.set(key, t)
-  return t
-}
-
-function Balloon({ colorA, colorB, orbit }) {
-  const g = useRef()
-  const envelope = useMemo(() => new THREE.MeshStandardMaterial({ map: stripeTexture(colorA, colorB), roughness: 0.7 }), [colorA, colorB])
-  const basket = useMemo(() => new THREE.MeshStandardMaterial({ color: '#6b4a2f', roughness: 0.9 }), [])
-  const rope = useMemo(() => new THREE.MeshStandardMaterial({ color: '#201a14', roughness: 0.9 }), [])
-  const flame = useMemo(() => nightLit(new THREE.MeshStandardMaterial({ color: '#2a1206', emissive: '#ff9a3c', emissiveIntensity: 1.2 }), 0.8, 0.8), [])
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime
-    const a = orbit.phase + (t * orbit.speed) / orbit.r
-    const x = orbit.cx + Math.cos(a) * orbit.r, z = orbit.cz + Math.sin(a) * orbit.r
-    g.current.position.set(x, orbit.alt + Math.sin(t * 0.12 + orbit.phase) * 5, z)
-    g.current.rotation.y = a + Math.PI / 2
-  })
-  return (
-    <group ref={g}>
-      <mesh position={[0, 7, 0]} scale={[1, 1.25, 1]} material={envelope} castShadow><sphereGeometry args={[4, 20, 16]} /></mesh>
-      <mesh position={[0, 2.6, 0]} material={rope}><cylinderGeometry args={[1.3, 2.9, 5.2, 10, 1, true]} /></mesh>
-      <mesh position={[0, 0, 0]} material={basket} castShadow><boxGeometry args={[2.1, 1.3, 2.1]} /></mesh>
-      <mesh position={[0, 0.75, 0]} material={flame}><coneGeometry args={[0.3, 0.6, 8]} /></mesh>
-    </group>
-  )
-}
-
-const BALLOONS = [
-  { colorA: '#e8461e', colorB: '#f2efe6', orbit: { cx: -20, cz: 40, r: 140, alt: 150, speed: 4.5, phase: 0 } },
-  { colorA: '#2fd0c4', colorB: '#f2efe6', orbit: { cx: -20, cz: 40, r: 150, alt: 165, speed: 4.5, phase: 2.1 } },
-  { colorA: '#9b4fe0', colorB: '#f2efe6', orbit: { cx: -20, cz: 40, r: 160, alt: 142, speed: 4.5, phase: 4.2 } },
-  { colorA: '#e8c35a', colorB: '#1b1b1f', orbit: { cx: -20, cz: 40, r: 170, alt: 178, speed: 4.5, phase: 5.6 } },
-]
-
 export default function AirTraffic() {
   return (
     <group>
-      <Plane kind="airliner" airKey="airliner" livery="#5b2a86" />
-      <Plane kind="airliner" airKey="airliner2" livery="#2f6fd1" altOffset={28} speedMul={0.85} />
-      <Plane kind="jet" airKey="jet" livery="#127a74" />
-      <Plane kind="jet" airKey="jet2" livery="#c9a96a" altOffset={-24} speedMul={1.15} />
+      <Plane kind="airliner" />
+      <Plane kind="jet" />
       <Heli />
-      {BALLOONS.map((b, i) => <Balloon key={i} {...b} />)}
     </group>
   )
 }

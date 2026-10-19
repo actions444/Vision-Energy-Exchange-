@@ -3,8 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { applyWorkout } from './workoutPose.js'
-import { performanceViseme } from '../music/lipsync.js'
-import { blinkAmount } from '../anim/blink.js'
+import { performanceMouth } from '../music/lipsync.js'
 import { registry } from '../assets/assetStore.js'
 
 // A picked-up prop held in front of the chest while state.carrying is set (see state/runtime.js,
@@ -70,8 +69,6 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
   }), [accent, skin, look?.gown, look?.hair])
   const sm = useMemo(() => (look?.social ? socialMats(skin, look) : null), [skin, look?.social, look?.gown, look?.hair, look?.eyes, look?.lips, look?.shirt, look?.tie, look?.top, look?.bottom, look?.coat, look?.shoe, look?.barefoot, look?.pattern, look?.pendant, look?.glassesColor]) // eslint-disable-line react-hooks/exhaustive-deps
   const vestRef = useRef(), hatRef = useRef(), seen = useRef(-1), mouthRef = useRef(), trainRef = useRef(), lipRef = useRef()
-  const eyeLRef = useRef(), eyeRRef = useRef()
-  const blinkSeed = useMemo(() => Math.random() * 1000, [])
   useEffect(() => { seen.current = -1 }, [m]) // materials were rebuilt: re-apply the work uniform
 
   const r = {
@@ -79,7 +76,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     lUA: useRef(), lFA: useRef(), rUA: useRef(), rFA: useRef(),
     lUL: useRef(), lLL: useRef(), rUL: useRef(), rLL: useRef(),
   }
-  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null, clap: 0, bow: 0, dance: 0, laugh: 0, cry: 0, talk: 0 })
+  const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null, clap: 0, bow: 0, dance: 0 })
 
   useFrame((_, dtRaw) => {
     // work uniform (set by the jobs system for the local player): recolour clothes, trim, cap and vest
@@ -255,31 +252,19 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     a.brow = k(a.brow, gs === 'brow' ? 1 : 0, 5)
     a.blow = k(a.blow, gs === 'blow' ? 1 : 0, 7)
     a.stir = k(a.stir, gs === 'stir' ? 1 : 0, 5)
-    a.laugh = k(a.laugh, gs === 'laugh' ? 1 : 0, 6)
-    a.cry = k(a.cry, gs === 'cry' ? 1 : 0, 5)
-    a.talk = k(a.talk, gs === 'talk' ? 1 : 0, 5)
     // performance gestures: a crowd-facing clap and a bow (see ui/PerformancePanel.jsx)
     a.clap = k(a.clap, gs === 'clap' ? 1 : 0, 7)
     a.bow = k(a.bow, gs === 'bow' ? 1 : 0, 5)
     if (mouthRef.current) {
-      // real performers: mouth shape comes from the actual music (precomputed visemes if a track
-      // ever has them, else the live audio, split into an "open" and a "wide" component so it
-      // reads a bit more like real speech/singing than a single pump - see music/lipsync.js's
-      // performanceViseme for exactly what that is and isn't); everyone else keeps the idle wiggle.
-      const live = state.performing ? performanceViseme(state.performing.trackId, a.t) : null
-      const syl = live ? live.open : Math.abs(Math.sin(a.t * 8.6 + Math.sin(a.t * 2.3) * 2.2))
-      const wideSyl = live ? live.wide : 0
+      // real performers: mouth openness comes from the actual music (precomputed visemes if a
+      // track ever has them, else the live audio loudness); everyone else keeps the idle wiggle.
+      const live = state.performing ? performanceMouth(state.performing.trackId, a.t) : null
+      const syl = live != null ? live : Math.abs(Math.sin(a.t * 8.6 + Math.sin(a.t * 2.3) * 2.2))
       const open = a.sing * (0.25 + syl * 1.5)
-      const wide = a.sing * wideSyl * 0.35
-      mouthRef.current.scale.set(1.15 + wide, 0.12 + open - wide * 0.4, 0.5)
+      mouthRef.current.scale.set(1.15, 0.12 + open, 0.5)
       if (lipRef.current) lipRef.current.position.y = 0.0925 - Math.min(open, 1.2) * 0.011
     }
-    // idle eye blink (anim/blink.js) - a believable cadence, not driven by any clip or audio
-    const blink = blinkAmount(a.t, blinkSeed)
-    const eyeOpenY = look?.social ? 1 : 1.25
-    if (eyeLRef.current) eyeLRef.current.scale.y = eyeOpenY * (1 - blink * 0.9)
-    if (eyeRRef.current) eyeRRef.current.scale.y = eyeOpenY * (1 - blink * 0.9)
-    if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir + a.clap + a.bow + a.laugh + a.cry + a.talk > 0.01) {
+    if (a.sing > 0.01 || a.chest + a.open + a.reach + a.hold + a.read + a.write + a.point + a.tray + a.shake + a.wipe + a.brow + a.blow + a.stir + a.clap + a.bow > 0.01) {
       const L = THREE.MathUtils.lerp
       r.head.current.rotation.x = L(r.head.current.rotation.x, -0.16, a.sing)
       r.head.current.rotation.z = Math.sin(a.t * 0.9) * 0.06 * a.sing
@@ -326,25 +311,12 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
       // bowing to the audience: pitch forward from the waist, arms relaxed back
       to(r.spine, 'x', 0.55, a.bow); to(r.head, 'x', 0.3, a.bow)
       to(r.lUA, 'x', 0.3, a.bow); to(r.lUA, 'z', 0.05, a.bow); to(r.rUA, 'x', 0.3, a.bow); to(r.rUA, 'z', -0.05, a.bow)
-      // laughing: head tips back and bobs, shoulders shake, both hands come toward the stomach
-      to(r.head, 'x', -0.35 + Math.sin(a.t * 10) * 0.05, a.laugh)
-      to(r.spine, 'x', -0.08 + Math.abs(Math.sin(a.t * 10)) * 0.05, a.laugh)
-      to(r.lUA, 'x', -0.5, a.laugh); to(r.lUA, 'z', 0.25, a.laugh); to(r.lFA, 'x', -1.3, a.laugh)
-      to(r.rUA, 'x', -0.5, a.laugh); to(r.rUA, 'z', -0.25, a.laugh); to(r.rFA, 'x', -1.3, a.laugh)
-      // crying: head bows, both hands come up to the face, shoulders tremble
-      to(r.head, 'x', 0.35, a.cry)
-      to(r.spine, 'z', Math.sin(a.t * 6) * 0.04, a.cry)
-      to(r.lUA, 'x', -1.5, a.cry); to(r.lUA, 'z', -0.15, a.cry); to(r.lFA, 'x', -2.1, a.cry)
-      to(r.rUA, 'x', -1.5, a.cry); to(r.rUA, 'z', 0.15, a.cry); to(r.rFA, 'x', -2.1, a.cry)
-      // talking: an idle one-hand gesture with a small head nod, for conversation scenes
-      to(r.head, 'x', Math.sin(a.t * 1.6) * 0.05, a.talk)
-      to(r.rUA, 'x', -0.55 + Math.sin(a.t * 2.2) * 0.12, a.talk); to(r.rUA, 'z', -0.1, a.talk); to(r.rFA, 'x', -0.9 + Math.sin(a.t * 2.2 + 0.6) * 0.15, a.talk)
     }
     // dancing: an additive sway/bounce layered on top of whatever else is happening (singing,
     // walking, gesturing), so a performer can dance while singing rather than picking one.
     a.dance = k(a.dance, state.dancing ? 1 : 0, 6)
     if (a.dance > 0.01) {
-      const d = a.dance, beat = a.t * 5.3 * (state.animSpeed || 1)
+      const d = a.dance, beat = a.t * 5.3
       r.hips.current.position.y += Math.abs(Math.sin(beat)) * 0.07 * d
       r.hips.current.rotation.y += Math.sin(beat * 0.5) * 0.18 * d
       r.hips.current.rotation.z = Math.sin(beat * 0.5 + 1) * 0.08 * d
@@ -361,7 +333,7 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     }
   })
 
-  if (look?.social) return <SocialRig r={r} m={m} sm={sm} look={look} mouthRef={mouthRef} lipRef={lipRef} trainRef={trainRef} vestRef={vestRef} hatRef={hatRef} eyeLRef={eyeLRef} eyeRRef={eyeRRef} state={state} />
+  if (look?.social) return <SocialRig r={r} m={m} sm={sm} look={look} mouthRef={mouthRef} lipRef={lipRef} trainRef={trainRef} vestRef={vestRef} hatRef={hatRef} state={state} />
   return (
     <group ref={r.root}>
       <group ref={r.hips} position={[0, 0.95, 0]}>
@@ -408,8 +380,8 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
             </group>
             {!look?.noVisor && <mesh geometry={g.visor} material={m.neon} position={[0, 0.17, 0.0]} rotation={[0, Math.PI * 1.05, 0]} />}
             {/* face: eyes, nose and a mouth that opens while singing */}
-            <mesh ref={eyeLRef} geometry={g.eye} material={m.eye} position={[0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
-            <mesh ref={eyeRRef} geometry={g.eye} material={m.eye} position={[-0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
+            <mesh geometry={g.eye} material={m.eye} position={[0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
+            <mesh geometry={g.eye} material={m.eye} position={[-0.045, 0.17, 0.112]} scale={[1, 1.25, 0.8]} />
             <mesh geometry={g.eye} material={m.skin} position={[0, 0.145, 0.124]} scale={[1.1, 1.2, 1.2]} />
             <mesh ref={mouthRef} geometry={g.mouth} material={m.mouth} position={[0, 0.098, 0.113]} scale={[1.15, 0.12, 0.5]} />
             {look?.longHair && <mesh geometry={g.backHair} material={m.longHair} position={[0, -0.07, -0.085]} scale={[1.25, 1, 0.8]} castShadow />}
@@ -527,7 +499,7 @@ function leopardTex() {
   return LEO
 }
 
-function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef, eyeLRef, eyeRRef, state }) {
+function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef, state }) {
   const g = socialGeo()
   const F = look.build === 'f'
   const gown = !!look.gown
@@ -649,7 +621,7 @@ function SocialRig({ r, m, sm, look, mouthRef, lipRef, trainRef, vestRef, hatRef
             {[1, -1].map((sd) => <mesh key={sd} geometry={g.sphere} material={sm.skin} position={[sd * 0.111, 0.15, -0.004]} scale={[0.012, 0.027, 0.02]} />)}
             {/* eyes */}
             {[1, -1].map((sd) => (
-              <group key={sd} ref={sd === 1 ? eyeLRef : eyeRRef} position={[sd * 0.045, 0.165, 0.098]}>
+              <group key={sd} position={[sd * 0.045, 0.165, 0.098]}>
                 <mesh geometry={g.sphere} material={sm.sclera} scale={[0.027, 0.019, 0.016]} />
                 <mesh geometry={g.sphere} material={sm.iris} position={[0, 0, 0.0095]} scale={[0.0165, 0.0165, 0.007]} />
                 <mesh geometry={g.sphere} material={sm.pupil} position={[0, 0, 0.0145]} scale={[0.0085, 0.0085, 0.004]} />

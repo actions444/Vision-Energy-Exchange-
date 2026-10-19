@@ -8,11 +8,6 @@ import { NEON } from '../config/theme.js'
 import { useSeats } from '../state/seats.js'
 import { playerState, registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
-import { ANIM_CATEGORIES } from '../anim/categories.js'
-import { getLibraryClip } from '../anim/library.js'
-import { retargetClip } from '../anim/retarget.js'
-import { performanceViseme } from '../music/lipsync.js'
-import { blinkAmount } from '../anim/blink.js'
 
 // Renders every placed imported model with a physics collider so the avatar can walk on,
 // into and around it. 'trimesh' gives exact collision (walkable interiors, stairs, ramps);
@@ -196,10 +191,14 @@ function furnitureSeats(inst, W, D) {
 
 // ---------- Imported character as the player's avatar ----------
 const X_AXIS = new THREE.Vector3(1, 0, 0)
-// Categories now live in anim/categories.js, the single list shared with the cross-rig retargeted
-// clip library (anim/library.js) and the gallery UI (ui/ActionsPanel.jsx). Re-exported under the
-// old name since ActionsPanel still imports it from here.
-export const CLIP_PATTERNS = ANIM_CATEGORIES
+const CLIP_PATTERNS = {
+  idle: /idle|stand|breath|rest/i,
+  walk: /walk/i,
+  run: /run|jog|sprint/i,
+  jump: /jump|fall|air/i,
+  wave: /wave|greet|hello/i,
+  sit: /sit|seat|chair/i,
+}
 
 // Common bone names in Tripo / Meshy / Mixamo-style rigs, for a fallback seated pose.
 const THIGH = /(left|right|^l|^r|_l|_r|\.l|\.r).*(up_?leg|thigh)|(up_?leg|thigh).*(left|right|_l|_r|\.l|\.r)/i
@@ -217,37 +216,12 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
   const actions = useMemo(() => {
     const map = {}
     for (const [key, re] of Object.entries(CLIP_PATTERNS)) {
-      let clip = info.animations.find((a) => re.test(a.name))
-      if (!clip && info.skinned) {
-        // this model's own file has nothing for this category - borrow it from the shared,
-        // cross-rig library (anim/library.js) instead, retargeted onto this skeleton
-        const entry = getLibraryClip(key)
-        if (entry) clip = retargetClip(entry.clip, entry.boneMap, entry.srcHipsY, obj)
-      }
+      const clip = info.animations.find((a) => re.test(a.name))
       if (clip) map[key] = mixer.clipAction(clip)
     }
     if (!map.walk && info.animations.length === 1) map.walk = mixer.clipAction(info.animations[0])
     return map
-  }, [info, mixer, obj])
-  // mouth-openness for singing/performing, driven by the same real audio signal the default
-  // procedural avatar uses (music/lipsync.js) - only on models with recognizable morph targets;
-  // most uploaded avatars don't have any, so this silently does nothing for them. Same morph
-  // target set a blink reuses if the model happens to have an eye-blink target too.
-  const morphByName = (re) => {
-    const out = []
-    obj.traverse((o) => {
-      const dict = o.morphTargetDictionary
-      if (!dict || !o.morphTargetInfluences) return
-      for (const [name, idx] of Object.entries(dict)) {
-        if (re.test(name)) out.push({ mesh: o, idx })
-      }
-    })
-    return out
-  }
-  const mouthTargets = useMemo(() => morphByName(/jaw ?open|mouth ?open|^open$|viseme_?aa/i), [obj])
-  const wideTargets = useMemo(() => morphByName(/mouth ?wide|mouth ?smile|viseme_?(ee|ih)/i), [obj])
-  const blinkTargets = useMemo(() => morphByName(/blink|eyes ?closed|eye ?close/i), [obj])
-  const blinkSeed = useMemo(() => Math.random() * 1000, [])
+  }, [info, mixer])
   const current = useRef(null)
   const bob = useRef()
   const t = useRef(0)
@@ -273,14 +247,9 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     let want = 'idle'
     if (state.sit && actions.sit) want = 'sit'
     else if (!state.grounded && actions.jump) want = 'jump'
+    else if (state.emote === 'wave' && actions.wave) want = 'wave'
     else if (sp > 4 && actions.run) want = 'run'
     else if (sp > 0.2) want = actions.walk ? 'walk' : actions.run ? 'run' : 'idle'
-    else if (state.emote === 'wave' && actions.wave) want = 'wave'
-    else if (state.dancing && actions.dance) want = 'dance'
-    else if (state.sing && actions.sing) want = 'sing'
-    // Animation Gallery categories (ui/ActionsPanel.jsx): from this model's own file if it has
-    // one, otherwise borrowed and retargeted from the shared library (anim/categories.js header).
-    else if (state.gesture && actions[state.gesture]) want = state.gesture
     const next = actions[want] || actions.idle || null
     if (next !== current.current) {
       if (current.current) current.current.fadeOut(0.2)
@@ -288,9 +257,6 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
       current.current = next
     }
     if (next && (want === 'walk' || want === 'run')) next.timeScale = THREE.MathUtils.clamp(sp / (want === 'run' ? 6 : 2.6), 0.6, 1.6)
-    // Animation Gallery speed slider (dance/sing/gesture categories only - walk/run above are
-    // paced by actual movement speed instead, and shouldn't be hand-tuned out of sync with it)
-    else if (next && (want === 'dance' || want === 'sing' || want === state.gesture)) next.timeScale = state.animSpeed || 1
     mixer.update(dt)
     // procedural sit for rigs without a sit clip: bend thighs and shins, lower the model
     const animated = Object.keys(actions).length > 0
@@ -302,17 +268,6 @@ export function ImportedAvatar({ assetId, facing = 0, state, height = 1.8 }) {
     if (bob.current) {
       const drop = -(0.53 * height - ((state.sitHeight || 0.45) + 0.06)) * sitAmt.current
       bob.current.position.y = drop + (animated || state.sit ? 0 : Math.abs(Math.sin(t.current * (sp > 0.2 ? 9 : 2))) * (sp > 0.2 ? 0.06 : 0.015))
-    }
-    if (mouthTargets.length || wideTargets.length) {
-      const live = state.performing ? performanceViseme(state.performing.trackId, t.current) : null
-      const open = live ? live.open : state.sing ? Math.max(0, Math.sin(t.current * 9)) * 0.5 : 0
-      const wide = live ? live.wide : 0
-      for (const { mesh, idx } of mouthTargets) mesh.morphTargetInfluences[idx] = open
-      for (const { mesh, idx } of wideTargets) mesh.morphTargetInfluences[idx] = wide
-    }
-    if (blinkTargets.length) {
-      const blink = blinkAmount(t.current, blinkSeed)
-      for (const { mesh, idx } of blinkTargets) mesh.morphTargetInfluences[idx] = blink
     }
   })
 

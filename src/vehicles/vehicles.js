@@ -4,8 +4,6 @@
 import { create } from 'zustand'
 import { CURB as MCURB, BAYS_X, BAY_Z, BIKE_Z, BIKE_X, BIKE_HEADING, PADS } from '../config/motors.js'
 import { CART_BAY, PLATFORM_Y as GOLF_Y } from '../config/parkGolf.js'
-import { BIKE_ROW_Z, BIKE_ROW_X, BIKE_HEADING as CLUB_BIKE_HEADING } from '../config/bikerMeetup.js'
-import { BIKE_ROW_Z as WOLVES_ROW_Z, BIKE_ROW_X as WOLVES_ROW_X, BIKE_HEADING as WOLVES_HEADING } from '../config/steelWolves.js'
 
 export const VEHICLE_TYPES = {
   'luxury-suv': {
@@ -259,44 +257,6 @@ export const VEHICLE_TYPES = {
     stab: { k: 2400, c: 380 },
     colliders: [{ half: [0.9, 0.28, 0.18], at: [0, 0.54, 0] }],
   },
-  // Long, laid-back chopper for the Iron Horse M.C. clubhouse: raked-out cruiser stance, heavy
-  // chrome, unhurried power. Reuses the cruiser body (same silhouette, different tune/paint).
-  'chopper-bike': {
-    name: 'Vagabond Chopper',
-    kind: 'Custom chopper',
-    layout: 'bike', cy: 0.45, lean: 0.36,
-    length: 2.5, width: 0.9, height: 1.15,
-    wheelBase: 1.7, track: 0, wheelRadius: 0.37, wheelWidth: 0.18,
-    mass: 360, com: 0.32, inertia: { x: 40, y: 95, z: 118 },
-    engineForce: 760, reverseForce: 320, brakeForce: 13,
-    maxSpeed: 24, maxSteer: 0.42,
-    suspension: { rest: 0.22, stiffness: 36, compression: 3.6, relaxation: 3.4, travel: 0.17, maxForce: 5200 },
-    friction: 2.4,
-    driverSeat: [-0.12, 0.76, 0],
-    passengerSeats: [[-0.76, 0.78, 0]],
-    style: 'cruiser',
-    stab: { k: 3200, c: 480 },
-    colliders: [{ half: [1.1, 0.3, 0.2], at: [0, 0.56, 0] }],
-  },
-  // Light, high-travel dirt bike for rough ground: fast and twitchy, knobby-tyre handling.
-  // Reuses the sport-bike body (same silhouette, different tune/paint).
-  'dirt-bike': {
-    name: 'Trailhawk MX',
-    kind: 'Dirt bike',
-    layout: 'bike', cy: 0.45, lean: 0.5,
-    length: 2.0, width: 0.65, height: 1.2,
-    wheelBase: 1.35, track: 0, wheelRadius: 0.33, wheelWidth: 0.18,
-    mass: 190, com: 0.3, inertia: { x: 24, y: 55, z: 72 },
-    engineForce: 700, reverseForce: 260, brakeForce: 12,
-    maxSpeed: 26, maxSteer: 0.46,
-    suspension: { rest: 0.3, stiffness: 32, compression: 3.2, relaxation: 3.0, travel: 0.28, maxForce: 4200 },
-    friction: 2.3,
-    driverSeat: [-0.02, 0.8, 0],
-    passengerSeats: [[-0.58, 0.82, 0]],
-    style: 'sportbike',
-    stab: { k: 2200, c: 340 },
-    colliders: [{ half: [0.85, 0.28, 0.17], at: [0, 0.54, 0] }],
-  },
   // Small open-top utility cart for Emerald Links: slow, light, two bench seats. Free to drive.
   'golf-cart': {
     name: 'Fairway Cart',
@@ -345,21 +305,6 @@ VEHICLE_SPAWNS.push(
   E('cruiser-2', 'cruiser-bike', BIKE_X[1], BIKE_Z, BIKE_HEADING, '#7a1b24', '#d6d8dc'),
   E('razor-1', 'sport-bike', BIKE_X[2], BIKE_Z, BIKE_HEADING, '#e8461e', '#15161a'),
   E('razor-2', 'sport-bike', BIKE_X[3], BIKE_Z, BIKE_HEADING, '#1d6fd1', '#e9eef5'),
-  // Iron Horse M.C. clubhouse lot: a row of bikes parked nose-in against the brick backdrop,
-  // free to ride off whenever someone wants to go.
-  { id: 'club-cruiser-1', type: 'cruiser-bike', position: [BIKE_ROW_X[0], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#16171a', accent: '#c9a96a' },
-  { id: 'club-chopper-1', type: 'chopper-bike', position: [BIKE_ROW_X[1], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#7a1b24', accent: '#e8c75a' },
-  { id: 'club-chopper-2', type: 'chopper-bike', position: [BIKE_ROW_X[2], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#1b1b1f', accent: '#2fd3c3' },
-  { id: 'club-cruiser-2', type: 'cruiser-bike', position: [BIKE_ROW_X[3], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#2b4a3a', accent: '#f2c94c' },
-  { id: 'club-razor-1', type: 'sport-bike', position: [BIKE_ROW_X[4], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#e8461e', accent: '#15161a' },
-  { id: 'club-dirt-1', type: 'dirt-bike', position: [BIKE_ROW_X[5], MCURB + 0.55, BIKE_ROW_Z], heading: CLUB_BIKE_HEADING, paint: '#ffb400', accent: '#1b1b1f' },
-  // Steel Wolves M.C. clubhouse lot: a second, cooler-toned row of bikes against its backdrop.
-  { id: 'wolves-chopper-1', type: 'chopper-bike', position: [WOLVES_ROW_X[0], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#1c2733', accent: '#8fd0ff' },
-  { id: 'wolves-cruiser-1', type: 'cruiser-bike', position: [WOLVES_ROW_X[1], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#2a3a4a', accent: '#c9ccd2' },
-  { id: 'wolves-razor-1', type: 'sport-bike', position: [WOLVES_ROW_X[2], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#17395e', accent: '#e9eef5' },
-  { id: 'wolves-chopper-2', type: 'chopper-bike', position: [WOLVES_ROW_X[3], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#0f1114', accent: '#2fd3c3' },
-  { id: 'wolves-cruiser-2', type: 'cruiser-bike', position: [WOLVES_ROW_X[4], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#3a4a5a', accent: '#8fd0ff' },
-  { id: 'wolves-dirt-1', type: 'dirt-bike', position: [WOLVES_ROW_X[5], MCURB + 0.55, WOLVES_ROW_Z], heading: WOLVES_HEADING, paint: '#17395e', accent: '#e8e2cf' },
   // Emerald Links: a row of golf carts parked outside the clubhouse, free to drive.
   ...[['#f4f1ea', '#2f5a3c'], ['#f4f1ea', '#1f2f5c'], ['#e8e2cf', '#2f5a3c'], ['#f4f1ea', '#c9a24a']].map(([paint, accent], i) => (
     { id: 'cart-' + (i + 1), type: 'golf-cart', position: [CART_BAY.x + i * 2.2, GOLF_Y + 0.55, CART_BAY.z], heading: Math.PI / 2, paint, accent }

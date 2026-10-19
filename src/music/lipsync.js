@@ -35,26 +35,3 @@ export function performanceMouth(trackId, trackTime) {
   const vocal = levels[0] * 0.4 + levels[1] * 0.6
   return Math.min(1, vocal * 2.2)
 }
-
-/**
- * A slightly richer version of performanceMouth: still real-time audio-reactive, not
- * phoneme-accurate (see the header note - VISEME_DATA is still the real extension point for
- * that), but shapes the mouth with two numbers instead of one, so it reads a bit more like actual
- * speech/singing than a single open/close pump. `open` (0..1) is overall jaw drop, weighted
- * toward the low/vocal-fundamental bands (loud, low-pitched sections open the mouth wider, as in
- * an "ah"/"oh"); `wide` (0..1) favors the higher bands over the low ones, so a brighter, more
- * sibilant moment narrows and widens the mouth rather than just dropping the jaw (closer to an
- * "ee"/consonant shape than a round one). Returns null under the same conditions as
- * performanceMouth (nothing playing and no precomputed viseme track).
- */
-export function performanceViseme(trackId, trackTime) {
-  const viseme = visemeAt(trackId, trackTime)
-  if (viseme != null) return { open: viseme, wide: 0 }
-  const levels = getLevels(6)
-  if (!levels) return null
-  const low = levels[0] * 0.5 + levels[1] * 0.5
-  const high = levels[3] * 0.5 + levels[4] * 0.3 + levels[5] * 0.2
-  const open = Math.min(1, low * 2.3)
-  const wide = Math.min(1, Math.max(0, high - low * 0.4) * 2.6)
-  return { open, wide }
-}

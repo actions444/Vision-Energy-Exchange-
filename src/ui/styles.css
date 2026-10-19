@@ -133,7 +133,7 @@ select option { background: #1a1328; }
 .panel header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 22px 12px; }
 .panel h2 { font-family: var(--display); font-weight: 800; font-size: clamp(24px, 4vw, 34px); line-height: 1.05; margin: 0; text-wrap: balance; }
 .close { border: 1px solid var(--line); background: transparent; border-radius: 10px; padding: 6px 12px; font-weight: 700; font-size: 13px; flex: none; }
-.panel-body { padding: 4px 22px 22px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-auto-rows: max-content; gap: 14px; min-width: 0; }
+.panel-body { padding: 4px 22px 22px; overflow-y: auto; display: grid; grid-auto-rows: max-content; gap: 14px; min-width: 0; }
 .panel h3 { font-family: var(--display); font-size: 18px; margin: 10px 0 0; display: flex; gap: 10px; align-items: baseline; }
 .panel h3 small { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .1em; }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 0; border-top: 1px solid var(--line); }
@@ -196,13 +196,6 @@ select option { background: #1a1328; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-}
-/* mobile: iOS Safari force-zooms the page when a focused input's font is under 16px - every text,
-   number, email, password, tel and search field (chat, bank advance, hotel booking, searches, the
-   phone invite field, etc.) gets bumped up on a touch device so tapping into one never yanks the
-   whole page in. Desktop keeps the smaller, denser default. */
-@media (pointer: coarse) {
-  input, select, textarea { font-size: 16px; }
 }
 
 /* music player */
@@ -369,7 +362,7 @@ input[type="color"] { width: 64px; height: 36px; border: 0; background: none; }
 .decor-sheet { position: fixed; z-index: 20; left: 16px; top: calc(var(--safe-t) + 100px); width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - var(--safe-t) - 130px); display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 20px; background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden; }
 .decor-sheet header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .decor-sheet h2 { font-size: 18px; margin: 2px 0 0; }
-.decor-body { overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; gap: 10px; min-height: 0; flex: 1 1 auto; }
+.decor-body { overflow-y: auto; display: grid; gap: 10px; min-height: 0; flex: 1 1 auto; }
 .decor-sheet > .placed { overflow-y: auto; max-height: 24vh; }
 .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; flex: none; }
 .chip-btn { flex: none; border: 1px solid var(--line); background: rgba(255,255,255,.05); border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 700; white-space: nowrap; }

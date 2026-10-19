@@ -27,7 +27,6 @@ export function AdminHub() {
     ['music', 'Music', 'Upload music, build playlists, choose what every room plays.'],
     ['media', 'Media library', 'Upload songs, album covers, music videos, movies, audiobooks and e-books. Publish what visitors see.'],
     ['assets', '3D assets', 'Import GLB/GLTF models and place them in the world.'],
-    ['animations', 'Animations', 'The shared cross-rig animation library - see what every category is filled with, and assign a clip by hand.'],
   ]
   return (
     <Panel title="Owner tools" eyebrow="Admin">

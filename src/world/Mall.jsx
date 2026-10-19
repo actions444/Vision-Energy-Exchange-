@@ -5,7 +5,7 @@ import { getMaterials, signatureMarble, surface } from './materials.js'
 import { Wall, Gate } from './jobkit.jsx'
 import { DoubleDoor } from './Door.jsx'
 import { BrandSign } from './signs.jsx'
-import { Fountain, Planter, Atm } from './props.jsx'
+import { Fountain, Planter } from './props.jsx'
 import { ClothingRack, Mannequin, Shelf, Counter, CeilingLight, Plant } from './furniture.jsx'
 import { registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
@@ -96,7 +96,6 @@ function MallInterior() {
   return (
     <group>
       <Fountain position={[CX, GROUND, midZ]} radius={3.4} />
-      <Atm id="atm-mall" position={[CX - 7, GROUND, z0 + 1.1]} yaw={0} />
       <CeilingLight position={[CX, GROUND + H - 0.3, midZ - 10]} size={[2.4, 1.6]} color="#ffe3f4" zone="mall" intensity={20} distance={14} />
       <CeilingLight position={[CX, GROUND + H - 0.3, midZ + 10]} size={[2.4, 1.6]} color="#e3f7ff" zone="mall" intensity={20} distance={14} />
       {bays.map((b) => <Storefront key={b.storeId} {...b} />)}

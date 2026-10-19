@@ -13,7 +13,6 @@ import { nightLit } from '../state/environment.js'
 import { ISLE, VY, POOL } from '../config/island.js'
 import { waveH } from './Ocean.jsx'
 import RoyalFilms from './RoyalFilms.jsx'
-import GrandHotel from './GrandHotel.jsx'
 import Terrace from './Terrace.jsx'
 import VillaInterior, { villaMarble } from './VillaInterior.jsx'
 import SkyDeck from './SkyDeck.jsx'
@@ -271,7 +270,6 @@ export default function Island() {
       <PlatformFill P={P} y={VY} sand={m.sand} stone={m.stone} />
       <Villa />
       <RoyalFilms />
-      <GrandHotel />
       {/* terrace: deck, reflecting pool, loungers, umbrellas */}
       <Terrace />
       <SkyDeck />

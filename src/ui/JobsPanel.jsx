@@ -222,35 +222,6 @@ function BusinessTab() {
   )
 }
 
-function BankTab() {
-  const s = useJobs()
-  const job = s.jobId && jobById(s.jobId)
-  const limit = s.loanLimit()
-  const available = Math.max(0, limit - s.loan)
-  const [amount, setAmount] = useState('')
-  const n = Math.max(0, Math.round(Number(amount) || 0))
-  return (
-    <div className="jobs-pay">
-      <p className="eyebrow">Vision Storms Bank · Cash advance</p>
-      <p className="note">
-        {job
-          ? `Borrow against an upcoming paycheck. Up to half of each payday automatically goes toward what you owe until it's paid off - the rest still lands in your wallet.`
-          : `Advances are sized by your paycheck, so you need a job before the bank will lend you anything.`}
-      </p>
-      <div className="meter-row">
-        <div className="meter"><span className="meter-label">Owed</span><strong id="bank-owed">{fmt(s.loan)} cr</strong><em>auto-repaid from payday</em></div>
-        <div className="meter accent"><span className="meter-label">Available credit</span><strong id="bank-available">{fmt(available)} cr</strong><em>of a {fmt(limit)} cr line</em></div>
-      </div>
-      <div className="row-actions">
-        <input type="number" min="0" step="50" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: 120 }} aria-label="Credits" />
-        <button className="btn primary small" id="bank-advance" disabled={!job || n <= 0 || n > available} onClick={() => { if (s.takeLoan(n)) setAmount('') }}>Get advance</button>
-        <button className="btn small" id="bank-repay" disabled={s.loan <= 0 || n <= 0} onClick={() => { if (s.repayLoan(n)) setAmount('') }}>Pay down now</button>
-      </div>
-      <p className="note">Paying down early (straight from your wallet) is always optional - the automatic payday deduction gets you there either way.</p>
-    </div>
-  )
-}
-
 function PayTab() {
   const s = useJobs()
   const job = s.jobId && jobById(s.jobId)
@@ -258,7 +229,6 @@ function PayTab() {
   const next = s.periodStart + sched.days
   return (
     <div className="jobs-pay">
-      <BankTab />
       <p className="eyebrow">Pay schedule</p>
       <div className="row-actions">
         {PAY_ORDER.map((id) => (

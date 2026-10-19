@@ -2,8 +2,6 @@ import { create } from 'zustand'
 import { useStore } from './store.js'
 import { PAY, START_WALLET, ROUTE_BONUS, STOPS, jobById, uniformById, routeFor, stopPay, routeBonus, SITES, WASH_PRICE, WASH_SECONDS, IRON_PRICE, RATING_START, ratingMultiplier, ratingTier } from '../config/jobs.js'
 import { BUSINESSES, businessById } from '../config/businesses.js'
-import { hotelTierById } from '../config/hotel.js'
-import { plotById, animalById, houseTierById, PLOT_ANIMAL_CAP } from '../config/ranch.js'
 
 // Jobs, uniforms, shifts and payroll.
 //
@@ -17,14 +15,6 @@ import { plotById, animalById, houseTierById, PLOT_ANIMAL_CAP } from '../config/
 const KEY = 'vsw-jobs'
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null') } catch { return null } }
 const saved = load()
-// One-time top-up: every account starts at START_WALLET (50,000 credits). A save created before
-// that was the starting amount (or one that's simply never been topped up) gets bumped up to it
-// once, the first time this file loads after the fix - never again, so later real spending below
-// 50,000 is never silently refilled. Tracked by `walletTopped` so it only ever fires once per save.
-if (saved && !saved.walletTopped && (saved.wallet ?? 0) < START_WALLET) {
-  saved.wallet = START_WALLET
-}
-if (saved) saved.walletTopped = true
 
 const BASE = {
   // `wallet` is cash on hand — spent in person at registers, kiosks and vendors, exactly as before.
@@ -37,13 +27,6 @@ const BASE = {
   businesses: {}, // businessId -> { boughtDay, lastPayout: day of last passive-income payout }
   ownedDecor: [], // purchased decor/catalog item ids (decor/catalog.jsx) — separate from `owned` (uniforms)
   ownedMall: [], // purchased Vision Storms Exchanges mall product ids (config/mall.js) — mock catalog, Phase 1
-  walletTopped: true, // internal: has the one-time 50,000-credit top-up above already run on this save
-  loan: 0, // credits currently owed to Vision Storms Bank (see takeLoan/repayLoan below)
-  loanBorrowed: 0, // lifetime credits ever advanced - part of how the next credit line is sized
-  hotelStay: null, // { tierId, bookedDay, nights } while checked into the Vision Grand Hotel, else null
-  ownedLand: [], // plot ids bought at Vision Storms Ranch (config/ranch.js)
-  livestock: {}, // plotId -> [{ id, kind, boughtDay }], only for owned plots
-  houses: {}, // plotId -> house tier id (config/ranch.js HOUSE_TIERS), only for owned plots
 }
 const PERSIST = Object.keys(BASE)
 
@@ -129,144 +112,6 @@ export const useJobs = create((set, get) => {
       if (!amount) return false
       if (get().bank < amount) { toast(`Not enough in the bank: ${fmt(amount)} needed, you have ${fmt(get().bank)}.`); return false }
       set({ bank: get().bank - amount, wallet: get().wallet + amount }); log('bank', `ATM withdrawal`, amount); persist()
-      return true
-    },
-
-    // ---- Vision Storms Bank: cash advances against a future paycheck ----
-    // A real credit line, sized by how much the player actually earns: it needs a job, and the
-    // limit scales with that job's shift wage (at the player's current performance rating) and
-    // with how much they've already proven they can pay back (lifetime earnings). An advance
-    // lands in the wallet immediately; the balance owed is then auto-deducted from payday (see
-    // `advanceDay` below) before the rest of the paycheck is credited - exactly like a payday
-    // advance or an employer loan taken against wages. It can also be paid down early by hand.
-    loanLimit: () => {
-      const s = get()
-      const job = s.jobId && jobById(s.jobId)
-      if (!job) return 0
-      const perShift = Math.round(job.wage * ratingMultiplier(s.rating))
-      // five shifts of wages, plus a small step up the more the player has borrowed and repaid
-      // before (a real credit line grows with a track record), capped in both directions.
-      return Math.max(300, Math.min(6000, perShift * 5 + Math.round(s.loanBorrowed * 0.08)))
-    },
-    takeLoan: (amount) => {
-      amount = Math.max(0, Math.round(amount))
-      const s = get()
-      const job = s.jobId && jobById(s.jobId)
-      if (!job) { toast('Vision Storms Bank only advances credits against a paycheck - get a job first.'); return false }
-      if (!amount) return false
-      const limit = get().loanLimit()
-      if (s.loan + amount > limit) {
-        toast(`Vision Storms Bank can advance up to ${fmt(limit)} credits on your pay — you already owe ${fmt(s.loan)}, so ${fmt(Math.max(0, limit - s.loan))} is available.`)
-        return false
-      }
-      set({ wallet: s.wallet + amount, loan: s.loan + amount, loanBorrowed: s.loanBorrowed + amount })
-      log('loan', 'Cash advance from Vision Storms Bank', amount); persist()
-      toast(`Advanced ${fmt(amount)} credits. It's auto-deducted from your paycheck on payday (up to half each time) until it's paid off.`)
-      return true
-    },
-    /** Pay down the advance early, straight from the wallet - never required, just optional. */
-    repayLoan: (amount) => {
-      amount = Math.max(0, Math.round(amount))
-      const s = get()
-      if (!amount || s.loan <= 0) return false
-      amount = Math.min(amount, s.loan, s.wallet)
-      if (amount <= 0) { toast(s.wallet < 1 ? 'Not enough cash on hand.' : 'Nothing owed.'); return false }
-      set({ wallet: s.wallet - amount, loan: s.loan - amount })
-      log('loan', 'Paid down the Vision Storms Bank advance', -amount); persist()
-      toast(`Paid down ${fmt(amount)} credits. ${s.loan - amount > 0 ? `${fmt(s.loan - amount)} still owed.` : 'Advance paid off.'}`)
-      return true
-    },
-
-    // ---- Vision Grand Hotel: book and pay for a room at the front desk ----
-    bookHotel: (tierId, nights) => {
-      const tier = hotelTierById(tierId)
-      nights = Math.max(1, Math.round(nights) || 1)
-      if (!tier) return false
-      const s = get()
-      if (s.hotelStay) { toast(`You're already checked into the ${hotelTierById(s.hotelStay.tierId)?.name || 'hotel'}. Check out first to book a different room.`); return false }
-      const total = tier.price * nights
-      if (!get().spend(total, 'hotel', `Vision Grand Hotel: ${tier.name} x ${nights} night${nights === 1 ? '' : 's'}`)) return false
-      set({ hotelStay: { tierId, bookedDay: get().day, nights } }); persist()
-      toast(`Checked into the ${tier.name} for ${nights} night${nights === 1 ? '' : 's'} - ${fmt(total)} credits.`)
-      return true
-    },
-    checkOutHotel: () => {
-      const s = get()
-      if (!s.hotelStay) return
-      const tier = hotelTierById(s.hotelStay.tierId)
-      set({ hotelStay: null }); persist()
-      toast(`Checked out of the ${tier?.name || 'hotel'}. Thanks for staying at Vision Grand Hotel.`)
-    },
-
-    // ---- Vision Storms Ranch: buyable land plots and the livestock you stock them with (config/ranch.js) ----
-    buyPlot: (plotId) => {
-      const plot = plotById(plotId)
-      if (!plot) return false
-      const s = get()
-      if (s.ownedLand.includes(plotId)) { toast(`You already own ${plot.name}.`); return false }
-      if (!get().spend(plot.price, 'land', `Bought land: ${plot.name}`)) return false
-      set({ ownedLand: [...get().ownedLand, plotId] }); persist()
-      toast(`Bought ${plot.name} for ${fmt(plot.price)} credits. Walk up to the sign to stock it with livestock.`)
-      return true
-    },
-    buyAnimal: (plotId, kind) => {
-      const plot = plotById(plotId)
-      const animal = animalById(kind)
-      if (!plot || !animal) return false
-      const s = get()
-      if (!s.ownedLand.includes(plotId)) { toast('You need to buy this plot before you can stock it.'); return false }
-      const herd = s.livestock[plotId] || []
-      if (herd.length >= PLOT_ANIMAL_CAP) { toast(`${plot.name} is full (max ${PLOT_ANIMAL_CAP} animals) - buy another plot for more room.`); return false }
-      if (!get().spend(animal.price, 'livestock', `Bought a ${animal.name} for ${plot.name}`)) return false
-      const id = `${kind}-${Date.now()}-${Math.round(Math.random() * 1e6)}`
-      set({ livestock: { ...get().livestock, [plotId]: [...herd, { id, kind, boughtDay: get().day }] } }); persist()
-      toast(`Added a ${animal.name} to ${plot.name} - ${fmt(animal.price)} credits.`)
-      return true
-    },
-    sellAnimal: (plotId, animalId) => {
-      const plot = plotById(plotId)
-      const s = get()
-      const herd = s.livestock[plotId] || []
-      const rec = herd.find((a) => a.id === animalId)
-      if (!rec) return false
-      const animal = animalById(rec.kind)
-      const refund = Math.round((animal?.price || 0) * 0.5)
-      set({ livestock: { ...s.livestock, [plotId]: herd.filter((a) => a.id !== animalId) } })
-      if (refund > 0) get().earn(refund, 'livestock', `Sold a ${animal?.name || 'animal'} from ${plot?.name || 'a plot'}`)
-      persist()
-      toast(`Sold the ${animal?.name || 'animal'} back for ${fmt(refund)} credits.`)
-      return true
-    },
-    buildHouse: (plotId, tierId) => {
-      const plot = plotById(plotId)
-      const tier = houseTierById(tierId)
-      if (!plot || !tier) return false
-      const s = get()
-      if (!s.ownedLand.includes(plotId)) { toast('You need to buy this plot before you can build on it.'); return false }
-      const existingId = s.houses[plotId]
-      if (existingId === tierId) { toast(`${plot.name} already has the ${tier.name}.`); return false }
-      if (existingId) {
-        const existing = houseTierById(existingId)
-        const refund = Math.round((existing?.price || 0) * 0.5)
-        if (refund > 0) get().earn(refund, 'house', `Traded in the ${existing?.name || 'house'} on ${plot.name}`)
-      }
-      if (!get().spend(tier.price, 'house', `Built the ${tier.name} on ${plot.name}`)) return false
-      set({ houses: { ...get().houses, [plotId]: tierId } }); persist()
-      toast(`Built the ${tier.name} on ${plot.name} - ${fmt(tier.price)} credits.`)
-      return true
-    },
-    demolishHouse: (plotId) => {
-      const plot = plotById(plotId)
-      const s = get()
-      const tierId = s.houses[plotId]
-      if (!tierId) return false
-      const tier = houseTierById(tierId)
-      const refund = Math.round((tier?.price || 0) * 0.5)
-      const next = { ...s.houses }; delete next[plotId]
-      set({ houses: next })
-      if (refund > 0) get().earn(refund, 'house', `Demolished the ${tier?.name || 'house'} on ${plot?.name || 'a plot'}`)
-      persist()
-      toast(`Demolished the ${tier?.name || 'house'} - ${fmt(refund)} credits back.`)
       return true
     },
 
@@ -442,20 +287,9 @@ export const useJobs = create((set, get) => {
         const gross = s.accrued
         const bonus = Math.round(gross * p.bonus)
         const job = jobById(s.jobId)
-        let payout = gross + bonus
-        // auto-repay any Vision Storms Bank advance out of this paycheck, capped at half of it so
-        // a payday never nets the player zero credits just because they owe the bank.
-        let repaid = 0
-        if (get().loan > 0 && payout > 0) {
-          repaid = Math.min(get().loan, Math.round(payout * 0.5))
-          payout -= repaid
-          set({ loan: get().loan - repaid })
-        }
         if (gross > 0) {
-          add(payout, 'pay', `${p.label} pay, ${job.title}${bonus ? ` (includes +${Math.round(p.bonus * 100)}% bonus)` : ''}${repaid ? `, -${fmt(repaid)} bank advance repayment` : ''}`)
-          toast(repaid
-            ? `Payday! ${fmt(payout)} credits after ${fmt(repaid)} went to your Vision Storms Bank advance${get().loan > 0 ? ` (${fmt(get().loan)} still owed)` : ' (paid off!)'}.`
-            : `Payday! ${fmt(gross + bonus)} credits (${p.label.toLowerCase()} pay) were added to your wallet.`)
+          add(gross + bonus, 'pay', `${p.label} pay, ${job.title}${bonus ? ` (includes +${Math.round(p.bonus * 100)}% bonus)` : ''}`)
+          toast(`Payday! ${fmt(gross + bonus)} credits (${p.label.toLowerCase()} pay) were added to your wallet.`)
         } else {
           log('pay', `${p.label} pay day: nothing earned this period`, 0)
           toast(`Payday, but you didn't work any stops this ${p.label.toLowerCase()} period.`)
