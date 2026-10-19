@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
-import { RigidBody, CuboidCollider } from '@react-three/rapier'
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { RigidBody, CuboidCollider, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import { surface } from '../materials.js'
 import { assetMats } from '../assets/materials.js'
@@ -16,7 +17,10 @@ import WasteDistrict from './WasteDistrict.jsx'
 import IndustrialRow from './IndustrialRow.jsx'
 import HarborParade from './HarborParade.jsx'
 import Airport from './Airport.jsx'
-import { CURB, WEST, BOULEVARD, MAPLE, CEDAR, BLOCKS, PARADE } from '../../config/westend.js'
+import { CURB, WEST, BOULEVARD, MAPLE, CEDAR, BLOCKS, PARADE, TOLL } from '../../config/westend.js'
+import { playerState } from '../../state/runtime.js'
+import { useJobs } from '../../state/jobs.js'
+import { useStore } from '../../state/store.js'
 
 // The West End: roads, sidewalks, crossings, lamps and street signs for the new districts west of the original map.
 // Phase 1 (built): Meadowbrook Terrace + Meadowbrook Park, north-east block.
@@ -119,7 +123,7 @@ function Kerbs() {
 }
 
 /** Street-name blade sign on a pole. */
-function StreetSign({ position, text, num = '', yaw = 0 }) {
+export function StreetSign({ position, text, num = '', yaw = 0 }) {
   const A = assetMats()
   const green = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1d5a45', roughness: 0.45, metalness: 0.1 }), [])
   return (
@@ -130,6 +134,38 @@ function StreetSign({ position, text, num = '', yaw = 0 }) {
       {[0, Math.PI, Math.PI / 2, -Math.PI / 2].map((r, i) => (
         <group key={i} rotation={[0, r, 0]}>
           <BrandSign text={text} sub={num || undefined} position={[0, 3.35, 0.03]} width={1.4} size={110} color="#ffffff" glow="#ffffff" />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+/** Open-road tolling gantry over the boulevard (Tomball Pkwy) - EZ TAG style: two slim posts and
+ *  an overhead beam, no booths, nobody stops. The posts use the exact same thin-post pattern as
+ *  StreetLamp above (a real CylinderCollider, well outside the travel lanes on both sides); the
+ *  beam itself has no collider since nothing in the game reaches 4.6m up over the road. Billing
+ *  for actually driving under it lives in WestEnd()'s useFrame below, not here - this component
+ *  is just what you see. */
+function TollGantry({ x }) {
+  const A = assetMats()
+  const green = useMemo(() => new THREE.MeshStandardMaterial({ color: '#1d5a45', roughness: 0.45, metalness: 0.1 }), [])
+  const legZ0 = BOULEVARD.z0 - 1.5, legZ1 = BOULEVARD.z1 + 1.5, cz = (BOULEVARD.z0 + BOULEVARD.z1) / 2, H = 4.6
+  return (
+    <group position={[x, 0, 0]}>
+      {[legZ0, legZ1].map((z) => (
+        <RigidBody key={z} type="fixed" colliders={false} position={[0, 0, z]}>
+          <CylinderCollider args={[H / 2, 0.09]} position={[0, H / 2, 0]} />
+          <mesh position={[0, H / 2, 0]} material={A.galv} castShadow><cylinderGeometry args={[0.08, 0.1, H, 10]} /></mesh>
+        </RigidBody>
+      ))}
+      <mesh position={[0, H, cz]} material={A.galv} castShadow><boxGeometry args={[0.22, 0.3, legZ1 - legZ0]} /></mesh>
+      {[legZ0 + 2, cz, legZ1 - 2].map((z) => (
+        <mesh key={'pod' + z} position={[0.14, H - 0.22, z]} material={A.galv}><boxGeometry args={[0.16, 0.16, 0.26]} /></mesh>
+      ))}
+      {[0, Math.PI].map((r) => (
+        <group key={r} position={[0, 0, cz]} rotation={[0, r, 0]}>
+          <mesh position={[0, H - 0.8, 0]} material={green}><boxGeometry args={[3.2, 1.1, 0.04]} /></mesh>
+          <BrandSign text="TOMBALL PKWY" sub="EZ TAG ONLY · NO STOPPING" position={[0, H - 0.8, 0.03]} width={3.0} size={100} color="#ffffff" glow="#ffffff" />
         </group>
       ))}
     </group>
@@ -196,6 +232,25 @@ export default function WestEnd() {
     }
     return out
   }, [])
+  // Tomball Pkwy open-road toll: charge once per pass under the gantry (TOLL.x), only while
+  // actually driving (playerState.vehicle is set while in a car/bike - see vehicles/Vehicle.jsx),
+  // and only near the boulevard's own z band so walking near x=TOLL.x elsewhere on the map can't
+  // trigger it. `side` tracks which side of the gantry the player was on last frame; crossing
+  // flips it and fires exactly one charge, so driving back and forth across it charges each pass
+  // (as a real EZ TAG gantry would) without ever double-charging a single crossing.
+  const tollSide = useRef(null)
+  useFrame(() => {
+    if (!playerState.vehicle) { tollSide.current = null; return }
+    const p = playerState.position
+    if (Math.abs(p.z - (BOULEVARD.z0 + BOULEVARD.z1) / 2) > 10) { tollSide.current = null; return }
+    const side = p.x < TOLL.x ? -1 : 1
+    if (tollSide.current !== null && side !== tollSide.current) {
+      if (useJobs.getState().spend(TOLL.fare, 'toll', 'Tomball Pkwy toll (EZ TAG)')) {
+        useStore.getState().showToast(`EZ TAG: $${TOLL.fare.toFixed(2)} toll charged - Tomball Pkwy`)
+      }
+    }
+    tollSide.current = side
+  })
   return (
     <>
       <StaticBatch name="westend-roads">
@@ -204,6 +259,10 @@ export default function WestEnd() {
         <StreetSign position={[MAPLE.x1 + 0.7, CURB, BOULEVARD.z0 - 0.7]} text="MAPLE AVE" num="2200 BLOCK" />
         <StreetSign position={[CEDAR.x1 + 0.7, CURB, BOULEVARD.z0 - 0.7]} text="CEDAR AVE" />
         <StreetSign position={[MAPLE.x0 - 0.7, CURB, BOULEVARD.z1 + 0.7]} text="HARBOR BLVD" />
+        <StreetSign position={[-350, CURB, BOULEVARD.z0 - 0.7]} text="WEBSTER ST" />
+        <StreetSign position={[-180, CURB, BOULEVARD.z1 + 0.7]} text="CAROLYN ST" />
+        <StreetSign position={[TOLL.x + 34, CURB, BOULEVARD.z0 - 0.7]} text="TOMBALL PKWY" num="TOLL ROAD 1 MI" />
+        <TollGantry x={TOLL.x} />
         {Object.entries(PHASES).map(([id]) => <Site key={id} id={id} b={id === 'se' ? PARADE.site : BLOCKS[id]} />)}
       </StaticBatch>
       <MeadowbrookPark />

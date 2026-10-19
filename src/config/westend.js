@@ -8,6 +8,11 @@ export const BOULEVARD = { z0: 14, z1: 26 } // the existing cross street, contin
 export const MAPLE = { x0: -214, x1: -202 }
 export const CEDAR = { x0: -318, x1: -306 }
 
+/** Tomball Pkwy: the boulevard's open-road toll point, between the Maple and Cedar blocks (clear
+ *  of every fenced lot on both sides). No new pavement or collider - it's the existing boulevard,
+ *  just signed and billed like a real Houston-area tollway (HCTRA-style EZ TAG gantry, no booths). */
+export const TOLL = { x: -260, fare: 1.25 }
+
 /** raised sidewalk / lot slabs [x0, x1, z0, z1] */
 export const BLOCKS = {
   ne: [-202, -132, -120, 14], // Phase 1: Meadowbrook Terrace + Meadowbrook Park
