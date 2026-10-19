@@ -80,5 +80,4 @@ export const SPAWNS = [
   ['depot', 'Waste-services depot (Cedar Works)', [-355, CURB + 0.2, 13.2], Math.PI],
   ['parade', 'Harbor Parade (laundromat, cleaners)', [-171, CURB + 0.2, 26.9], 0],
   ['airport', 'Vision Storms International Airport', [-440, CURB + 0.2, 20], Math.PI],
-  ['beltway8', 'Beltway 8 elevated freeway (south of the airport)', [-600, 0.3, 95], 0],
 ]
