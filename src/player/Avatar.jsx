@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useRapier } from '@react-three/rapier'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { applyWorkout } from './workoutPose.js'
 import { performanceViseme } from '../music/lipsync.js'
 import { blinkAmount } from '../anim/blink.js'
+import { twoBoneIK } from '../anim/ik.js'
 import { registry } from '../assets/assetStore.js'
+
+// Scratch objects for the idle-stance foot IK below (see the IK block in useFrame). Shared at
+// module scope since only the local player ever actually uses them (see `isPlayer`) - no
+// per-NPC allocation or per-NPC physics work, which is what made the first attempt at this
+// risky: dozens of NPCs all doing new physics raycasts and consuming a new hook on first mount.
+const ikPos = new THREE.Vector3(), ikQuat = new THREE.Quaternion(), ikOff = new THREE.Vector3(), ikOrigin = new THREE.Vector3(), ikDownRay = { x: 0, y: -1, z: 0 }
+const THIGH_LEN = 0.45, SHIN_LEN = 0.43, LEG_LEN = THIGH_LEN + SHIN_LEN
 
 // A picked-up prop held in front of the chest while state.carrying is set (see state/runtime.js,
 // world/Carryables.jsx). Shrunk to a consistent hand-held size regardless of the prop's real scale.
@@ -32,7 +41,7 @@ const capsule = (r, len) => new THREE.CapsuleGeometry(r, len, 6, 12)
 
 // Optional extras, used for scripted actors (the Reign Estate duet): look = { gown, longHair, hair, noVisor }.
 // `state.sing` (0..1) opens the mouth and lifts the chin; `state.gesture` is one of 'chest' | 'open' | 'reach' | 'hold'.
-export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', outfit = null, look = null }) {
+export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', outfit = null, look = null, isPlayer = false }) {
   const g = useMemo(() => ({
     torso: capsule(0.17, 0.34),
     pelvis: capsule(0.15, 0.08),
@@ -80,6 +89,12 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     lUL: useRef(), lLL: useRef(), rUL: useRef(), rLL: useRef(),
   }
   const anim = useRef({ phase: 0, amp: 0, run: 0, air: 0, wave: 0, t: 0, sit: 0, sing: 0, chest: 0, open: 0, reach: 0, hold: 0, read: 0, write: 0, point: 0, swim: 0, climb: 0, stroke: 0, sp: 0, vd: 0, dv: 0, tray: 0, shake: 0, wipe: 0, brow: 0, blow: 0, stir: 0, wk: 0, wkKind: null, clap: 0, bow: 0, dance: 0, laugh: 0, cry: 0, talk: 0 })
+  // idle-stance foot IK (anim/ik.js), local player only - see the useFrame block below for why.
+  // useRapier() is still called unconditionally for every instance (hooks can never be called
+  // conditionally) - it's a cheap context read, proven safe elsewhere in this project
+  // (CameraRig.jsx, Vehicle.jsx); only the local player's useFrame block actually uses it.
+  const ikL = useRef({ hip: 0, knee: 0 }), ikR = useRef({ hip: 0, knee: 0 }), ikTimer = useRef(0.1)
+  const { world, rapier } = useRapier()
 
   useFrame((_, dtRaw) => {
     // work uniform (set by the jobs system for the local player): recolour clothes, trim, cap and vest
@@ -236,6 +251,50 @@ export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', ou
     if (wkKind) a.wkKind = wkKind
     a.wk = k(a.wk, wkKind ? 1 : 0, 6)
     if (a.wk > 0.01 && a.wkKind) applyWorkout(a.wkKind, r, a.wk, state.sitHeight || 0.45)
+
+    // idle-stance foot IK (anim/ik.js): plants each foot on the ground actually beneath it when
+    // standing on a curb, step, or raised slab, instead of floating or sinking. Pure two-bone
+    // analytic IK, so it is always geometrically reachable - never a flip or a twisted joint.
+    // It only has any effect near a full standing idle: `idleFactor` fades it to exactly 0 the
+    // moment the character walks, runs, jumps, sits, swims, climbs, dives, or works out, so it
+    // can never fight any of those existing poses.
+    // Scoped to the local player only (isPlayer) and wrapped in try/catch: this is the one piece
+    // of this animation system that depends on a physics raycast rather than pure procedural
+    // math, so a prior attempt that ran it for every NPC crashed the live build. Limiting it to
+    // the single player instance removes the many-instances-at-once risk, and the try/catch
+    // means that if the physics call ever does throw for some reason, it's silently skipped for
+    // that frame instead of taking down the scene.
+    if (isPlayer) {
+      const idleFactor = (1 - a.amp) * (1 - air) * (1 - st) * (1 - a.swim) * (1 - a.climb) * (1 - a.dv) * (1 - a.wk)
+      ikTimer.current -= dt
+      if (world && rapier && idleFactor > 0.3 && ikTimer.current <= 0 && r.root.current) {
+        ikTimer.current = 0.25
+        try {
+          r.root.current.getWorldPosition(ikPos)
+          r.root.current.getWorldQuaternion(ikQuat)
+          const hipY = ikPos.y + 0.95
+          for (const side of [0, 1]) {
+            const footX = side === 0 ? 0.1 : -0.1
+            ikOff.set(footX, 0, 0).applyQuaternion(ikQuat)
+            ikOrigin.set(ikPos.x + ikOff.x, hipY + 0.4, ikPos.z + ikOff.z)
+            const ray = new rapier.Ray(ikOrigin, ikDownRay)
+            const hit = world.castRay(ray, 1.6, true, undefined, undefined, undefined, undefined,
+              (c) => c.handle !== state.colliderHandle && !c.isSensor())
+            const groundY = hit ? ikOrigin.y - hit.timeOfImpact : ikPos.y
+            const dist = THREE.MathUtils.clamp(hipY - groundY, LEG_LEN - 0.22, LEG_LEN)
+            const solved = twoBoneIK(THIGH_LEN, SHIN_LEN, dist)
+            const target = side === 0 ? ikL.current : ikR.current
+            target.hip = solved.hip; target.knee = solved.knee
+          }
+        } catch { /* physics world not ready, or a transient query failure - skip this sample */ }
+      }
+      if (idleFactor > 0.01) {
+        r.lUL.current.rotation.x += -ikL.current.hip * idleFactor
+        r.lLL.current.rotation.x += ikL.current.knee * idleFactor
+        r.rUL.current.rotation.x += -ikR.current.hip * idleFactor
+        r.rLL.current.rotation.x += ikR.current.knee * idleFactor
+      }
+    }
 
     // singing: mouth, chin, sway, and a few hand gestures (scripted actors only)
     const sg = state.sing || 0

@@ -520,7 +520,7 @@ export default function Player() {
         {useImported ? (
           <ImportedAvatar assetId={avatarCfg.assetId} facing={avatarCfg.facing} state={playerState} />
         ) : (
-          <Avatar state={playerState} accent={profile.accent} skin={profile.skin} outfit={outfit} look={socialLook} />
+          <Avatar state={playerState} accent={profile.accent} skin={profile.skin} outfit={outfit} look={socialLook} isPlayer />
         )}
       </group>
     </RigidBody>
