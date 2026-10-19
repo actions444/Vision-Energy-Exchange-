@@ -262,8 +262,6 @@ export default function WestEnd() {
         <StreetSign position={[-350, CURB, BOULEVARD.z0 - 0.7]} text="WEBSTER ST" />
         <StreetSign position={[-180, CURB, BOULEVARD.z1 + 0.7]} text="CAROLYN ST" />
         <StreetSign position={[TOLL.x + 34, CURB, BOULEVARD.z0 - 0.7]} text="TOMBALL PKWY" num="TOLL ROAD 1 MI" />
-        <StreetSign position={[-145, CURB, BOULEVARD.z1 + 0.7]} text="TOMBALL PKWY" num="DOWNTOWN 2 MI" />
-        <StreetSign position={[-145, CURB, BOULEVARD.z0 - 0.7]} text="SPEED LIMIT" num="65" />
         <TollGantry x={TOLL.x} />
         {Object.entries(PHASES).map(([id]) => <Site key={id} id={id} b={id === 'se' ? PARADE.site : BLOCKS[id]} />)}
       </StaticBatch>

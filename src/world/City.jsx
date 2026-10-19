@@ -19,7 +19,7 @@ import { nightLit } from '../state/environment.js'
 import { StaticBatch } from './batch.jsx'
 import ConcertStage from './ConcertStage.jsx'
 import Ocean, { OCEAN } from './Ocean.jsx'
-import WestEnd, { StreetSign } from './westend/WestEnd.jsx'
+import WestEnd from './westend/WestEnd.jsx'
 import JusticeDistrict, { JUSTICE } from './Justice.jsx'
 import CountyJail, { JAIL, JAIL_YARD } from './CountyJail.jsx'
 import StatePrison, { PRISON, PRISON_YARD } from './StatePrison.jsx'
@@ -169,9 +169,6 @@ export default function City() {
 
       <Trees trees={streetTrees} />
       {lamps.map(([p, yaw], i) => <StreetLamp key={i} position={p} yaw={yaw} />)}
-      {/* the avenue's south end ties into Tomball Pkwy, which continues all the way out through
-          the West End (see world/westend/WestEnd.jsx) - same sign, same component, just here too */}
-      <StreetSign position={[AVENUE.x1 + 1, CURB, AVENUE.z0 - 1]} text="TOMBALL PKWY" num="WEST END 2 MI" yaw={Math.PI} />
 
       {/* Reign Gallery forecourt */}
       <FlowerBed x={-4} z={-29.3} w={3.6} d={2.4} seed={2} />
