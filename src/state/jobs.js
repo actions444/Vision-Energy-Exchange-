@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { useStore } from './store.js'
 import { PAY, START_WALLET, ROUTE_BONUS, STOPS, jobById, uniformById, routeFor, stopPay, routeBonus, SITES, WASH_PRICE, WASH_SECONDS, IRON_PRICE, RATING_START, ratingMultiplier, ratingTier } from '../config/jobs.js'
 import { BUSINESSES, businessById } from '../config/businesses.js'
+import { hotelTierById } from '../config/hotel.js'
 
 // Jobs, uniforms, shifts and payroll.
 //
@@ -38,6 +39,7 @@ const BASE = {
   walletTopped: true, // internal: has the one-time 50,000-credit top-up above already run on this save
   loan: 0, // credits currently owed to Vision Storms Bank (see takeLoan/repayLoan below)
   loanBorrowed: 0, // lifetime credits ever advanced - part of how the next credit line is sized
+  hotelStay: null, // { tierId, bookedDay, nights } while checked into the Vision Grand Hotel, else null
 }
 const PERSIST = Object.keys(BASE)
 
@@ -169,6 +171,27 @@ export const useJobs = create((set, get) => {
       log('loan', 'Paid down the Vision Storms Bank advance', -amount); persist()
       toast(`Paid down ${fmt(amount)} credits. ${s.loan - amount > 0 ? `${fmt(s.loan - amount)} still owed.` : 'Advance paid off.'}`)
       return true
+    },
+
+    // ---- Vision Grand Hotel: book and pay for a room at the front desk ----
+    bookHotel: (tierId, nights) => {
+      const tier = hotelTierById(tierId)
+      nights = Math.max(1, Math.round(nights) || 1)
+      if (!tier) return false
+      const s = get()
+      if (s.hotelStay) { toast(`You're already checked into the ${hotelTierById(s.hotelStay.tierId)?.name || 'hotel'}. Check out first to book a different room.`); return false }
+      const total = tier.price * nights
+      if (!get().spend(total, 'hotel', `Vision Grand Hotel: ${tier.name} x ${nights} night${nights === 1 ? '' : 's'}`)) return false
+      set({ hotelStay: { tierId, bookedDay: get().day, nights } }); persist()
+      toast(`Checked into the ${tier.name} for ${nights} night${nights === 1 ? '' : 's'} - ${fmt(total)} credits.`)
+      return true
+    },
+    checkOutHotel: () => {
+      const s = get()
+      if (!s.hotelStay) return
+      const tier = hotelTierById(s.hotelStay.tierId)
+      set({ hotelStay: null }); persist()
+      toast(`Checked out of the ${tier?.name || 'hotel'}. Thanks for staying at Vision Grand Hotel.`)
     },
 
     hire: (jobId) => {

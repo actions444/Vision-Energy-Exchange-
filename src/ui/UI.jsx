@@ -63,6 +63,8 @@ import CineOverlay from './CineOverlay.jsx'
 import { useCine } from '../state/cine.js'
 import ActionsPanel from './ActionsPanel.jsx'
 import MallPanel from './MallPanel.jsx'
+import HotelPanel from './HotelPanel.jsx'
+import { HOTEL } from '../config/hotel.js'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access', 'npcs'])
 
@@ -114,6 +116,7 @@ export default function UI() {
       {panel?.type === 'departures' && <DeparturesPanel />}
       {panel?.type === 'performance' && <PerformancePanel />}
       {panel?.type === 'actions' && <ActionsPanel />}
+      {panel?.type === 'hotel' && <HotelPanel />}
       {panel?.type === 'mall' && <MallPanel storeId={panel.storeId} />}
       <WorkoutHud />
       {panel?.type === 'car' && <CarPanel id={panel.id} />}
@@ -431,6 +434,7 @@ function HUD() {
             ['mall', 'Vision Storms Exchanges (mall)', [(MALL_B.x0 + MALL_B.x1) / 2, 0.3, MALL_B.z0]],
             ['apts1', 'Maple Garden Apartments', [(APTS1_WALK.x0 + APTS1_WALK.x1) / 2, 0.3, APTS1_LOT.z0]],
             ['club1', 'Iron Horse M.C. (biker meetup)', [CLUB_CX, 0.3, CLUB_LOT.z1 - 2]],
+            ['hotel', 'Vision Grand Hotel (Isla Serena)', [(HOTEL.building.x0 + HOTEL.building.x1) / 2, 0.6, HOTEL.building.z0 - 3]],
             ...SPAWNS.map(([id, name, pos]) => [id, name, pos]),
           ].map(([id, name, pos]) => (
             <button key={id} id={'place-' + id} role="menuitem" onClick={() => { playerState.teleport = pos; setPlaces(false); setMenu(false) }}>{name}</button>
