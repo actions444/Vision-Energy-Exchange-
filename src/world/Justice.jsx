@@ -388,8 +388,15 @@ export function UStair({ x0, x1, zA, zB, y, rise, landing = 1.6 }) {
         const innerX = f.xc + (fi === 0 ? 1 : -1) * (fw / 2)
         return (
           <group key={fi}>
+            {/* Individual step colliders for climbing - prevents falling through */}
             <RigidBody type="fixed" colliders={false}>
-              <CuboidCollider args={[fw / 2, 0.1, len / 2]} position={[f.xc, ym - ny * 0.1, zm - nz * 0.1]} rotation={[rotX, 0, 0]} />
+              {Array.from({ length: N }, (_, i) => {
+                const zc = f.z0 + f.dz * (i + 0.5) * ts
+                const top = f.y0 + (i + 1) * rs
+                return (
+                  <CuboidCollider key={`step-${i}`} args={[fw / 2 - 0.05, rs / 2 + 0.02, ts / 2]} position={[f.xc, top - rs / 2, zc]} />
+                )
+              })}
             </RigidBody>
             {Array.from({ length: N }, (_, i) => {
               const zc = f.z0 + f.dz * (i + 0.5) * ts

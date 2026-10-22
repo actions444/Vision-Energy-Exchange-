@@ -324,8 +324,16 @@ function Stairs() {
         const railY = y + rise / 2 + 0.95
         return (
           <group key={si}>
+            {/* Individual step colliders for safe climbing */}
             <RigidBody type="fixed" colliders={false}>
-              <CuboidCollider args={[len / 2, 0.1, w / 2]} position={rampC} rotation={[0, 0, rot]} />
+              {Array.from({ length: n }, (_, i) => {
+                const u = west ? s.u1 - (i + 0.5) * (run / n) : s.u0 + (i + 0.5) * (run / n)
+                const stepY = y + (i + 1) * (rise / n)
+                const stepH = (rise / n) / 2 + 0.01
+                return (
+                  <CuboidCollider key={`step-${i}`} args={[(run / n) / 2 - 0.02, stepH, w / 2]} position={[P.X(u), stepY - stepH, P.Z(vc)]} />
+                )
+              })}
               <CuboidCollider args={[len / 2, 0.55, 0.04]} position={[P.X(cxU), railY - 0.4, P.Z(s.v0 === 15.6 ? s.v0 : s.v1)]} rotation={[0, 0, rot]} />
             </RigidBody>
             {Array.from({ length: n }, (_, i) => {
