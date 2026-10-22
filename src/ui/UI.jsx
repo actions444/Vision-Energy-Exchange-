@@ -68,6 +68,7 @@ import MallPanel from './MallPanel.jsx'
 import HotelPanel from './HotelPanel.jsx'
 import { HOTEL } from '../config/hotel.js'
 import { AnimationHUD } from './AnimationHUD.jsx'
+import { CombatHUD } from './CombatHUD.jsx'
 
 const ADMIN_PANELS = new Set(['music', 'admin', 'world', 'rentals', 'media', 'access', 'npcs'])
 
@@ -92,6 +93,7 @@ export default function UI() {
       {phase === 'playing' && !film && <TouchControls />}
       {phase === 'playing' && !film && <MusicPlayer />}
       {phase === 'playing' && !film && <AnimationHUD />}
+      {phase === 'playing' && !film && <CombatHUD />}
       {phase === 'playing' && <DecorPanel />}
       {ok && panel?.type === 'music' && <MusicAdmin />}
       {ok && panel?.type === 'admin' && <AdminHub />}
