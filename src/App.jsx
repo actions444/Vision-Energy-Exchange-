@@ -27,6 +27,7 @@ import CineStage, { CineFocus } from './world/CineStage.jsx'
 import { useCine, cine, startCine, stopCine } from './state/cine.js'
 import DecorLayer from './decor/DecorLayer.jsx'
 import PhotoBooth from './rentals/PhotoBooth.jsx'
+import TreasurePyramids from './world/TreasurePyramids.jsx'
 import { usePreview, useRentDraft, startTour } from './rentals/preview.js'
 import { startDecor, useDecor } from './decor/decor.js'
 import { useDriving, vehicleBodies, vehicleActions } from './vehicles/vehicles.js'
@@ -109,6 +110,7 @@ export default function App() {
             <City />
             <Gallery />
             <PlacedAssets />
+            <TreasurePyramids />
             <Player />
             <RemotePlayers />
             <Vehicles />
