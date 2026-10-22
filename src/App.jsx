@@ -33,6 +33,7 @@ import { usePreview, useRentDraft, startTour } from './rentals/preview.js'
 import { startDecor, useDecor } from './decor/decor.js'
 import { useDriving, vehicleBodies, vehicleActions } from './vehicles/vehicles.js'
 import { elevator, useElevatorUI } from './world/elevator.js'
+import { usePhotoGallery, captureScreenshot } from './state/photoSystem.js'
 import MusicZones from './music/MusicZones.jsx'
 import { useMusicLibrary, resolveTrackSource } from './music/library.js'
 import { musicEngine, useMusic } from './music/engine.js'
@@ -80,6 +81,16 @@ export default function App() {
         if (e.code === 'KeyT' || e.code === 'Enter') {
           const el = document.getElementById('chat-input')
           if (el) { e.preventDefault(); el.focus() }
+        }
+        if (e.code === 'KeyP' && !e.repeat) {
+          const gl = window.__vswGl
+          if (gl) {
+            const canvas = captureScreenshot(gl)
+            if (canvas) {
+              usePhotoGallery.getState().takePhoto(canvas)
+              st.showToast('📷 Photo saved!')
+            }
+          }
         }
       },
     })

@@ -126,12 +126,12 @@ function Bistro() {
       <RoomSwitch f={f} side="south" zone={Z} />
       {tables.map(([u, v], i) => <DiningSet key={i} position={at(u, f, v)} chairs={4} size={0.9} color={['#6b4f3a', '#3f4a3c'][i % 2]} />)}
       {tables.map(([u, v], i) => <PendantLight key={'p' + i} position={at(u, f, v, CEIL)} drop={1.4} zone={Z} />)}
-      {/* bar */}
-      <Counter position={at(23.5, f, 5)} yaw={Math.PI / 2} length={6} />
-      {[3, 4.5, 6, 7.5].map((v) => <Stool key={v} position={at(22.4, f, v)} />)}
+      {/* bar - moved away from door at u=20 */}
+      <Counter position={at(25.5, f, 5)} yaw={Math.PI / 2} length={6} />
+      {[3, 4.5, 6, 7.5].map((v) => <Stool key={v} position={at(24.2, f, v)} />)}
       <Shelf position={at(27.4, f, 5)} yaw={-Math.PI / 2} width={5} height={2.4} />
-      <Sofa position={at(18, f, 0.85)} yaw={0} length={3.2} color="#7a3b33" label="Sit in booth" />
-      <Table position={at(18, f, 1.95)} size={[2.2, 0.8]} />
+      <Sofa position={at(5, f, 0.85)} yaw={0} length={3.2} color="#7a3b33" label="Sit in booth" />
+      <Table position={at(5, f, 1.95)} size={[2.2, 0.8]} />
       <PottedPlant position={at(5.4, f, 9.3)} kind="areca" scale={1.25} />
       <PottedPlant position={at(21.6, f, 9.3)} kind="monstera" scale={1.1} />
       <Chandelier position={at(12, f, 5, CEIL)} type="gold" size={1.1} drop={0.8} zone={Z} intensity={9} />
@@ -208,8 +208,9 @@ function Screening() {
         screenH={2.35} backExit={false} seatColor="#4a1a22"
       />
       <ExitSign position={at(DOOR_U, f, S1 - 0.06, 2.65)} yaw={Math.PI} />
-      <Counter position={at(25.5, f, 3)} yaw={Math.PI / 2} length={3} top="wood" />
-      <Sofa position={at(22, f, 0.85)} yaw={0} length={2.6} color="#4a1a22" label="Sit on lounge sofa" />
+      {/* Counter moved further from door */}
+      <Counter position={at(26.5, f, 3)} yaw={Math.PI / 2} length={3} top="wood" />
+      <Sofa position={at(5, f, 0.85)} yaw={0} length={2.6} color="#4a1a22" label="Sit on lounge sofa" />
       <TV position={at(27.7, f, 2.6, 1.8)} yaw={-Math.PI / 2} size={[1.6, 0.9]} id="tv-screening" zone={Z} channel={0} />
       <Chandelier position={at(23, f, 6.5, CEIL)} type="crystal" size={0.85} drop={0.7} zone={Z} intensity={7} />
       <Bathroom center={at(18.35, f, 7.5)} yaw={0} w={4.5} d={3.0} h={CEIL} zone={Z} />

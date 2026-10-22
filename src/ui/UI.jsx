@@ -41,6 +41,7 @@ import CarPanel from './CarPanel.jsx'
 import TaxiPanel from './TaxiPanel.jsx'
 import { PowerChip } from './PowerChip.jsx'
 import DailyBonusChip from './DailyBonusChip.jsx'
+import PhotoGallery from './PhotoGallery.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import AtmPanel from './AtmPanel.jsx'
 import { SlotsPanel, RoulettePanel, BlackjackPanel } from './CasinoPanel.jsx'
@@ -408,6 +409,7 @@ function HUD() {
           <PowerChip />
           <DailyBonusChip />
           <JobsChip />
+          <PhotoGallery />
         </div>
         {isTouch ? (
           <nav className="hud-right hud-menu">
