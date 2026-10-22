@@ -361,9 +361,30 @@ export default function Player() {
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw)
     const rx = Math.cos(yaw), rz = -Math.sin(yaw)
     let mx = 0, my = 0
-    if (playing && !panelOpen) { mx = input.move.x; my = input.move.y }
+    let navRunning = false
+    if (playing && !panelOpen) {
+      if (input.nav.active) {
+        // tap-to-move: head toward the tapped ground point. Reuses the exact same mx/my (camera-
+        // relative local input) the joystick/WASD already feed below - nothing about the actual
+        // movement, collision or ground-snap code path changes, this only produces the input.
+        const tdx = input.nav.x - playerState.position.x, tdz = input.nav.z - playerState.position.z
+        const tdist = Math.hypot(tdx, tdz)
+        if (tdist < 0.5) {
+          input.nav.active = false // arrived
+        } else {
+          const ndx = tdx / tdist, ndz = tdz / tdist
+          // invert `dx = fx*my + rx*mx; dz = fz*my + rz*mx` below for this unit world direction
+          my = ndx * fx + ndz * fz
+          mx = ndx * rx + ndz * rz
+          navRunning = true
+        }
+      } else {
+        mx = input.move.x; my = input.move.y
+      }
+    }
     const mag = Math.min(1, Math.hypot(mx, my))
-    const baseSpeed = mode === 'swim' ? (input.run ? SWIM_FAST : SWIM) : mode === 'wade' ? (input.run ? RUN * 0.55 : WALK * 0.72) : (input.run ? RUN : WALK)
+    const running = input.run || navRunning
+    const baseSpeed = mode === 'swim' ? (running ? SWIM_FAST : SWIM) : mode === 'wade' ? (running ? RUN * 0.55 : WALK * 0.72) : (running ? RUN : WALK)
     const speed = baseSpeed * (input.joystick.active ? Math.min(1, mag * 1.15) : mag)
     let dx = fx * my + rx * mx
     let dz = fz * my + rz * mx
@@ -450,6 +471,7 @@ export default function Player() {
     if (playerState.respawn) {
       playerState.respawn = false
       next.x = SPAWN.x; next.y = SPAWN.y + 1; next.z = SPAWN.z; v.current.set(0, 0, 0); playerState.swim = null; playerState.breath = 1; playerState.headUnder = false; playerState.diveAir = false
+      input.nav.active = false
     }
     // "Unstuck": the nearest free spot around you, else the nearest checkpoint
     if (playerState.unstuck) {
@@ -457,11 +479,13 @@ export default function Player() {
       const s = freeSpotNear(next, world, rapier, col) || nearestCheckpoint(next)
       next.x = s[0]; next.y = s[1] + 0.1; next.z = s[2]; v.current.set(0, 0, 0)
       useStore.getState().showToast('Moved you to a clear spot nearby.')
+      input.nav.active = false
     }
     if (playerState.teleport) {
       ;[next.x, next.y, next.z] = playerState.teleport
       playerState.teleport = null
       v.current.set(0, 0, 0)
+      input.nav.active = false
     }
     b.setNextKinematicTranslation(next)
 
