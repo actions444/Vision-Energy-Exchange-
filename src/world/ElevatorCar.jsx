@@ -171,13 +171,15 @@ export function ElevatorCar({ cfg }) {
   const jambW = (cw + 0.4) / 2 - LEAF // width of each front jamb (door opening is 2 * LEAF wide)
   return (
     <group>
-      {/* ---------------- shaft walls (static) ---------------- */}
+      {/* ---------------- shaft walls (static) + exit platforms for walking out smoothly ---------------- */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[(cw + 0.4) / 2, wallH / 2, 0.1]} position={[ccx, midY, backZ]} />
         {[x0 - 0.1, x1 + 0.1].map((x) => <CuboidCollider key={x} args={[0.1, wallH / 2, (cd + 0.4) / 2]} position={[x, midY, ccz]} />)}
         {[-1, 1].map((k) => <CuboidCollider key={k} args={[jambW / 2, wallH / 2, 0.1]} position={[ccx + k * (LEAF + jambW / 2), midY, frontZ]} />)}
+        {/* Floor exit platforms: allow smooth walking out when elevator doors open */}
         {Array.from({ length: floors }, (_, f) => (
           <group key={f}>
+            <CuboidCollider args={[LEAF + 0.8, 0.01, 1.5]} position={[ccx, Y(f) - 0.01, frontZ - (s * 0.8)]} />
             <CuboidCollider args={[LEAF, (floorH - DOOR_H) / 2, 0.1]} position={[ccx, Y(f) + DOOR_H + (floorH - DOOR_H) / 2, frontZ]} />
             <CuboidCollider args={[LEAF, 0.15, 0.1]} position={[ccx, Y(f) - 0.15, frontZ]} />
           </group>
