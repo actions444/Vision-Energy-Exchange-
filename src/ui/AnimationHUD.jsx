@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAnimationSystem } from '../state/animationSystem'
 import { useAnimationKeyboard, getHotkeyInfo } from '../hooks/useAnimationKeyboard'
+import { useTouchAnimations, getSwipeHints } from '../hooks/useTouchAnimations'
+import { useStore } from '../state/store'
 import { AnimationPicker } from './AnimationPicker'
 import '../style/animationHUD.css'
 
@@ -11,12 +13,23 @@ import '../style/animationHUD.css'
 export function AnimationHUD() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [showHotkeys, setShowHotkeys] = useState(false)
+  const [showSwipes, setShowSwipes] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const playAnimation = useAnimationSystem(state => state.playAnimation)
   const stopAnimation = useAnimationSystem(state => state.stopAnimation)
   const currentAnimation = useAnimationSystem(state => state.currentAnimation)
+  const isTouch = useStore(s => s.isTouch)
 
   // Enable keyboard shortcuts
   useAnimationKeyboard()
+
+  // Enable touch gestures on mobile
+  useTouchAnimations(() => setIsPickerOpen(!isPickerOpen))
+
+  // Detect mobile
+  useEffect(() => {
+    setIsMobile(isTouch)
+  }, [isTouch])
 
   // Quick action animations
   const quickAnimations = [
@@ -63,9 +76,9 @@ export function AnimationHUD() {
           <button
             className="animation-control-btn hotkey-btn"
             onClick={() => setShowHotkeys(!showHotkeys)}
-            title="Show keyboard shortcuts"
+            title={isMobile ? "Show touch gestures" : "Show keyboard shortcuts"}
           >
-            ⌨️
+            {isMobile ? '👆' : '⌨️'}
           </button>
         </div>
 
@@ -87,8 +100,11 @@ export function AnimationHUD() {
           ))}
         </div>
 
-        {/* Hotkey Reference */}
-        {showHotkeys && <HotkeyReference onClose={() => setShowHotkeys(false)} />}
+        {/* Reference Panel */}
+        {showHotkeys && (isMobile
+          ? <SwipeReference onClose={() => setShowHotkeys(false)} />
+          : <HotkeyReference onClose={() => setShowHotkeys(false)} />
+        )}
       </div>
 
       {/* Animation Picker Modal */}
@@ -117,6 +133,36 @@ function HotkeyReference({ onClose }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Swipe Gestures Reference Panel (Mobile)
+ */
+function SwipeReference({ onClose }) {
+  const swipeHints = getSwipeHints()
+
+  return (
+    <div className="swipe-reference">
+      <div className="swipe-reference-header">
+        <h3>👆 Touch Gestures</h3>
+        <button className="close" onClick={onClose}>✕</button>
+      </div>
+      <div className="swipe-grid">
+        {swipeHints.map((hint) => (
+          <div key={hint.direction} className="swipe-item">
+            <div className="swipe-gesture">{hint.direction}</div>
+            <div className="swipe-info">
+              <span className="swipe-label">{hint.label}</span>
+              <span className="swipe-anim">{hint.animation}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="swipe-hint">
+        💡 Swipe in any direction for quick animations. Double-tap for a laugh. Long-press to open the animation library.
+      </p>
     </div>
   )
 }
