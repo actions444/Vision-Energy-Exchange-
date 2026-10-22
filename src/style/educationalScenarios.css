@@ -1,0 +1,498 @@
+/* Educational Scenarios and Court System UI */
+
+:root {
+  --gold: #c9a96a;
+  --dark-bg: #1a1a1a;
+  --panel-bg: #2a2a2a;
+  --text-light: #e0e0e0;
+  --text-muted: #a0a0a0;
+  --danger: #ff4444;
+  --success: #44ff44;
+  --warning: #ffaa44;
+}
+
+.educational-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.educational-panel {
+  background: var(--panel-bg);
+  border: 2px solid var(--gold);
+  border-radius: 15px;
+  padding: 30px;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+  color: var(--text-light);
+}
+
+.educational-panel h2 {
+  color: var(--gold);
+  font-size: 1.8em;
+  margin-bottom: 20px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.educational-panel h3 {
+  color: var(--gold);
+  font-size: 1.3em;
+  margin: 15px 0 10px 0;
+}
+
+.educational-panel h4 {
+  color: var(--gold);
+  font-size: 1.1em;
+  margin: 10px 0 8px 0;
+}
+
+/* ===== SCENARIO VIEW ===== */
+.scenario-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.scenario-info {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.violation-card {
+  background: rgba(201, 169, 106, 0.1);
+  border-left: 4px solid var(--gold);
+  padding: 15px;
+  border-radius: 8px;
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.violation-emoji {
+  font-size: 3em;
+  min-width: 60px;
+  text-align: center;
+}
+
+.violation-details {
+  flex: 1;
+}
+
+.violation-details h3 {
+  margin-top: 0;
+}
+
+.severity {
+  color: var(--warning);
+  font-weight: bold;
+  margin: 5px 0;
+}
+
+.fine {
+  color: var(--danger);
+  font-weight: bold;
+}
+
+.npc-behavior-info {
+  background: rgba(68, 255, 68, 0.05);
+  border-left: 4px solid var(--success);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.behavior-description {
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.scenario-text {
+  background: rgba(255, 170, 68, 0.05);
+  border: 1px solid rgba(255, 170, 68, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  line-height: 1.8;
+}
+
+.scenario-text p {
+  margin: 10px 0;
+}
+
+.lesson-hint {
+  color: var(--gold);
+  font-weight: bold;
+  font-style: italic;
+}
+
+/* ===== OUTCOME VIEW ===== */
+.outcome-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.outcome-card {
+  background: rgba(201, 169, 106, 0.08);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.outcome-emoji {
+  font-size: 4em;
+  margin-bottom: 10px;
+}
+
+.outcome-card h3 {
+  margin-top: 0;
+  color: var(--gold);
+  font-size: 1.5em;
+}
+
+.outcome-text {
+  color: var(--text-muted);
+  font-size: 1.1em;
+  margin: 10px 0 20px 0;
+  line-height: 1.6;
+}
+
+.consequence-box {
+  background: rgba(255, 68, 68, 0.08);
+  border-left: 4px solid var(--danger);
+  padding: 15px;
+  border-radius: 8px;
+  text-align: left;
+  margin-bottom: 15px;
+}
+
+.consequence-box h4 {
+  margin-top: 0;
+  color: var(--danger);
+}
+
+.consequence-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.consequence-box li {
+  padding: 8px 0;
+  color: var(--text-light);
+  border-bottom: 1px solid rgba(255, 68, 68, 0.2);
+}
+
+.consequence-box li:last-child {
+  border-bottom: none;
+}
+
+.lesson-box {
+  background: rgba(68, 255, 68, 0.08);
+  border-left: 4px solid var(--success);
+  padding: 15px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.lesson-box h4 {
+  margin-top: 0;
+  color: var(--success);
+}
+
+.lesson-box p {
+  color: var(--text-light);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ===== COURT VIEW ===== */
+.court-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.court-info {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.court-building {
+  font-size: 4em;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.court-details {
+  background: rgba(201, 169, 106, 0.1);
+  border: 1px solid var(--gold);
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.court-details h3 {
+  margin: 0 0 5px 0;
+  color: var(--gold);
+}
+
+.court-details p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.charges-box,
+.sentence-box,
+.bail-info {
+  background: rgba(255, 170, 68, 0.08);
+  border-left: 4px solid var(--warning);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.charges-box h4,
+.sentence-box h4,
+.bail-info h4 {
+  margin-top: 0;
+  color: var(--warning);
+}
+
+.charges-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.charges-list li {
+  padding: 8px 0;
+  color: var(--text-light);
+  border-bottom: 1px solid rgba(255, 170, 68, 0.2);
+}
+
+.charges-list li:last-child {
+  border-bottom: none;
+}
+
+.sentence-length {
+  font-size: 1.5em;
+  color: var(--danger);
+  font-weight: bold;
+  margin: 0;
+}
+
+.bail-amount {
+  font-size: 1.4em;
+  color: var(--danger);
+  font-weight: bold;
+  margin: 0;
+}
+
+.bail-note {
+  font-size: 0.95em;
+  color: var(--text-muted);
+  margin: 5px 0 0 0;
+}
+
+.court-lesson {
+  background: rgba(68, 255, 68, 0.08);
+  border-left: 4px solid var(--success);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.court-lesson h4 {
+  margin-top: 0;
+  color: var(--success);
+}
+
+.court-lesson p {
+  color: var(--text-light);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ===== LESSONS VIEW ===== */
+.lessons-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lessons-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+.lesson-card {
+  background: rgba(201, 169, 106, 0.08);
+  border-left: 4px solid var(--gold);
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.lesson-card h3 {
+  margin: 0 0 8px 0;
+  color: var(--gold);
+  font-size: 1.2em;
+}
+
+.lesson-description {
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0 0 10px 0;
+  font-size: 0.95em;
+}
+
+.lesson-points {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lesson-points li {
+  padding: 6px 0;
+  color: var(--text-light);
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.lesson-summary {
+  background: rgba(255, 170, 68, 0.08);
+  border: 1px solid rgba(255, 170, 68, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.summary-box {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid var(--gold);
+}
+
+.summary-box p {
+  margin: 8px 0;
+  color: var(--text-light);
+  line-height: 1.6;
+}
+
+/* ===== BUTTONS ===== */
+.scenario-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, #b8963a 100%);
+  color: #000;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(201, 169, 106, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(201, 169, 106, 0.2);
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+
+.btn-secondary:hover {
+  background: rgba(201, 169, 106, 0.3);
+  transform: translateY(-2px);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 600px) {
+  .educational-panel {
+    max-width: 95vw;
+    padding: 20px;
+    max-height: 90vh;
+  }
+
+  .educational-panel h2 {
+    font-size: 1.5em;
+  }
+
+  .violation-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .violation-emoji {
+    font-size: 2.5em;
+  }
+
+  .outcome-emoji {
+    font-size: 3em;
+  }
+
+  .lessons-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-buttons {
+    gap: 8px;
+  }
+
+  .btn {
+    padding: 10px 16px;
+    font-size: 0.9em;
+  }
+}
+
+/* ===== SCROLLBAR ===== */
+.educational-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.educational-panel::-webkit-scrollbar-track {
+  background: rgba(201, 169, 106, 0.05);
+  border-radius: 10px;
+}
+
+.educational-panel::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 10px;
+}
+
+.educational-panel::-webkit-scrollbar-thumb:hover {
+  background: #b8963a;
+}
