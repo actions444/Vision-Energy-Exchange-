@@ -40,6 +40,7 @@ import JusticePanel from './JusticePanel.jsx'
 import CarPanel from './CarPanel.jsx'
 import TaxiPanel from './TaxiPanel.jsx'
 import { PowerChip } from './PowerChip.jsx'
+import DailyBonusChip from './DailyBonusChip.jsx'
 import JobsPanel from './JobsPanel.jsx'
 import AtmPanel from './AtmPanel.jsx'
 import { SlotsPanel, RoulettePanel, BlackjackPanel } from './CasinoPanel.jsx'
@@ -405,6 +406,7 @@ function HUD() {
           </span>
           <Clock />
           <PowerChip />
+          <DailyBonusChip />
           <JobsChip />
         </div>
         {isTouch ? (
