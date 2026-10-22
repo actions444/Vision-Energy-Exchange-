@@ -1,0 +1,326 @@
+/* Animation HUD Styles */
+
+.animation-hud {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Animation Control Buttons */
+.animation-controls {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(201, 169, 106, 0.3);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.animation-control-btn {
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgba(201, 169, 106, 0.4);
+  background: linear-gradient(135deg, rgba(15, 52, 96, 0.8), rgba(26, 26, 46, 0.8));
+  color: #c9a96a;
+  border-radius: 8px;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.animation-control-btn:hover:not(:disabled) {
+  border-color: #c9a96a;
+  background: linear-gradient(135deg, rgba(15, 52, 96, 1), rgba(26, 26, 46, 1));
+  box-shadow: 0 4px 12px rgba(201, 169, 106, 0.3);
+  transform: translateY(-2px);
+}
+
+.animation-control-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.animation-control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Quick Animation Buttons */
+.quick-animations {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(201, 169, 106, 0.3);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  max-width: 90vw;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+
+.quick-animations::-webkit-scrollbar {
+  height: 4px;
+}
+
+.quick-animations::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quick-animations::-webkit-scrollbar-thumb {
+  background: #c9a96a;
+  border-radius: 2px;
+}
+
+/* Quick Animation Button */
+.quick-anim-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+  background: linear-gradient(135deg, rgba(15, 52, 96, 0.8), rgba(26, 26, 46, 0.8));
+  border: 2px solid rgba(201, 169, 106, 0.3);
+  border-radius: 8px;
+  color: #c9a96a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.quick-anim-btn:hover {
+  border-color: #c9a96a;
+  background: linear-gradient(135deg, rgba(15, 52, 96, 1), rgba(26, 26, 46, 1));
+  box-shadow: 0 4px 12px rgba(201, 169, 106, 0.3);
+  transform: translateY(-2px);
+}
+
+.quick-anim-btn.playing {
+  border-color: #c9a96a;
+  background: linear-gradient(135deg, rgba(201, 169, 106, 0.15), rgba(201, 169, 106, 0.05));
+  box-shadow: 0 0 12px rgba(201, 169, 106, 0.4);
+  animation: playingPulse 1s ease-in-out infinite;
+}
+
+@keyframes playingPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(201, 169, 106, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(201, 169, 106, 0.6);
+  }
+}
+
+.quick-anim-btn:active {
+  transform: translateY(0);
+}
+
+.quick-anim-btn .emoji {
+  font-size: 20px;
+  display: block;
+}
+
+.quick-anim-btn .label {
+  font-size: 10px;
+  opacity: 0.9;
+}
+
+.quick-anim-btn .hotkey {
+  font-size: 8px;
+  background: rgba(201, 169, 106, 0.2);
+  color: #7fc7d9;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-top: 2px;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+
+/* Hotkey Reference Panel */
+.hotkey-reference {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(201, 169, 106, 0.4);
+  border-radius: 10px;
+  padding: 16px;
+  max-width: 90vw;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hotkey-reference-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(201, 169, 106, 0.2);
+}
+
+.hotkey-reference-header h3 {
+  margin: 0;
+  color: #c9a96a;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hotkey-reference-header .close {
+  background: none;
+  border: none;
+  color: #c9a96a;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.hotkey-reference-header .close:hover {
+  color: #e8c787;
+}
+
+.hotkey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.hotkey-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(15, 52, 96, 0.4);
+  border-radius: 6px;
+  border: 1px solid rgba(201, 169, 106, 0.2);
+}
+
+.hotkey-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  background: rgba(201, 169, 106, 0.2);
+  border: 1px solid #c9a96a;
+  border-radius: 4px;
+  color: #c9a96a;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 6px;
+}
+
+.hotkey-label {
+  font-size: 11px;
+  color: #b0956a;
+  flex: 1;
+  text-transform: capitalize;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .animation-hud {
+    bottom: 10px;
+    left: 50%;
+    right: auto;
+  }
+
+  .quick-animations {
+    max-width: calc(100vw - 20px);
+  }
+
+  .quick-anim-btn {
+    min-width: 50px;
+    padding: 6px 8px;
+  }
+
+  .quick-anim-btn .emoji {
+    font-size: 16px;
+  }
+
+  .quick-anim-btn .label {
+    font-size: 9px;
+  }
+
+  .hotkey-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .animation-hud {
+    bottom: 8px;
+    gap: 8px;
+  }
+
+  .animation-controls {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .animation-control-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .quick-animations {
+    gap: 6px;
+    padding: 8px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .quick-anim-btn {
+    min-width: 45px;
+    padding: 5px 6px;
+    gap: 1px;
+  }
+
+  .quick-anim-btn .emoji {
+    font-size: 14px;
+  }
+
+  .quick-anim-btn .label {
+    font-size: 8px;
+  }
+
+  .hotkey-reference {
+    min-width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+  }
+
+  .hotkey-grid {
+    grid-template-columns: 1fr;
+  }
+}
