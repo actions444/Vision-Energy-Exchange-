@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { useBackend } from '../backend/backend.js'
-import { useMedia, fileUrl } from '../media/media.js'
+import { useMedia, fileUrl, uploadMedia } from '../media/media.js'
 import { useMusic } from '../music/engine.js'
 import { useStore } from '../state/store.js'
 import { useJobs } from '../state/jobs.js'
@@ -50,12 +50,17 @@ function ScreenControls({ screenId }) {
   const admin = useBackend((s) => s.admin)
   const st = useCinema()
   const items = useMedia((s) => s.items)
+  const jobs = useMedia((s) => s.jobs)
   const movies = watchable(items)
   const sess = sessionFor(screenId, st)
   const here = st.active === screenId
   const [pick, setPick] = useState('')
   const [err, setErr] = useState(null)
   const [t, setT] = useState(null)
+  const [uploadErr, setUploadErr] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadOver, setUploadOver] = useState(false)
+  const uploadInput = useRef()
   useEffect(() => { const i = setInterval(() => setT(cinemaTiming()), 500); setT(cinemaTiming()); return () => clearInterval(i) }, [])
   useEffect(() => { if (!pick && movies[0]) setPick(movies[0].id) }, [movies.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = movies.find((m) => m.id === pick)
@@ -64,6 +69,19 @@ function ScreenControls({ screenId }) {
   const canControl = sess ? !sess.scheduled && (!sess.shared || admin) : false
   const pos = sess ? positionOf(sess) : 0
   const dur = t?.duration || sess?.duration || null
+  const handleUpload = async (files) => {
+    if (!files.length) return
+    setUploadErr(null)
+    setUploading(true)
+    try {
+      await uploadMedia(files, { kind: 'auto', publish: true })
+    } catch (e) {
+      setUploadErr(e.message || String(e))
+    } finally {
+      setUploading(false)
+      if (uploadInput.current) uploadInput.current.value = ''
+    }
+  }
 
   return (
     <Panel title={screen.name} eyebrow={`${screen.venue} · screen & sound`}>
@@ -122,6 +140,30 @@ function ScreenControls({ screenId }) {
           <button className="btn" onClick={() => run(async () => { privateView.stop(screenId); await shared.start(screenId, chosen || movies[0]) })}>Show {(chosen || movies[0]).title} to everyone instead</button>
         )}
         {err && <p className="error">{err}</p>}
+
+        {admin && (
+          <div
+            className={'drop media-drop field' + (uploadOver ? ' over' : '')}
+            onDragOver={(e) => { e.preventDefault(); setUploadOver(true) }}
+            onDragLeave={() => setUploadOver(false)}
+            onDrop={(e) => { e.preventDefault(); setUploadOver(false); handleUpload([...e.dataTransfer.files]) }}
+          >
+            <span><b>Upload films, music or videos</b><small>Add to this theater's library</small></span>
+            <div className="drop-actions">
+              <label className={'btn small' + (uploading ? ' disabled' : '')}>
+                {uploading ? 'Uploading…' : 'Choose files'}
+                <input ref={uploadInput} type="file" multiple disabled={uploading} onChange={(e) => handleUpload([...e.target.files])} style={{ display: 'none' }} />
+              </label>
+              <small className="hint">or drag and drop · videos (MP4, WebM, MOV, MKV…), music (MP3, WAV, FLAC…), any format · auto-detected and converted</small>
+            </div>
+            {jobs.length > 0 && (
+              <ul className="jobs" aria-live="polite">
+                {jobs.map((j) => <li key={j.id} className={j.error ? 'bad' : j.done ? 'ok' : ''}><b>{j.name}</b><span>{j.error || j.status}</span></li>)}
+              </ul>
+            )}
+            {uploadErr && <p className="error">{uploadErr}</p>}
+          </div>
+        )}
 
         <div className="row">
           <span><b>Movie sound</b><small>Only changes what you hear.</small></span>
