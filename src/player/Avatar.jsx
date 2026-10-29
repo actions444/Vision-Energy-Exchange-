@@ -9,7 +9,7 @@ import { registry } from '../assets/assetStore.js'
 // A picked-up prop held in front of the chest while state.carrying is set (see state/runtime.js,
 // world/Carryables.jsx). Shrunk to a consistent hand-held size regardless of the prop's real scale.
 function HeldProp({ state }) {
-  const c = state.carrying
+  const c = state?.carrying
   const info = c ? registry.get(c.assetId) : null
   const obj = useMemo(() => (info ? skeletonClone(info.scene) : null), [info])
   if (!info || !obj) return null
@@ -31,7 +31,8 @@ const capsule = (r, len) => new THREE.CapsuleGeometry(r, len, 6, 12)
 
 // Optional extras, used for scripted actors (the Reign Estate duet): look = { gown, longHair, hair, noVisor }.
 // `state.sing` (0..1) opens the mouth and lifts the chin; `state.gesture` is one of 'chest' | 'open' | 'reach' | 'hold'.
-export default function Avatar({ state, accent = '#a33cff', skin = '#d9a37a', outfit = null, look = null }) {
+const IDLE_STATE = {}
+export default function Avatar({ state = IDLE_STATE, accent = '#a33cff', skin = '#d9a37a', outfit = null, look = null }) {
   const g = useMemo(() => ({
     torso: capsule(0.17, 0.34),
     pelvis: capsule(0.15, 0.08),
