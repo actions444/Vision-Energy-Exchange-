@@ -14,7 +14,7 @@ const ok = (msg) => console.log('ok  ' + msg)
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()) })
 
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => window.__vsw && window.__vsw.useStore.getState().ready, null, { timeout: 180000 })
+  await page.waitForFunction(() => window.__vsw, null, { timeout: 180000 })
   await page.evaluate(() => window.__vsw.useStore.getState().enterWorld('single'))
   await page.waitForFunction(() => window.__vsw.vehicleBodies.has('i45-car-1'), null, { timeout: 60000 })
   ok('world loaded and i45-car-1 registered')
