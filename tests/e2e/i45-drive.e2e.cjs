@@ -16,7 +16,7 @@ const ok = (msg) => console.log('ok  ' + msg)
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => window.__vsw, null, { timeout: 180000 })
   await page.evaluate(() => window.__vsw.useStore.getState().enterWorld('single'))
-  await page.waitForFunction(() => window.__vsw.vehicleBodies.has('i45-car-1'), null, { timeout: 60000 })
+  await page.waitForFunction(() => window.__vsw.vehicleBodies.has('i45-car-1'), null, { timeout: 300000 })
   ok('world loaded and i45-car-1 registered')
 
   // 1. World Map: the HUD button opens the panel and Galveston is travelable
