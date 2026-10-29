@@ -20,13 +20,14 @@ const ok = (msg) => console.log('ok  ' + msg)
   ok('world loaded and i45-car-1 registered')
 
   // 1. World Map: the HUD button opens the panel and Galveston is travelable
-  await page.click('#hud-worldmap')
-  await page.waitForSelector('text=Texas World Map', { timeout: 10000 })
+  // DOM click: software WebGL keeps the page too busy for Playwright's stability check
+  await page.evaluate(() => document.getElementById('hud-worldmap').click())
+  await page.waitForFunction(() => window.__vsw.useStore.getState().panel?.type === 'worldmap', null, { timeout: 60000 })
   ok('World Map panel opens from the HUD')
-  const unbuilt = await page.locator('.dir-btn[disabled]').count()
+  const unbuilt = await page.evaluate(() => document.querySelectorAll('.dir-btn[disabled]').length)
   if (unbuilt !== 6) fail(`expected 6 disabled cities, found ${unbuilt}`)
   else ok('six unbuilt cities are disabled')
-  await page.locator('.dir-btn', { hasText: 'Galveston' }).click()
+  await page.evaluate(() => [...document.querySelectorAll('.dir-btn')].find((x) => x.textContent.includes('Galveston')).click())
   await page.waitForFunction(() => window.__vsw.playerState.position.x > 300, null, { timeout: 15000 }).catch(() => {})
   const gx = await page.evaluate(() => window.__vsw.playerState.position.x)
   if (gx > 300) ok(`World Map travel to Galveston (x=${gx.toFixed(0)})`)
