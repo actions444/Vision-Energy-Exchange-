@@ -34,7 +34,7 @@ const ok = (msg) => console.log('ok  ' + msg)
   else fail(`travel to Galveston did not move the player (x=${gx})`)
 
   // 2. Return to the on-ramp and drive the car over the bridge
-  await page.evaluate(() => { window.__vsw.playerState.teleport = [84, 2, -1.2] })
+  await page.evaluate(() => { window.__vsw.playerState.teleport = [84, 0.5, -1.2] })
   await page.waitForFunction(() => Math.abs(window.__vsw.playerState.position.x - 84) < 3, null, { timeout: 15000 }).catch(() => {})
   // Give the physics world a moment to settle, then press E beside the car (retry a few times)
   await page.waitForTimeout(3000)
