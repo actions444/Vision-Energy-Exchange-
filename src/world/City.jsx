@@ -116,7 +116,7 @@ export default function City() {
         {/* (the Isla Serena swimming pool is cut out of the ground slab) */}
         {groundPieces(-130, OCEAN.x1 + 5, -130, 130).map(([x, y, z, hx, hy, hz], i) => <CuboidCollider key={'g' + i} args={[hx, hy, hz]} position={[x, y, z]} />)}
         {/* invisible world boundary: nobody drives or walks off the edge of the map */}
-        {[[OCEAN.x1 + 4.5, 0, 0.5, 130], [(OCEAN.x1 + 5 - 130) / 2, 129.5, (OCEAN.x1 + 5 + 130) / 2, 0.5], [(OCEAN.x1 + 5 - 130) / 2, -129.5, (OCEAN.x1 + 5 + 130) / 2, 0.5]].map(([x, z, hx, hz], i) => <CuboidCollider key={'edge' + i} args={[hx, 20, hz]} position={[x, 19.5, z]} />)}
+        {[[OCEAN.x1 + 4.5, 76, 0.5, 54], [OCEAN.x1 + 4.5, -76, 0.5, 54], [(OCEAN.x1 + 5 - 130) / 2, 129.5, (OCEAN.x1 + 5 + 130) / 2, 0.5], [(OCEAN.x1 + 5 - 130) / 2, -129.5, (OCEAN.x1 + 5 + 130) / 2, 0.5]].map(([x, z, hx, hz], i) => <CuboidCollider key={'edge' + i} args={[hx, 20, hz]} position={[x, 19.5, z]} />)}
         {blocks.map(([x0, x1, z0, z1], i) => (
           <CuboidCollider key={i} args={[(x1 - x0) / 2, CURB / 2, (z1 - z0) / 2]} position={[(x0 + x1) / 2, CURB / 2, (z0 + z1) / 2]} />
         ))}

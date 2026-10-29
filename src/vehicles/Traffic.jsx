@@ -130,7 +130,7 @@ export default function Traffic() {
 }
 
 /** Simple, cheap body: lower shell, cabin with glass, lamps, four turning wheels. Local forward is +x. */
-function NpcCar({ car }) {
+export function NpcCar({ car }) {
   const s = car.style
   const m = getMaterials()
   const paint = m.shared('npcPaint' + car.color, () => new THREE.MeshStandardMaterial({ color: car.color, roughness: 0.28, metalness: 0.6 }))

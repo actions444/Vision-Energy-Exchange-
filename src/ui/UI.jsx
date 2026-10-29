@@ -5,6 +5,7 @@ import { MALL as MALL_B } from '../config/mall.js'
 import { LOT as APTS1_LOT, WALK as APTS1_WALK } from '../config/apts1.js'
 import { LOT as CLUB_LOT, CX as CLUB_CX } from '../config/bikerMeetup.js'
 import Objective, { restartObjective } from './Objective.jsx'
+import WorldMap from './WorldMap.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
 import { usePeers, net } from '../net/netManager.js'
@@ -129,6 +130,7 @@ export default function UI() {
       {panel?.type === 'taxi' && <TaxiPanel standId={panel.standId} />}
       {panel?.type === 'settings' && <SettingsPanel />}
       {panel?.type === 'help' && <HelpPanel />}
+      {panel?.type === 'worldmap' && <WorldMap />}
       <Toast />
     </>
   )
@@ -394,6 +396,7 @@ function HUD() {
     ['actions', 'Actions', () => openPanel({ type: 'actions' }), 'Wave, clap, bow, point, dance or exercise - anywhere, anytime'],
     ['places', 'Places', () => setPlaces((v) => !v), 'Travel to a district: downtown, Meadowbrook Park, the West End'],
     ['settings', 'Settings', () => openPanel({ type: 'settings' })],
+    ['worldmap', 'World Map', () => openPanel({ type: 'worldmap' }), 'Texas World Map: travel to Houston, Galveston and the other destinations'],
     ['help', 'Help', () => openPanel({ type: 'help' })],
     ['unstuck', 'Unstuck', () => { playerState.unstuck = true }, 'Stuck in something? Moves you to the nearest clear spot'],
     ['respawn', 'Respawn', () => { playerState.respawn = true; cameraState.yaw = 0 }, 'Return to the start of the avenue'],

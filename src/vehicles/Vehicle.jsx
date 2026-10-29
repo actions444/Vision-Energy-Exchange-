@@ -62,7 +62,7 @@ const tmpV = new THREE.Vector3()
 const tmpQ = new THREE.Quaternion()
 const FWD = new THREE.Vector3(1, 0, 0)
 
-function Vehicle({ spawn, typeOverride }) {
+export function Vehicle({ spawn, typeOverride }) {
   const T = typeOverride || VEHICLE_TYPES[spawn.type]
   const { world, rapier } = useRapier()
   if (typeof window !== 'undefined') { window.__vswWorld = world; window.__vswRapier = rapier }
