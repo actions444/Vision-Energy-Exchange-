@@ -10,6 +10,7 @@ import { Exposure } from './world/exposureEffect.js'
 import * as THREE from 'three'
 import City from './world/City.jsx'
 import I45Highway from './world/I45Highway.jsx'
+import BusStop from './world/BusStop.jsx'
 import Gallery from './world/Gallery.jsx'
 import Atmosphere from './world/Atmosphere.jsx'
 import WeatherDirector from './world/WeatherDirector.jsx'
@@ -122,6 +123,7 @@ export default function App() {
           <Physics timeStep={1 / 60} gravity={[0, -9.81, 0]}>
             <City />
             <I45Highway />
+            <BusStop />
             <Gallery />
             <PlacedAssets />
             <TreasurePyramids />
