@@ -510,8 +510,8 @@ function StyledBody({ T, paint, accent, tailRef }) {
   const Lh = T.length / 2, Wh = T.width / 2
   const parts = []
   const seats = (xs, y) => xs.forEach((x, i) => {
-    parts.push(box('seatb' + i, m.interior, [x, y, 0], [0.5, 0.12, T.width - 0.5]))
-    parts.push(box('seatr' + i, m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, T.width - 0.5], [0, 0, -0.18]))
+    parts.push(box('seatb' + i + ':' + x + ':' + y, m.interior, [x, y, 0], [0.5, 0.12, T.width - 0.5]))
+    parts.push(box('seatr' + i + ':' + x + ':' + y, m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, T.width - 0.5], [0, 0, -0.18]))
     // headrest TV on the back of every row except the last, for whoever's sitting behind it
     if (i < xs.length - 1) {
       const w = Math.min(0.42, (T.width - 0.5) * 0.4)
