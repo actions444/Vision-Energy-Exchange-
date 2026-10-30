@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CapsuleCollider } from '@react-three/rapier'
 import * as THREE from 'three'
@@ -58,6 +58,8 @@ function PyramidMesh({ color, collected }) {
 
 function PyramidItem({ spawn, colorConfig }) {
   const collected = useRef(false)
+  // state, not just the ref, so the pyramid actually leaves the scene once collected
+  const [gone, setGone] = useState(false)
   const meshRef = useRef()
 
   useFrame(() => {
@@ -65,6 +67,7 @@ function PyramidItem({ spawn, colorConfig }) {
     const dist = Math.hypot(playerState.position.x - spawn.x, playerState.position.z - spawn.z)
     if (dist < 2) {
       collected.current = true
+      setGone(true)
 
       // Distribute reward
       if (colorConfig.reward === 'credits') {
@@ -84,6 +87,8 @@ function PyramidItem({ spawn, colorConfig }) {
       useStore.getState().showToast(`Found a ${colorConfig.name} Pyramid at ${spawn.name}!`)
     }
   })
+
+  if (gone) return null
 
   return (
     <RigidBody type="fixed" position={[spawn.x, 0.8, spawn.z]}>
