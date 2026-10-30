@@ -17,8 +17,8 @@ import { ZONES } from '../config/rooms.js'
 import { waterAt, addRipple, addSplash } from '../state/water.js'
 import { sfx } from '../audio/sfx.js'
 
-const WALK = 4.3
-const RUN = 10.2
+const WALK = 6.5
+const RUN = 15
 const JUMP = 7.5
 const GRAVITY = 22
 const CAPSULE_HALF = 0.5
