@@ -5,6 +5,8 @@ export const playerState = {
   position: new THREE.Vector3(0, 0.2, 8),
   yaw: Math.PI, // facing; avatar local forward is +z
   speed: 0, // horizontal m/s
+  stamina: 100, // sprint stamina, 0..100
+  sprinting: false,
   grounded: true,
   vy: 0,
   emote: null,

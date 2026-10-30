@@ -6,6 +6,7 @@ import { LOT as APTS1_LOT, WALK as APTS1_WALK } from '../config/apts1.js'
 import { LOT as CLUB_LOT, CX as CLUB_CX } from '../config/bikerMeetup.js'
 import Objective, { restartObjective } from './Objective.jsx'
 import WorldMap from './WorldMap.jsx'
+import StaminaBar from './StaminaBar.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
 import { usePeers, net } from '../net/netManager.js'
@@ -131,6 +132,7 @@ export default function UI() {
       {panel?.type === 'settings' && <SettingsPanel />}
       {panel?.type === 'help' && <HelpPanel />}
       {panel?.type === 'worldmap' && <WorldMap />}
+      <StaminaBar />
       <Toast />
     </>
   )

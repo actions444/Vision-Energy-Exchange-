@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { RigidBody, CapsuleCollider, useRapier } from '@react-three/rapier'
 import * as THREE from 'three'
 import { input } from '../input/input.js'
+import { canSprint, stepStamina } from './stamina.js'
 import { playerState, cameraState, SPAWN, findNearestInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { useAssets, registry } from '../assets/assetStore.js'
@@ -383,7 +384,7 @@ export default function Player() {
       }
     }
     const mag = Math.min(1, Math.hypot(mx, my))
-    const running = input.run || navRunning
+    const running = canSprint(playerState.stamina, input.run || navRunning, playerState.sprinting) && mag > 0.2
     const baseSpeed = mode === 'swim' ? (running ? SWIM_FAST : SWIM) : mode === 'wade' ? (running ? RUN * 0.55 : WALK * 0.72) : (running ? RUN : WALK)
     const speed = baseSpeed * (input.joystick.active ? Math.min(1, mag * 1.15) : mag)
     let dx = fx * my + rx * mx
@@ -394,6 +395,8 @@ export default function Player() {
     const accel = mode === 'swim' ? 5 : playerState.grounded ? 14 : playerState.diveAir ? 0.7 : 4
     v.current.x += (target.x - v.current.x) * (1 - Math.exp(-accel * dt))
     v.current.z += (target.z - v.current.z) * (1 - Math.exp(-accel * dt))
+    playerState.sprinting = running
+    playerState.stamina = stepStamina(playerState.stamina, running, dt)
 
     // --- vertical ---
     // climb-out check: near a wall at the surface, Space or E hauls you out (the prompt appears too). Underwater next to a
