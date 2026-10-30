@@ -51,8 +51,8 @@ export function useBodyMats(paint, accent, tailRef) {
 const box = (key, mat, pos, size, rot) => <mesh key={key} position={pos} rotation={rot} material={mat} castShadow><boxGeometry args={size} /></mesh>
 const cyl = (key, mat, pos, r, len, rot) => <mesh key={key} position={pos} rotation={rot} material={mat} castShadow><cylinderGeometry args={[r, r, len, 14]} /></mesh>
 const seatSet = (parts, m, xs, y, wide, mat) => xs.forEach((x, i) => {
-  parts.push(box('sb' + i, mat || m.interior, [x, y, 0], [0.5, 0.12, wide]))
-  parts.push(box('sr' + i, mat || m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, wide], [0, 0, -0.18]))
+  parts.push(box('seatb' + i, mat || m.interior, [x, y, 0], [0.5, 0.12, wide]))
+  parts.push(box('seatr' + i, mat || m.interior, [x - 0.28, y + 0.3, 0], [0.1, 0.55, wide], [0, 0, -0.18]))
 })
 /** A working headrest TV on the back of a front/middle-row seat, for whoever sits behind it. */
 const headrestTV = (parts, m, x, y, wide, key = x) => {
