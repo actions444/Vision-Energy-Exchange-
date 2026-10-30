@@ -565,7 +565,7 @@ export function ThanksBag({ position, yaw = 0, scale = 1, stack = false, brand =
   return (
     <group position={position} rotation={[0, yaw, 0]} scale={scale}>
       {stack
-        ? [[-0.16, 0.12, -0.25], [0.12, -0.08, 0.3], [0.0, 0, 0]].map(([x, r, lean], i) => one([x, 0, 0], r + lean * 0, i))
+        ? [[-0.16, 0.12, -0.25], [0.12, -0.08, 0.3], [0.0, 0, 0]].map(([x, r, lean], i) => <group key={i}>{one([x, 0, 0], r + lean * 0, i)}</group>)
         : one([0, 0, 0], 0, 0)}
     </group>
   )
