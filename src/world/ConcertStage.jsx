@@ -140,7 +140,7 @@ export default function ConcertStage() {
         <mesh key={x} position={[x, h + 1.4, d / 2 - 0.4]} material={m.blackSteel} castShadow><boxGeometry args={[1.1, 2.6, 1.0]} /></mesh>
       ))}
       {/* the audience */}
-      <HumanoidCrowd fans={fans} beat={() => beatRef.current} />
+      {/* audience removed: no fans are rendered in front of Stormline Parking */}
       {/* floor for the crowd */}
       <mesh position={[0, 0.005, d / 2 + 8]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[w + 8, 16]} />
