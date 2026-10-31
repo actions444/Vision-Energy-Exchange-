@@ -23,7 +23,9 @@ const hash = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 
  */
 function voiceFor(id, lang) {
   const inLang = lang ? voices.filter((v) => v.lang?.toLowerCase().startsWith(lang.slice(0, 2))) : []
-  const pool = inLang.length ? inLang : voices
+  // English: prefer American voices (en-US) when the browser has any, so NPCs sound American
+  const us = lang && lang.toLowerCase().startsWith('en') ? inLang.filter((v) => v.lang?.toLowerCase().startsWith('en-us')) : []
+  const pool = us.length ? us : inLang.length ? inLang : voices
   const n = pool.length
   const h = hash(id || 'npc')
   const voice = n ? pool[h % n] : null
