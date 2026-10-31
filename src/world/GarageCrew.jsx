@@ -6,6 +6,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 import { CURB } from './City.jsx'
+import GLBBoundary from './GLBBoundary.jsx'
 
 // Garage crew: rigged characters in front of Stormline Parking. They patrol the sidewalk on the west
 // side of the garage, walking, then standing, looking around, or swimming in place is never used here.
@@ -68,8 +69,10 @@ function Loaded({ url, z0, z1, phase }) {
 
 export default function GarageCrew() {
   return (
-    <group name="garage-crew">
-      {CREW.map((c, i) => <Loaded key={i} url={MODELS[c.model]} z0={c.z0} z1={c.z1} phase={c.phase} />)}
-    </group>
+    <GLBBoundary>
+      <group name="garage-crew">
+        {CREW.map((c, i) => <Loaded key={i} url={MODELS[c.model]} z0={c.z0} z1={c.z1} phase={c.phase} />)}
+      </group>
+    </GLBBoundary>
   )
 }
