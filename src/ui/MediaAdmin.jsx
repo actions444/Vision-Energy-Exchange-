@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Panel } from './UI.jsx'
 import { useBackend, backend } from '../backend/backend.js'
+import MovieBuilder from './MovieBuilder.jsx'
 import { useMedia, KINDS, uploadMedia, importFromUrl, updateMedia, deleteMedia, fileUrl } from '../media/media.js'
 
 // Owner-only media library: upload, describe, publish/unpublish and delete songs, album covers,
@@ -24,6 +25,7 @@ export default function MediaAdmin() {
   return (
     <Panel title="Media library" eyebrow={b.kind === 'hosted' ? 'Stored with this page' : b.kind === 'server' ? 'Stored on your server' : 'Development · this browser only'} wide>
       <Uploader />
+      <MovieBuilder />
       {jobs.length > 0 && (
         <ul className="jobs" aria-live="polite">
           {jobs.map((j) => <li key={j.id} className={j.error ? 'bad' : j.done ? 'ok' : ''}><b>{j.name}</b><span>{j.error || j.status}</span></li>)}
