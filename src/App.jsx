@@ -11,6 +11,7 @@ import * as THREE from 'three'
 import City from './world/City.jsx'
 import I45Highway from './world/I45Highway.jsx'
 import BusStop from './world/BusStop.jsx'
+import SunAtrium from './world/SunAtrium.jsx'
 import Gallery from './world/Gallery.jsx'
 import Atmosphere from './world/Atmosphere.jsx'
 import WeatherDirector from './world/WeatherDirector.jsx'
@@ -124,6 +125,7 @@ export default function App() {
             <City />
             <I45Highway />
             <BusStop />
+            <SunAtrium />
             <Gallery />
             <PlacedAssets />
             <TreasurePyramids />
