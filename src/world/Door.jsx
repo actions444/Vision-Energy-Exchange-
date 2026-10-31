@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import * as THREE from 'three'
-import { registerInteractable } from '../state/runtime.js'
+import { registerInteractable, playerState } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { getMaterials, surface } from './materials.js'
 import { facadeMats } from './facade/materials.js'
@@ -79,6 +79,14 @@ export function DoubleDoor({ id, center, halfWidth, height, facing = 0, accent =
   const leftHinge = [center[0] - right[0] * halfWidth, center[1], center[2] - right[2] * halfWidth]
   const rightHinge = [center[0] + right[0] * halfWidth, center[1], center[2] + right[2] * halfWidth]
 
+  // walk up and the doors swing open; walk away and they close (press E still works)
+  useFrame(() => {
+    const p = playerState.position
+    const d = Math.hypot(p.x - center[0], p.z - center[2])
+    if (!openRef.current && d < 2.2) setOpen(true)
+    else if (openRef.current && d > 4) setOpen(false)
+  })
+
   useEffect(() => registerInteractable(id, {
     position: new THREE.Vector3(center[0], center[1] + 1, center[2]),
     radius: 2.8,
@@ -109,6 +117,15 @@ export function SingleDoor({ id, hinge, width = 1.1, height = 2.3, baseYaw = 0, 
   st.current.lockedLabel = lockedLabel
   const c = Math.cos(baseYaw), s = Math.sin(baseYaw)
   const mid = new THREE.Vector3(hinge[0] + (c * width) / 2, hinge[1], hinge[2] - (s * width) / 2)
+
+  // ordinary doors swing open as you walk up and close behind you; doors with an access check stay shut
+  useFrame(() => {
+    if (st.current.check || st.current.busy) return
+    const p = playerState.position
+    const d = Math.hypot(p.x - mid.x, p.z - mid.z)
+    if (!st.current.open && d < 2.2) setOpen(true)
+    else if (st.current.open && d > 4) setOpen(false)
+  })
 
   useEffect(() => registerInteractable(id, {
     position: mid,
