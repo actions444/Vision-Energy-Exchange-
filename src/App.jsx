@@ -12,6 +12,7 @@ import City from './world/City.jsx'
 import I45Highway from './world/I45Highway.jsx'
 import BusStop from './world/BusStop.jsx'
 import SunAtrium from './world/SunAtrium.jsx'
+import GarageCrew from './world/GarageCrew.jsx'
 import Gallery from './world/Gallery.jsx'
 import Atmosphere from './world/Atmosphere.jsx'
 import WeatherDirector from './world/WeatherDirector.jsx'
@@ -126,6 +127,7 @@ export default function App() {
             <I45Highway />
             <BusStop />
             <SunAtrium />
+            <GarageCrew />
             <Gallery />
             <PlacedAssets />
             <TreasurePyramids />
