@@ -9,6 +9,7 @@ import { PED_GRID } from '../config/pedGrid.js'
 import { FIRST, LINES, PED_COUNT } from '../config/pedestrians.js'
 import { signalState } from '../vehicles/Traffic.jsx'
 import { speakLine } from '../audio/tts.js'
+import { SITE as GARAGE_SITE } from '../config/parkingGarage.js'
 
 // Townspeople who roam the whole open world on foot. There are no fixed routes: each one picks a place anywhere in
 // the part of town they can walk to (parks, plazas, sidewalks, forecourts, courtyards), plans a way there around
@@ -154,7 +155,10 @@ const signalNow = () => signalState(performance.now() / 1000 + simOffset)
 
 function plan() {
   const { regions } = grid()
-  const usable = regions.map((cells, id) => ({ id, cells })).filter((r) => r.cells.length >= 500)
+  // Stormline Parking: nobody walks in front of the garage (zone = garage footprint + 6 m)
+  const G = { x0: GARAGE_SITE.x0 - 6, x1: GARAGE_SITE.x1 + 6, z0: GARAGE_SITE.z0 - 6, z1: GARAGE_SITE.z1 + 6 }
+  const inGarage = (c) => { const x = centreX(c % NX), z = centreZ((c / NX) | 0); return x >= G.x0 && x <= G.x1 && z >= G.z0 && z <= G.z1 }
+  const usable = regions.map((cells, id) => ({ id, cells: cells.filter((c) => !inGarage(c)) })).filter((r) => r.cells.length >= 500)
   const total = usable.reduce((a, r) => a + r.cells.length, 0)
   const walkers = []
   for (const r of usable) {
