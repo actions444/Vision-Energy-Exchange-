@@ -79,7 +79,7 @@ function PyramidItem({ spawn, colorConfig }) {
       } else if (colorConfig.reward === 'outfit') {
         const outfitKeys = Object.keys(OUTFITS)
         const randomOutfit = outfitKeys[Math.floor(Math.random() * outfitKeys.length)]
-        useStore.getState().updateProfile({ preset: randomOutfit })
+        useStore.getState().setProfile({ preset: randomOutfit })
         outfit.setState({ preset: randomOutfit })
         useStore.getState().showToast(`New outfit unlocked from ${colorConfig.name} Pyramid! 👗`)
       }

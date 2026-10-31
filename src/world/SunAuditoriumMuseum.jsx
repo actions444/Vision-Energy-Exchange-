@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { Block } from './jobkit.jsx'
 import { SUN_DECK_Y } from '../config/sunAtrium.js'
+import DinoSkeleton from './DinoSkeletons.jsx'
 
 // Sun Auditorium Museum, stage 1: a tall open atrium on the beach platform. The roof is a steel frame
 // with clear glass, so the sun comes straight through. Only code-built geometry, so it works even when
@@ -50,6 +51,14 @@ export default function SunAuditoriumMuseum() {
       <mesh position={[cx, CEIL_Y + 0.02, cz]} rotation={[-Math.PI / 2, 0, 0]} material={GLASS} castShadow={false}>
         <planeGeometry args={[X1 - X0, Z1 - Z0]} />
       </mesh>
+
+      {/* dinosaur skeletons inside the atrium */}
+      <DinoSkeleton position={[131, FLOOR_Y, -31]} yaw={0.3} scale={1} />
+      <DinoSkeleton position={[138, FLOOR_Y, -11]} yaw={-0.6} scale={0.8} />
+
+      {/* dinosaur skeletons outside on the sand, in front of the entrance */}
+      <DinoSkeleton position={[104, 0.15, -15]} yaw={0.4} scale={1} />
+      <DinoSkeleton position={[110, 0.15, -36]} yaw={-0.8} scale={0.9} />
     </group>
   )
 }
