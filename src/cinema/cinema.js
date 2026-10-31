@@ -216,17 +216,28 @@ async function tick() {
   if (!movie) { if (loadedFor) unload(); useCinema.setState({ status: 'error', error: 'This movie is no longer in the library.' }); return }
   const v = ensureVideo()
   route()
-  if (loadedFor !== movie.id) {
-    loadedFor = movie.id
-    const url = await fileUrl(movie.file)
+  // A movie may be a chain of clips (movie.parts = media ids in order). Play the clip that covers the
+  // current point of the movie, so the whole chain plays through like one film.
+  const items = useMedia.getState().items
+  const parts = (movie.parts || []).map((id) => items.find((m) => m.id === id)).filter(Boolean)
+  let file = movie.file, key = movie.id, offset = 0, partDur = movie.duration, lastPart = true
+  if (parts.length) {
+    const pos = positionOf(sess)
+    let i = 0, acc = 0
+    while (i < parts.length - 1 && pos >= acc + (parts[i].duration || 0)) { acc += parts[i].duration || 0; i++ }
+    file = parts[i].file; key = movie.id + '#' + i; offset = acc; partDur = parts[i].duration; lastPart = i === parts.length - 1
+  }
+  if (loadedFor !== key) {
+    loadedFor = key
+    const url = await fileUrl(file)
     wantedUrl = url
     useCinema.setState({ status: 'loading', hasFrame: false, error: null })
     v.src = url
     v.load()
   }
-  const target = positionOf(sess)
-  const dur = v.duration || movie.duration || Infinity
-  if (target >= dur - 0.2 && sess.state === 'playing') {
+  const target = positionOf(sess) - offset
+  const dur = v.duration || partDur || Infinity
+  if (target >= dur - 0.2 && sess.state === 'playing' && lastPart) {
     if (!v.paused) v.pause()
     if (useCinema.getState().status !== 'ended') useCinema.setState({ status: 'ended' })
     return
