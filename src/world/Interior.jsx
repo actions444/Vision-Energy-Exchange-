@@ -12,6 +12,7 @@ import { useSeats } from '../state/seats.js'
 import { useMusic } from '../music/engine.js'
 import { screenVideo } from '../audio/audio.js'
 import { FONTS } from '../config/theme.js'
+import { applyCover } from '../media/coverFit.js'
 
 // Room fittings: glazed windows that look out onto the real world outside, wall TVs that play
 // actual channels, light switches by the door, and full bathrooms (toilet, vanity, mirror,
@@ -400,6 +401,7 @@ export function TV({ position, yaw = 0, size = [1.9, 1.07], id, zone, channel = 
   const grp = useRef()
   const [vid, setVid] = useState(() => !!screenVideo.el)
   const screen = useRef()
+  const coverKey = useRef('')
   const key = id || `${position[0].toFixed(1)}:${position[2].toFixed(1)}`
   const sid = key.startsWith('tv-') ? key : 'tv-' + key
   const live = useRef({})
@@ -413,6 +415,7 @@ export function TV({ position, yaw = 0, size = [1.9, 1.07], id, zone, channel = 
     let vt = null
     const sync = (v) => {
       vt?.dispose(); vt = null
+      coverKey.current = '' // a new clip needs its own crop
       setVid(!!v)
       if (v) { vt = new THREE.VideoTexture(v); vt.colorSpace = THREE.SRGBColorSpace }
       mat.userData.video = vt
@@ -457,7 +460,16 @@ export function TV({ position, yaw = 0, size = [1.9, 1.07], id, zone, channel = 
     if (gs) { m.material = gs; return }
     m.material = mat
     const v = mat.userData.video
-    if (v) { if (mat.map !== v) { mat.map = v; mat.needsUpdate = true } return }
+    if (v) {
+      if (mat.map !== v) { mat.map = v; mat.needsUpdate = true }
+      // crop the visitor's clip to fill the screen (no bars, no stretching)
+      const el = v.image
+      if (el?.videoWidth) {
+        const k = el.videoWidth + 'x' + el.videoHeight
+        if (coverKey.current !== k) { coverKey.current = k; applyCover(v, el.videoWidth, el.videoHeight, (size[0] - 0.04) / (size[1] - 0.04)) }
+      }
+      return
+    }
     const c = CHANNELS[ch]
     drawChannel(c, st.clock.elapsedTime)
     if (mat.map !== c.tex) { mat.map = c.tex; mat.needsUpdate = true }
