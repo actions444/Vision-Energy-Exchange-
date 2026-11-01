@@ -51,6 +51,10 @@ function slabPair(y) {
   const pieces = [
     { a0: STAIR.x1, a1: x1, b0: z0, b1: z1 }, // everything east of the stairwell
     { a0: x0, a1: STAIR.x1, b0: westZ0, b1: westZ1 }, // west band, south of the stairwell hole
+    // the rest of the slab, so nothing is open: the strip north of the stairwell hole (you fell through
+    // here) and the part over the garage bay
+    { a0: STAIR.x0, a1: STAIR.x1, b0: z0, b1: STAIR.zA },
+    { a0: x0, a1: STAIR.x0, b0: z0, b1: STAIR.zB },
   ]
   return (
     <group>
