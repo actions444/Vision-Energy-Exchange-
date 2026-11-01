@@ -10,7 +10,8 @@ import { useSeats } from '../state/seats.js'
 import { useStore } from '../state/store.js'
 import { SingleDoor } from './Door.jsx'
 import { Sofa, Plant, Counter, CeilingLight, Speaker, Table } from './furniture.jsx'
-import { useCinema, sessionFor, cinemaTexture, SCREENS, watchable } from '../cinema/cinema.js'
+import { useCinema, sessionFor, cinemaTexture, cinemaVideo, SCREENS, watchable } from '../cinema/cinema.js'
+import { applyCover } from '../media/coverFit.js'
 import { useMedia, fileUrl } from '../media/media.js'
 import { FONTS } from '../config/theme.js'
 import { CinemaTowerFloors } from './CinemaTower.jsx'
@@ -98,7 +99,18 @@ function useTitleCard(screenId, title) {
 export function CinemaScreen({ screenId, position, yaw = 0, width, height, title }) {
   const card = useTitleCard(screenId, title)
   const cardMat = useMemo(() => new THREE.MeshBasicMaterial({ map: card, toneMapped: false }), [card])
-  const vidMat = useMemo(() => new THREE.MeshBasicMaterial({ map: cinemaTexture(), toneMapped: false }), [])
+  // the picture is cropped to fill this screen (no bars, no stretching), whatever shape the clip is
+  const screenTex = useMemo(() => cinemaTexture().clone(), [])
+  const vidMat = useMemo(() => new THREE.MeshBasicMaterial({ map: screenTex, toneMapped: false }), [screenTex])
+  const coverKey = useRef('')
+  useFrame(() => {
+    const v = cinemaVideo()
+    if (!v || !v.videoWidth) return
+    const key = v.videoWidth + 'x' + v.videoHeight
+    if (coverKey.current === key) return
+    coverKey.current = key
+    applyCover(screenTex, v.videoWidth, v.videoHeight, width / height)
+  })
   const vid = useRef()
   const cardRef = useRef()
   const m = getMaterials()
