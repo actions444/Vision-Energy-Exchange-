@@ -70,6 +70,8 @@ async function hosted() {
     async remove(ref) { if (assets) await assets.delete(ref) },
     url: (ref) => (ref ? '/_blob/' + ref : null),
     async usage() { if (!assets) return null; try { return (await assets.list()).usage } catch { return null } },
+    // the signed-in player's id on this page (null when signed out); used for their private account folder
+    async userId() { try { return (await user?.id?.()) ?? null } catch { return null } },
   }
   useBackend.setState({ kind: 'hosted', admin: canEdit && !!assets, owner: isOwner, canWriteFiles: !!assets, maxFileBytes: 20 * 1024 * 1024 })
   return api

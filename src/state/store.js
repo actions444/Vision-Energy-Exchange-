@@ -25,7 +25,7 @@ export const useStore = create((set, get) => ({
     skin: SKIN_TONES[1],
   },
   setProfile: (p) => {
-    const profile = { ...get().profile, ...p }
+    const profile = { ...get().profile, ...p, updatedAt: Date.now() }
     try { localStorage.setItem('vsw-profile', JSON.stringify(profile)) } catch {}
     set({ profile })
   },

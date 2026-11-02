@@ -48,6 +48,7 @@ import { getCar, allCars } from './world/cars.js'
 import { useJobs, washes, startWash } from './state/jobs.js'
 import { useRentals, rentalAccess } from './rentals/client.js'
 import { detectBackend, useBackend, backend } from './backend/backend.js'
+import { startProfileSync } from './state/profileSync.js'
 import { startMedia, useMedia } from './media/media.js'
 import { startCinema, runCinema, useCinema, cinemaVideo } from './cinema/cinema.js'
 import { startGuide, useGuide, programFor, registry as guideRegistry } from './guide/guide.js'
@@ -67,6 +68,7 @@ export default function App() {
     // find the backend (hosted page, self-hosted server, or dev), then load the shared media
     // library and music setup from it
     detectBackend().finally(() => {
+      startProfileSync().catch((e) => console.warn('profile sync', e))
       startMedia()
       useMusicLibrary.getState().init()
       startCinema()

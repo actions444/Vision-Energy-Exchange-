@@ -8,6 +8,7 @@ import Objective, { restartObjective } from './Objective.jsx'
 import WorldMap from './WorldMap.jsx'
 import StaminaBar from './StaminaBar.jsx'
 import LiveBadge from './LiveBadge.jsx'
+import AccountStatus from './AccountStatus.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store.js'
 import { usePeers, net } from '../net/netManager.js'
@@ -290,6 +291,7 @@ function StartScreen() {
               <input id="player-name" value={profile.name} maxLength={20} onChange={(e) => setProfile({ name: e.target.value })} />
             </label>
           </div>
+          <AccountStatus />
           <div className="field">
             <div className="seg">
               <button type="button" className={mode === 'single' ? 'on' : ''} onClick={() => setMode('single')}>Single-player</button>
