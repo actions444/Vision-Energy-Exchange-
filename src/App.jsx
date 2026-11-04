@@ -32,7 +32,6 @@ import CineStage, { CineFocus } from './world/CineStage.jsx'
 import { useCine, cine, startCine, stopCine } from './state/cine.js'
 import DecorLayer from './decor/DecorLayer.jsx'
 import PhotoBooth from './rentals/PhotoBooth.jsx'
-import TreasurePyramids from './world/TreasurePyramids.jsx'
 import NPCSpawner from './npc/NPCSpawner.jsx'
 import { usePreview, useRentDraft, startTour } from './rentals/preview.js'
 import { startDecor, useDecor } from './decor/decor.js'
@@ -134,7 +133,6 @@ export default function App() {
             <SunAuditoriumMuseum />
             <Gallery />
             <PlacedAssets />
-            <TreasurePyramids />
             <NPCSpawner />
             <Player />
             <RemotePlayers />
