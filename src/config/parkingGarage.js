@@ -5,7 +5,7 @@
 export const GROUND_Y = 0.15 // matches City.CURB
 export const SITE = { x0: 86, x1: 120, z0: 32, z1: 68 }
 export const CENTER = { x: (SITE.x0 + SITE.x1) / 2, z: (SITE.z0 + SITE.z1) / 2 }
-export const MODEL_URL = '/models/parking-garage.glb'
+export const MODEL_URL = 'models/parking-garage.glb' // relative to the page
 
 // The source model's own bounding box (from gltf-transform inspect): roughly 0.983 x 0.335 x 0.684
 // local units, already centred on x/z with its floor at local y = 0.

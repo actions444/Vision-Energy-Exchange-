@@ -1,4 +1,5 @@
-import { Component, Suspense } from 'react'
+import { Component, Suspense, useEffect, useState } from 'react'
+import { modelAvailable } from '../assets/modelAvailable.js'
 
 // Wraps an imported-GLB building (ParkingGarage, SkylineSuiteSet) so a failed or missing model
 // file degrades to "nothing renders there" instead of crashing the whole app. This matters
@@ -16,10 +17,28 @@ class Catch extends Component {
   render() { return this.state.failed ? (this.props.fallback ?? null) : this.props.children }
 }
 
-export default function GLBBoundary({ children, fallback = null }) {
+export default function GLBBoundary({ children, fallback = null, urls }) {
+  // with `urls`, first make sure every model file is really there; if one is missing, show the fallback
+  // without mounting the loader (so no error is thrown at all). Without `urls`, behaves as before.
+  const list = urls ? (Array.isArray(urls) ? urls : [urls]) : null
+  const key = list ? list.join('|') : ''
+  const [ready, setReady] = useState(list ? null : true) // null = checking, true = all present, false = missing
+  useEffect(() => {
+    if (!list) return
+    let live = true
+    Promise.all(list.map(modelAvailable)).then((oks) => { if (live) setReady(oks.every(Boolean)) })
+    return () => { live = false }
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (ready === null) return null
+  if (ready === false) {
+    if (!warned.has(key)) { warned.add(key); console.info('[GLBBoundary] model not hosted here, using the fallback:', key) }
+    return fallback ?? null
+  }
   return (
     <Catch fallback={fallback}>
       <Suspense fallback={null}>{children}</Suspense>
     </Catch>
   )
 }
+
+const warned = new Set()

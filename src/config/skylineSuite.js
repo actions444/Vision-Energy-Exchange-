@@ -2,7 +2,7 @@
 // the second imported art asset in this project alongside the Stormline Parking Garage —
 // everything else in the suite (bathroom, TV, chandelier, windows etc.) stays procedural.
 // See src/world/SkylineSuiteSet.jsx for how it's placed and collided.
-export const MODEL_URL = '/models/skyline-suite-living-room.glb'
+export const MODEL_URL = 'models/skyline-suite-living-room.glb' // relative to the page
 
 // Source model's own bounding box (from gltf-transform inspect), floor at local y = 0.
 export const MODEL_BBOX = { x: 0.76658, y: 0.12656, z: 0.97952 }

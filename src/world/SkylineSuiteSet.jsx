@@ -17,7 +17,7 @@ import GLBBoundary from './GLBBoundary.jsx'
 // app down. The collider still lands so the floor space collides the same either way.
 export default function SkylineSuiteSet(props) {
   return (
-    <GLBBoundary fallback={<SkylineSuiteCollider {...props} />}>
+    <GLBBoundary urls={MODEL_URL} fallback={<SkylineSuiteCollider {...props} />}>
       <SkylineSuiteModel {...props} />
     </GLBBoundary>
   )

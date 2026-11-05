@@ -24,7 +24,7 @@ import GLBBoundary from './GLBBoundary.jsx'
 
 export default function ParkingGarage() {
   return (
-    <GLBBoundary fallback={<ParkingGarageShell />}>
+    <GLBBoundary urls={MODEL_URL} fallback={<ParkingGarageShell />}>
       <ParkingGarageModel />
     </GLBBoundary>
   )

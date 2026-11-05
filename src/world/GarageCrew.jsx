@@ -11,7 +11,7 @@ import GLBBoundary from './GLBBoundary.jsx'
 // Garage crew: rigged characters in front of Stormline Parking. They patrol the sidewalk on the west
 // side of the garage, walking, then standing, looking around, or swimming in place is never used here.
 // Models come from public/models (compressed). Visual only, so they never block the player.
-const MODELS = { male: '/models/athletic_male.glb', man: '/models/muscular_man.glb' }
+const MODELS = { male: 'models/athletic_male.glb', man: 'models/muscular_man.glb' } // relative to the page
 const HEIGHT = 1.8
 const PATROL_X = GARAGE_SITE.x0 - 5.5 // sidewalk in front of the garage's west face
 const WALK_SPEED = 1.1
@@ -69,7 +69,7 @@ function Loaded({ url, z0, z1, phase }) {
 
 export default function GarageCrew() {
   return (
-    <GLBBoundary>
+    <GLBBoundary urls={Object.values(MODELS)}>
       <group name="garage-crew">
         {CREW.map((c, i) => <Loaded key={i} url={MODELS[c.model]} z0={c.z0} z1={c.z1} phase={c.phase} />)}
       </group>
