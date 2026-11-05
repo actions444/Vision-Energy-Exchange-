@@ -295,10 +295,27 @@
 
 ### Quality of Life
 - [ ] Performance optimization
-- [ ] Mobile version (companion app)
+- [ ] Mobile-responsive browser version for phones and tablets (no native app; see PLATFORM DISTRIBUTION)
 - [ ] Cross-platform play
 - [ ] Accessibility features (colorblind mode, etc.)
 - [ ] Tutorial system for new players
+
+---
+
+## PLATFORM DISTRIBUTION (independent, owner-controlled)
+
+Vision Storms Energy Exchanges is distributed only through the owner's own website. Native Android and iOS
+app-store releases (Google Play, Apple App Store) are **not** on this roadmap.
+
+1. **Browser game** on the Vision Storms website (current version; keeps improving).
+2. **Mobile-responsive browser version** for phones and tablets: same game, touch controls, graphics
+   tuned per device. No app-store install.
+3. **Downloadable Windows PC game**, distributed directly from the website (planned on Unreal Engine 5;
+   see the Unreal migration plan).
+4. **Mac desktop version**: optional, later.
+
+Shared across all versions: one player account, connected multiplayer, and purchased content available in
+every compatible version (creator marketplace, subscriptions, virtual economy, rentals, music, theater).
 
 ---
 
