@@ -30,8 +30,13 @@ export const CAR_STREET = { z0: 13.7, z1: 26.3 }
 const onCarStreet = (z) => z > CAR_STREET.z0 && z < CAR_STREET.z1
 
 /** Ground height at (x, z), or null when nobody may stand there (or it is outside the mapped area). */
+// Keep-out around the Stormline Parking Garage: no NPC stands or walks in front of it.
+const GARAGE_KEEPOUT = { x0: 86 - 10, x1: 120 + 10, z0: 32 - 10, z1: 68 + 10 }
+const inGarageKeepout = (x, z) => x > GARAGE_KEEPOUT.x0 && x < GARAGE_KEEPOUT.x1 && z > GARAGE_KEEPOUT.z0 && z < GARAGE_KEEPOUT.z1
+
 export function groundAt(x, z) {
   if (onCarStreet(z)) return null
+  if (inGarageKeepout(x, z)) return null
   const c = cellOf(x, z)
   if (c < 0) return null
   const v = cells()[c]
