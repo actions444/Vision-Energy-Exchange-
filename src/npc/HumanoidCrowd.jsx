@@ -63,7 +63,7 @@ const _q2 = new THREE.Quaternion(), _dir = new THREE.Vector3(), _dir2 = new THRE
  * A crowd of humanoid figures. `fans` is the list described above. `beat` is a number, or a function
  * returning 0..1, that drives arm raises and bounce in time with the music.
  */
-export function HumanoidCrowd({ fans, beat = 0, time = 0, castShadow = true, roam = false }) {
+export function HumanoidCrowd({ fans, beat = 0, time = 0, castShadow = true, roam = false, keepout = null }) {
   const n = fans.length
   const geos = useMemo(() => ({ ...Object.fromEntries(Object.entries(GEO).map(([k, f]) => [k, f()])) }), [])
   const mats = useMemo(() => ({
@@ -104,7 +104,9 @@ export function HumanoidCrowd({ fans, beat = 0, time = 0, castShadow = true, roa
       _e.set(0, f.yaw + sway, 0)
       _q.setFromEuler(_e)
       _p.set(f.x, bob + (f.y || 0), f.z)
-      { const k = f.hidden ? 0.0001 : f.scale; _s.set(k, k, k) }
+      // keepout: a world-space zone where nobody of this crowd may be shown (e.g. the Stormline Parking frontage)
+      const inside = keepout && f.x >= keepout.x0 && f.x <= keepout.x1 && f.z >= keepout.z0 && f.z <= keepout.z1
+      { const k = f.hidden || inside ? 0.0001 : f.scale; _s.set(k, k, k) }
       _fig.compose(_p, _q, _s)
       const up = f.armsUp * (0.45 + pulse * 0.55) // 0 arms down, 1 both arms raised
       const walk = f.walk || 0 // 0..1: stride amount for NPCs that walk (workers); crowds leave it unset

@@ -9,7 +9,7 @@ import { PED_GRID } from '../config/pedGrid.js'
 import { FIRST, LINES, PED_COUNT } from '../config/pedestrians.js'
 import { signalState } from '../vehicles/Traffic.jsx'
 import { speakLine } from '../audio/tts.js'
-import { inGarageKeepout } from '../config/garageKeepout.js'
+import { inGarageKeepout, GARAGE_KEEPOUT } from '../config/garageKeepout.js'
 
 // Townspeople who roam the whole open world on foot. There are no fixed routes: each one picks a place anywhere in
 // the part of town they can walk to (parks, plazas, sidewalks, forecourts, courtyards), plans a way there around
@@ -292,5 +292,5 @@ export default function Pedestrians() {
     return () => { delete window.__vswPeds }
   }, [fans, walkers, state]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <HumanoidCrowd fans={fans} beat={0} castShadow={false} roam />
+  return <HumanoidCrowd fans={fans} beat={0} castShadow={false} roam keepout={GARAGE_KEEPOUT} />
 }

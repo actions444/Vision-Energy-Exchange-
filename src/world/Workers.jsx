@@ -6,7 +6,7 @@ import { registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { useEnv } from '../state/environment.js'
 import { onDuty, useNpcShifts } from '../state/npcShifts.js'
-import { inGarageKeepout } from '../config/garageKeepout.js'
+import { inGarageKeepout, GARAGE_KEEPOUT } from '../config/garageKeepout.js'
 import { JOBS, STOPS, WASH_A, WASH_B, cwWorld, CURB } from '../config/jobs.js'
 import { speakLine } from '../audio/tts.js'
 
@@ -151,5 +151,5 @@ export default function Workers() {
     })
   })
 
-  return <HumanoidCrowd fans={fans} beat={0} castShadow={false} roam />
+  return <HumanoidCrowd fans={fans} beat={0} castShadow={false} roam keepout={GARAGE_KEEPOUT} />
 }
