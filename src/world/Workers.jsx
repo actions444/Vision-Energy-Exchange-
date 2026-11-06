@@ -6,6 +6,7 @@ import { registerInteractable } from '../state/runtime.js'
 import { useStore } from '../state/store.js'
 import { useEnv } from '../state/environment.js'
 import { onDuty, useNpcShifts } from '../state/npcShifts.js'
+import { inGarageKeepout } from '../config/garageKeepout.js'
 import { JOBS, STOPS, WASH_A, WASH_B, cwWorld, CURB } from '../config/jobs.js'
 import { speakLine } from '../audio/tts.js'
 
@@ -119,7 +120,8 @@ export default function Workers() {
     WORKERS.forEach((w, i) => {
       const f = fans[i], s = state[i]
       const working = onDuty(wid(w), wdef(w), hour)
-      f.hidden = !working
+      // nobody is shown on the Stormline Parking frontage (see config/garageKeepout.js); they keep walking, unseen
+      f.hidden = !working || inGarageKeepout(f.x, f.z)
       if (!working) return
       const wp = w.path[s.i]
       if (s.phase === 'wait') {

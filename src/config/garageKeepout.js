@@ -1,11 +1,12 @@
-// Nobody stands, waits or walks in front of the Stormline Parking Garage: a zone of the garage footprint plus 6 m.
-// Used by the street crowd (world/Pedestrians.jsx, which blocks these cells in its walkability grid) and by the
-// NPC system (npc/walkGrid.js, which uses a wider 10 m zone).
+// Nobody stands, waits or walks in front of the Stormline Parking Garage or on the frontage between it and the
+// Employment District. The zone is the garage footprint plus 6 m, widened west to the job courtyard (x 56).
+// Used by the street crowd (world/Pedestrians.jsx blocks these cells in its walkability grid), the job district
+// workers (world/Workers.jsx hides anyone inside it) and the NPC system (npc/walkGrid.js).
 import { SITE as GARAGE_SITE } from './parkingGarage.js'
 
 export const GARAGE_KEEPOUT = {
-  x0: GARAGE_SITE.x0 - 6, x1: GARAGE_SITE.x1 + 6,
-  z0: GARAGE_SITE.z0 - 6, z1: GARAGE_SITE.z1 + 6,
+  x0: 56, x1: GARAGE_SITE.x1 + 6,
+  z0: 20, z1: GARAGE_SITE.z1 + 12,
 }
 
 export const inGarageKeepout = (x, z, zone = GARAGE_KEEPOUT) =>
