@@ -6,6 +6,7 @@ import { useNPCSystem } from './npcSystem.js'
 import { playerState } from '../state/runtime.js'
 import Avatar from '../player/Avatar.jsx'
 import { groundAt, nearestStandable, STEP_OK } from './walkGrid.js'
+import { inGarageKeepout } from '../config/garageKeepout.js'
 
 const WALK_SPEED = 2.5
 const BEHAVIOR_CHANGE_INTERVAL = 8 // seconds
@@ -108,6 +109,8 @@ function NPCInstance({ npc }) {
     pose.speed = moving ? WALK_SPEED : 0
     // feet on the ground, body upright, facing where they go
     groupRef.current.position.set(npc.position.x, ground.current, npc.position.z)
+    // nobody is shown on the Stormline Parking frontage (see config/garageKeepout.js)
+    groupRef.current.visible = !inGarageKeepout(npc.position.x, npc.position.z)
     if (turnRef.current) turnRef.current.rotation.set(0, npc.yaw, 0)
     // the collider follows the person, so the player bumps into them where they actually are
     body.current?.setNextKinematicTranslation({ x: npc.position.x, y: ground.current + 0.75, z: npc.position.z })
